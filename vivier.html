@@ -1,0 +1,367 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Vivier</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,800&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --ground:#0c0c0f; --surface:#16161b; --surface2:#1e1e25; --border:#292930;
+    --txt:#f4f4f6; --muted:#8b8b96; --accent:#f0567a;
+    --keep:#37d67a; --drop:#ff5a5a;
+    --font-disp:"Bricolage Grotesque",-apple-system,BlinkMacSystemFont,sans-serif;
+    --font-body:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
+    --font-data:ui-monospace,SFMono-Regular,Menlo,monospace;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0}
+  body{background:var(--ground);color:var(--txt);font-family:var(--font-body);
+    -webkit-font-smoothing:antialiased}
+  header{position:sticky;top:0;z-index:5;background:rgba(12,12,15,.92);
+    backdrop-filter:blur(10px);border-bottom:1px solid var(--border);padding:16px 20px}
+  .brand{display:flex;align-items:baseline;gap:12px;flex-wrap:wrap}
+  h1{font-family:var(--font-disp);font-weight:800;font-size:26px;margin:0;letter-spacing:-.02em}
+  .tag{color:var(--muted);font-size:13px}
+  .bar{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:14px}
+  .seg{display:flex;gap:4px;background:var(--surface);border:1px solid var(--border);
+    border-radius:10px;padding:4px}
+  .seg button{border:0;background:transparent;color:var(--muted);font:inherit;font-size:13px;
+    font-weight:600;padding:7px 12px;border-radius:7px;cursor:pointer;display:flex;gap:6px;align-items:center}
+  .seg button.on{background:var(--surface2);color:var(--txt)}
+  .seg .n{font-family:var(--font-data);font-size:11px;background:#000;color:var(--muted);
+    padding:1px 6px;border-radius:20px}
+  .seg button.on .n{color:var(--accent)}
+  .spacer{flex:1}
+  .act{border:0;border-radius:9px;padding:9px 15px;font:inherit;font-weight:700;font-size:13px;cursor:pointer}
+  .primary{background:var(--accent);color:#1a0510}
+  .ghost{background:var(--surface);color:var(--txt);border:1px solid var(--border)}
+  main{padding:20px;max-width:1400px;margin:0 auto}
+  .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:16px}
+  .card{background:var(--surface);border:1.5px solid var(--border);border-radius:14px;
+    overflow:hidden;display:flex;flex-direction:column;transition:border-color .15s,opacity .15s}
+  .card.keep{border-color:var(--keep)}
+  .card.drop{border-color:var(--drop);opacity:.45}
+  .card img{width:100%;aspect-ratio:.8;object-fit:cover;background:#000;display:block}
+  .body{padding:12px 13px;flex:1;display:flex;flex-direction:column;gap:6px}
+  .who{display:flex;align-items:center;gap:5px}
+  .who .h{font-weight:700;font-size:15px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .who .v{color:var(--accent);font-size:12px}
+  .stats{font-family:var(--font-data);font-size:11.5px;color:var(--muted);
+    font-variant-numeric:tabular-nums}
+  .stats b{color:var(--txt);font-weight:600}
+  .bio{font-size:11.5px;color:#c3c3cc;line-height:1.35;max-height:31px;overflow:hidden}
+  .lnk{font-size:12px;color:var(--accent);text-decoration:none;margin-top:auto}
+  .lnk:hover{text-decoration:underline}
+  .choose{display:flex;border-top:1px solid var(--border)}
+  .choose button{flex:1;border:0;background:transparent;color:var(--muted);font:inherit;
+    font-weight:700;font-size:13px;padding:11px 0;cursor:pointer}
+  .choose button:first-child{border-right:1px solid var(--border)}
+  .choose .k:hover,.card.keep .k{color:var(--keep)}
+  .choose .d:hover,.card.drop .d{color:var(--drop)}
+  .empty{text-align:center;color:var(--muted);padding:80px 20px;font-size:15px;line-height:1.6}
+  .empty svg{opacity:.4;margin-bottom:14px}
+  dialog{border:1px solid var(--border);background:var(--surface);color:var(--txt);
+    border-radius:14px;padding:0;max-width:440px;width:92%}
+  dialog::backdrop{background:rgba(0,0,0,.6)}
+  .dlg{padding:22px}
+  .dlg h2{font-family:var(--font-disp);margin:0 0 8px;font-size:19px}
+  .dlg p{color:var(--muted);font-size:13px;line-height:1.55;margin:0 0 16px}
+  .drop-zone{border:1.5px dashed var(--border);border-radius:12px;padding:26px;text-align:center;
+    color:var(--muted);font-size:13px;cursor:pointer}
+  .drop-zone:hover{border-color:var(--accent);color:var(--txt)}
+  textarea{width:100%;height:150px;background:var(--ground);color:var(--txt);border:1px solid var(--border);
+    border-radius:10px;padding:10px;font-family:var(--font-data);font-size:12px;resize:vertical}
+  .prog{height:6px;background:var(--surface2);border-radius:6px;overflow:hidden;margin-top:14px;display:none}
+  .prog.on{display:block} .prog>i{display:block;height:100%;width:0;background:var(--accent);transition:width .2s}
+  .row{display:flex;gap:8px;justify-content:flex-end;margin-top:16px}
+  @media (max-width:520px){.grid{grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:11px}
+    h1{font-size:22px}}
+  /* ---- mode swipe ---- */
+  .swipe{position:fixed;inset:0;z-index:20;background:var(--ground);display:none;
+    flex-direction:column;padding:14px 14px calc(14px + env(safe-area-inset-bottom))}
+  .swipe.on{display:flex}
+  .sw-top{display:flex;align-items:center;gap:12px;padding:2px 2px 12px}
+  .sw-top .close{background:var(--surface);border:1px solid var(--border);color:var(--txt);
+    border-radius:9px;padding:8px 12px;font:inherit;font-weight:700;font-size:13px;cursor:pointer}
+  .sw-bar{flex:1;height:6px;border-radius:99px;background:var(--surface2);overflow:hidden}
+  .sw-bar>i{display:block;height:100%;width:0;background:var(--keep);transition:width .25s}
+  .sw-kc{font-family:var(--font-data);font-size:13px;color:var(--keep);font-weight:700}
+  .stage{position:relative;flex:1;margin:0 2px;max-width:460px;width:100%;align-self:center}
+  .swcard{position:absolute;inset:0;border-radius:20px;overflow:hidden;background:#000;
+    box-shadow:0 14px 44px rgba(0,0,0,.6);will-change:transform;touch-action:pan-y;user-select:none}
+  .swcard img{width:100%;height:100%;object-fit:cover;display:block;pointer-events:none}
+  .swgrad{position:absolute;left:0;right:0;bottom:0;padding:64px 18px 18px;pointer-events:none;
+    background:linear-gradient(to top,rgba(0,0,0,.93),rgba(0,0,0,.5) 55%,transparent)}
+  .swgrad .h{font-family:var(--font-disp);font-weight:800;font-size:23px;display:flex;gap:6px;align-items:center}
+  .swgrad .s{font-family:var(--font-data);font-size:13px;color:#e7e7ee;margin-top:5px;font-variant-numeric:tabular-nums}
+  .swgrad .b{font-size:13px;color:#cfcfd6;margin-top:8px;line-height:1.35;max-height:56px;overflow:hidden}
+  .stamp{position:absolute;top:24px;font-family:var(--font-disp);font-size:30px;font-weight:800;
+    padding:5px 14px;border:4px solid;border-radius:12px;opacity:0;letter-spacing:1px}
+  .stamp.k{left:20px;color:var(--keep);border-color:var(--keep);transform:rotate(-13deg)}
+  .stamp.d{right:20px;color:var(--drop);border-color:var(--drop);transform:rotate(13deg)}
+  .sw-btns{display:flex;justify-content:center;align-items:center;gap:20px;padding:16px 0 6px}
+  .sw-btns button{border:0;border-radius:50%;color:#fff;cursor:pointer;
+    display:flex;align-items:center;justify-content:center;box-shadow:0 6px 18px rgba(0,0,0,.4)}
+  .sw-btns .b-d{width:60px;height:60px;background:var(--drop);font-size:24px}
+  .sw-btns .b-g{width:72px;height:72px;background:#4a9bff;font-size:15px;font-weight:800;flex-direction:column;gap:1px}
+  .sw-btns .b-g small{font-size:9px;opacity:.85;font-weight:600}
+  .sw-btns .b-k{width:60px;height:60px;background:var(--keep);font-size:26px}
+  .sw-done{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;
+    justify-content:center;text-align:center;gap:14px;padding:26px;color:var(--muted)}
+  .sw-done h2{font-family:var(--font-disp);color:var(--txt);margin:0;font-size:24px}
+</style>
+</head>
+<body>
+<header>
+  <div class="brand"><h1>Vivier</h1><span class="tag" id="tag">chargement…</span></div>
+  <div class="bar">
+    <div class="seg" id="seg">
+      <button data-f="new" class="on">À trier <span class="n" id="n-new">0</span></button>
+      <button data-f="keep">Gardées <span class="n" id="n-keep">0</span></button>
+      <button data-f="drop">Écartées <span class="n" id="n-drop">0</span></button>
+      <button data-f="all">Toutes <span class="n" id="n-all">0</span></button>
+    </div>
+    <div class="spacer"></div>
+    <button class="act primary" id="swipeBtn">▶ Swiper</button>
+    <button class="act ghost" id="copyBtn">Copier les gardées</button>
+    <button class="act ghost" id="importBtn">＋ Importer</button>
+  </div>
+</header>
+<main><div class="grid" id="grid"></div><div class="empty" id="empty" style="display:none"></div></main>
+
+<div class="swipe" id="swipe">
+  <div class="sw-top">
+    <button class="close" id="swClose">✕ Fermer</button>
+    <div class="sw-bar"><i id="swProg"></i></div>
+    <span class="sw-kc" id="swKc">0 ♥</span>
+  </div>
+  <div class="stage" id="swStage"></div>
+  <div class="sw-btns" id="swBtns">
+    <button class="b-d" id="swDrop" title="Écarter">✕</button>
+    <button class="b-g" id="swGo">GO<small>voir insta</small></button>
+    <button class="b-k" id="swKeep" title="Garder">♥</button>
+  </div>
+</div>
+
+<dialog id="importDlg"><div class="dlg">
+  <h2>Importer des leads</h2>
+  <p>Choisis le fichier <b>export-vivier.json</b> généré par le Scout (dossier resultats).
+     Les leads déjà présents gardent ton choix (gardée / écartée).</p>
+  <div class="drop-zone" id="dropZone">Clique pour choisir le fichier<br>ou glisse-le ici</div>
+  <input type="file" id="file" accept=".json,application/json" hidden>
+  <div class="prog" id="prog"><i id="progBar"></i></div>
+  <div class="row"><button class="act ghost" id="importClose">Fermer</button></div>
+</div></dialog>
+
+<dialog id="copyDlg"><div class="dlg">
+  <h2>Leads gardées</h2>
+  <p>Copie cette liste (un @ par ligne) pour ton outreach.</p>
+  <textarea id="copyArea" readonly></textarea>
+  <div class="row"><button class="act ghost" id="copyClose">Fermer</button></div>
+</div></dialog>
+
+<script>
+let db=null, LEADS={}, filter="new";
+
+function esc(s){return (s||"").replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));}
+function fmt(n){return (n==null)?"?":Number(n).toLocaleString("fr-FR");}
+
+function counts(){
+  const c={new:0,keep:0,drop:0,all:0};
+  Object.values(LEADS).forEach(l=>{c.all++;c[l.status||"new"]=(c[l.status||"new"]||0)+1;});
+  return c;
+}
+function render(){
+  const c=counts();
+  ["new","keep","drop","all"].forEach(k=>document.getElementById("n-"+k).textContent=c[k]);
+  document.getElementById("tag").textContent =
+    c.all? `${c.all} profil${c.all>1?"s":""} · ${c.keep} gardée${c.keep>1?"s":""}` : "vide pour l’instant";
+  const list=Object.values(LEADS)
+    .filter(l=>filter==="all"?true:(l.status||"new")===filter)
+    .sort((a,b)=>(b.followers||0)-(a.followers||0));
+  const grid=document.getElementById("grid"), empty=document.getElementById("empty");
+  if(!list.length){
+    grid.innerHTML="";empty.style.display="block";
+    empty.innerHTML = c.all
+      ? "Rien dans cette catégorie."
+      : `<svg width="46" height="46" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg><br>Ton vivier est vide.<br>Clique <b>＋ Importer</b> pour verser les leads du Scout.`;
+    return;
+  }
+  empty.style.display="none";
+  grid.innerHTML="";
+  list.forEach(l=>{
+    const st=l.status||"new";
+    const c=document.createElement("div");
+    c.className="card "+(st==="keep"?"keep":st==="drop"?"drop":"");
+    c.innerHTML=`
+      ${l.thumb?`<img src="${l.thumb}" loading="lazy" alt="">`:`<div style="aspect-ratio:.8;background:var(--surface2)"></div>`}
+      <div class="body">
+        <div class="who"><span class="h">@${esc(l.handle)}</span>${l.verified?'<span class="v">✔</span>':""}</div>
+        <div class="stats"><b>${fmt(l.followers)}</b> abo · ${fmt(l.posts)} posts${l.likes!=null?` · <b>${fmt(l.likes)}</b> likes`:""}</div>
+        ${l.bio?`<div class="bio">${esc(l.bio)}</div>`:""}
+        <a class="lnk" href="${esc(l.url)}" target="_blank" rel="noopener">ouvrir le profil ↗</a>
+      </div>
+      <div class="choose">
+        <button class="k" data-h="${esc(l.handle)}" data-s="keep">Garder</button>
+        <button class="d" data-h="${esc(l.handle)}" data-s="drop">Écarter</button>
+      </div>`;
+    grid.appendChild(c);
+  });
+}
+
+async function setStatus(h,s){
+  const cur=LEADS[h]; if(!cur) return;
+  const next = (cur.status===s)?"new":s;           // re-clic = annule
+  LEADS[h]={...cur,status:next}; render();          // optimiste
+  if(db){ try{ await db.doc("leads/"+h).update({status:next}); }catch(e){} }
+}
+
+async function importLeads(text){
+  let arr; try{ arr=JSON.parse(text); }catch(e){ alert("Fichier illisible."); return; }
+  if(!Array.isArray(arr)||!arr.length){ alert("Aucun lead dans ce fichier."); return; }
+  if(!db){ alert("Base indisponible (ouvre depuis claude.ai)."); return; }
+  const prog=document.getElementById("prog"), bar=document.getElementById("progBar");
+  prog.classList.add("on");
+  let i=0;
+  for(const l of arr){
+    if(!l.handle) continue;
+    const ref=db.doc("leads/"+l.handle);
+    let status=l.status||"new";                       // statut du fichier (ex: backlog déjà "keep")
+    try{ const s=await ref.get(); if(s.exists && s.data().status) status=s.data().status; }catch(e){}
+    try{ await ref.set({
+      handle:l.handle, followers:l.followers??null, following:l.following??null,
+      posts:l.posts??null, likes:l.likes??null, verified:!!l.verified,
+      bio:l.bio||"", url:l.url||("https://www.instagram.com/"+l.handle+"/"),
+      thumb:l.thumb||"", status, ts:Date.now()
+    }); }catch(e){}
+    i++; bar.style.width=Math.round(100*i/arr.length)+"%";
+  }
+  setTimeout(()=>{prog.classList.remove("on");bar.style.width="0";
+    document.getElementById("importDlg").close();},400);
+}
+
+// --- interactions ---
+document.getElementById("seg").addEventListener("click",e=>{
+  const b=e.target.closest("button"); if(!b) return;
+  filter=b.dataset.f;
+  [...document.querySelectorAll("#seg button")].forEach(x=>x.classList.toggle("on",x===b));
+  render();
+});
+document.getElementById("grid").addEventListener("click",e=>{
+  const b=e.target.closest("button[data-h]"); if(!b) return;
+  setStatus(b.dataset.h,b.dataset.s);
+});
+const impDlg=document.getElementById("importDlg");
+document.getElementById("importBtn").onclick=()=>impDlg.showModal();
+document.getElementById("importClose").onclick=()=>impDlg.close();
+document.getElementById("dropZone").onclick=()=>document.getElementById("file").click();
+document.getElementById("file").onchange=async e=>{
+  const f=e.target.files[0]; if(f) importLeads(await f.text()); e.target.value="";
+};
+["dragover","dragenter"].forEach(ev=>document.getElementById("dropZone").addEventListener(ev,e=>{e.preventDefault();}));
+document.getElementById("dropZone").addEventListener("drop",async e=>{
+  e.preventDefault(); const f=e.dataTransfer.files[0]; if(f) importLeads(await f.text());
+});
+const cpDlg=document.getElementById("copyDlg");
+document.getElementById("copyBtn").onclick=()=>{
+  const keep=Object.values(LEADS).filter(l=>l.status==="keep").sort((a,b)=>(b.followers||0)-(a.followers||0));
+  document.getElementById("copyArea").value=keep.map(l=>"@"+l.handle).join("\n")||"(aucune lead gardée)";
+  cpDlg.showModal();
+  const ta=document.getElementById("copyArea"); ta.focus(); ta.select();
+};
+document.getElementById("copyClose").onclick=()=>cpDlg.close();
+
+// --- mode swipe (tri plein écran des profils à trier) ---
+let swDeck=[], swI=0, swKept=0;
+function openSwipe(){
+  swDeck=Object.values(LEADS).filter(l=>(l.status||"new")==="new")
+    .sort((a,b)=>(b.followers||0)-(a.followers||0)).map(l=>l.handle);
+  swI=0; swKept=0;
+  document.getElementById("swBtns").style.display="flex";
+  document.getElementById("swipe").classList.add("on");
+  swRender();
+}
+function closeSwipe(){ document.getElementById("swipe").classList.remove("on"); }
+function swCardHtml(l){
+  return `<div class="swcard" id="swcur">
+    ${l.thumb?`<img src="${l.thumb}" alt="">`:`<div style="width:100%;height:100%;background:var(--surface2)"></div>`}
+    <div class="stamp k" id="swSk">GARDER</div><div class="stamp d" id="swSd">ÉCARTER</div>
+    <div class="swgrad">
+      <div class="h">@${esc(l.handle)} ${l.verified?'<span style="color:var(--accent)">✔</span>':""}</div>
+      <div class="s">${fmt(l.followers)} abo · ${fmt(l.posts)} posts${l.likes!=null?" · "+fmt(l.likes)+" likes":""}</div>
+      ${l.bio?`<div class="b">${esc(l.bio)}</div>`:""}
+    </div></div>`;
+}
+function swRender(){
+  const stage=document.getElementById("swStage");
+  document.getElementById("swKc").textContent=swKept+" ♥";
+  document.getElementById("swProg").style.width=(swDeck.length? swI/swDeck.length*100:0)+"%";
+  if(swI>=swDeck.length){
+    document.getElementById("swBtns").style.display="none";
+    stage.innerHTML=`<div class="sw-done"><h2>${swDeck.length?"Terminé 🎉":"Rien à trier"}</h2>
+      <p>${swDeck.length?swKept+" gardée"+(swKept>1?"s":"")+" sur "+swDeck.length:"Aucun profil dans « À trier ». Importe des leads d’abord."}</p>
+      <button class="act primary" onclick="closeSwipe()">Voir le vivier</button></div>`;
+    return;
+  }
+  const l=LEADS[swDeck[swI]];
+  if(!l){ swI++; swRender(); return; }
+  stage.innerHTML=swCardHtml(l);
+  swAttach(document.getElementById("swcur"));
+}
+function swDecide(v){
+  if(swI>=swDeck.length) return;
+  const h=swDeck[swI];
+  if(v==="keep") swKept++;
+  setStatus(h,v);
+  const c=document.getElementById("swcur");
+  if(c){ c.style.transition="transform .3s";
+    c.style.transform=`translateX(${v==="keep"?600:-600}px) rotate(${v==="keep"?22:-22}deg)`; }
+  swI++;
+  setTimeout(swRender,210);
+}
+function swGoInsta(){ const l=LEADS[swDeck[swI]]; if(l) window.open(l.url,"_blank","noopener"); }
+function swAttach(el){
+  let sx=0,sy=0,dx=0,drag=false;
+  const sk=document.getElementById("swSk"),sd=document.getElementById("swSd");
+  const start=e=>{const t=e.touches?e.touches[0]:e;sx=t.clientX;sy=t.clientY;drag=true;el.style.transition="";};
+  const move=e=>{if(!drag)return;const t=e.touches?e.touches[0]:e;dx=t.clientX-sx;const dy=t.clientY-sy;
+    if(Math.abs(dx)<Math.abs(dy)&&Math.abs(dx)<10)return;
+    el.style.transform=`translateX(${dx}px) rotate(${dx/22}deg)`;
+    sk.style.opacity=dx>0?Math.min(dx/120,1):0; sd.style.opacity=dx<0?Math.min(-dx/120,1):0;};
+  const end=()=>{if(!drag)return;drag=false;
+    if(dx>110)swDecide("keep"); else if(dx<-110)swDecide("drop");
+    else{el.style.transition="transform .2s";el.style.transform="";sk.style.opacity=0;sd.style.opacity=0;}dx=0;};
+  el.addEventListener("touchstart",start,{passive:true});
+  el.addEventListener("touchmove",move,{passive:true});
+  el.addEventListener("touchend",end);
+  el.addEventListener("mousedown",start);
+  document._swMove&&window.removeEventListener("mousemove",document._swMove);
+  document._swUp&&window.removeEventListener("mouseup",document._swUp);
+  document._swMove=move; document._swUp=end;
+  window.addEventListener("mousemove",move); window.addEventListener("mouseup",end);
+}
+document.getElementById("swipeBtn").onclick=openSwipe;
+document.getElementById("swClose").onclick=closeSwipe;
+document.getElementById("swDrop").onclick=()=>swDecide("drop");
+document.getElementById("swKeep").onclick=()=>swDecide("keep");
+document.getElementById("swGo").onclick=swGoInsta;
+
+// --- démarrage : connexion à la base ---
+(async function(){
+  render();
+  try{ db = await claude.use("db"); }catch(e){ db=null; }
+  if(!db){
+    document.getElementById("tag").textContent="hors-ligne (ouvre depuis claude.ai)";
+    return;
+  }
+  db.collection("leads").onSnapshot(snap=>{
+    LEADS={}; snap.docs.forEach(d=>{ if(d.exists) LEADS[d.id]=d.data(); });
+    render();
+  }, err=>{ document.getElementById("tag").textContent="base indisponible ("+err.code+")"; });
+})();
+</script>
+</body>
+</html>

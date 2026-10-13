@@ -1,0 +1,7 @@
+# donnees perso / leads
+resultats/
+*.log
+*.bak-*
+config_local.py
+__pycache__/
+.DS_Store
