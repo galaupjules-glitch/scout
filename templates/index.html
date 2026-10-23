@@ -29,8 +29,10 @@
         <!-- Réception (droite) -->
         <section class="carte colonne-reception">
           <h2>Réception</h2>
-          <button type="button" class="bouton-dossier" id="bouton-dossier" hidden>📁 Choisir où recevoir les vidéos</button>
-          <p class="dossier-info" id="dossier-info" hidden></p>
+          <button type="button" class="zone-fichier" id="zone-reception">
+            <span id="texte-reception">Clique pour choisir où recevoir tes vidéos</span>
+          </button>
+          <p class="note-reception" id="note-reception" hidden>Ton navigateur ne permet pas de choisir un dossier dédié : les vidéos seront téléchargées automatiquement (.zip) à la fin.</p>
           <p class="placeholder" id="placeholder-reception">Les variantes générées apparaîtront ici au fur et à mesure.</p>
           <div class="grille-resultats" id="grille-resultats"></div>
           <button type="button" class="bouton-telecharger-tout" id="bouton-tout" hidden>
@@ -72,7 +74,8 @@
           </select>
         </label>
 
-        <button type="submit" id="bouton-envoyer">Générer</button>
+        <button type="submit" id="bouton-envoyer" disabled>Générer</button>
+        <p class="note" id="note-verrou">Sélectionne une vidéo et un dossier de réception (les deux cases doivent passer au vert).</p>
       </section>
     </form>
 
@@ -98,33 +101,47 @@
     const grille = document.getElementById('grille-resultats');
     const boutonTout = document.getElementById('bouton-tout');
     const nbPretes = document.getElementById('nb-pretes');
-    const boutonDossier = document.getElementById('bouton-dossier');
-    const dossierInfo = document.getElementById('dossier-info');
+    const zoneReception = document.getElementById('zone-reception');
+    const texteReception = document.getElementById('texte-reception');
+    const noteReception = document.getElementById('note-reception');
+    const noteVerrou = document.getElementById('note-verrou');
 
     const DRAPEAUX = { fr: '🇫🇷', us: '🇺🇸', ca: '🇨🇦', au: '🇦🇺' };
 
     const dejaAffiches = new Set();
     let telechargementAuto = false;
     let dossierHandle = null;
+    let fichierPret = false;
 
     // File System Access API : dispo sur Chrome/Edge desktop, pas sur
-    // Safari/Firefox — dans ce cas on retombe simplement sur le
-    // téléchargement classique (lien + zip automatique).
+    // Safari/Firefox — dans ce cas la case réception est automatiquement
+    // considérée prête (le zip automatique prend le relais à la fin).
     const supporteDossier = 'showDirectoryPicker' in window;
     const supporteEnregistrerSous = 'showSaveFilePicker' in window;
+    let dossierPret = !supporteDossier;
+
+    function majVerrouGenerer() {
+      bouton.disabled = !(fichierPret && dossierPret);
+      noteVerrou.hidden = bouton.disabled ? false : true;
+    }
 
     if (supporteDossier) {
-      boutonDossier.hidden = false;
-      boutonDossier.addEventListener('click', async () => {
+      zoneReception.addEventListener('click', async () => {
         try {
           dossierHandle = await window.showDirectoryPicker();
-          dossierInfo.textContent = `📁 Réception vers : "${dossierHandle.name}" — chaque variante y sera enregistrée automatiquement`;
-          dossierInfo.hidden = false;
-          boutonDossier.textContent = '📁 Changer de dossier de réception';
+          texteReception.textContent = `📁 "${dossierHandle.name}" — clique pour changer de dossier`;
+          zoneReception.classList.add('pret');
+          dossierPret = true;
+          majVerrouGenerer();
         } catch (err) {
           // annulé par l'utilisateur
         }
       });
+    } else {
+      zoneReception.disabled = true;
+      zoneReception.classList.add('pret');
+      texteReception.textContent = 'Réception automatique (zip) à la fin';
+      noteReception.hidden = false;
     }
 
     async function enregistrerBlobDansDossier(nom, blob) {
@@ -151,9 +168,16 @@
       }
     }
 
+    function marquerFichierPret(nomFichier) {
+      texte.textContent = nomFichier;
+      zone.classList.add('pret');
+      fichierPret = true;
+      majVerrouGenerer();
+    }
+
     input.addEventListener('change', () => {
       if (input.files.length) {
-        texte.textContent = input.files[0].name;
+        marquerFichierPret(input.files[0].name);
       }
     });
 
@@ -166,15 +190,17 @@
     zone.addEventListener('drop', e => {
       if (e.dataTransfer.files.length) {
         input.files = e.dataTransfer.files;
-        texte.textContent = e.dataTransfer.files[0].name;
+        marquerFichierPret(e.dataTransfer.files[0].name);
       }
     });
+
+    majVerrouGenerer();
 
     function afficherErreur(msg) {
       alerteTexte.textContent = msg;
       alerteBox.hidden = false;
-      bouton.disabled = false;
       bouton.textContent = 'Générer';
+      majVerrouGenerer();
     }
 
     function setProgress(pct, texte, termine) {
@@ -241,8 +267,8 @@
               setProgress(45 + Math.round(fraction * 55), `Traitement : ${etat.done} / ${etat.total} variante(s)`);
             } else if (etat.status === 'termine') {
               clearInterval(intervalle);
-              bouton.disabled = false;
               bouton.textContent = 'Générer';
+              majVerrouGenerer();
 
               if (etat.erreurs && etat.erreurs.length) {
                 afficherErreur(etat.erreurs.join(' / '));
@@ -266,6 +292,7 @@
 
     form.addEventListener('submit', (e) => {
       e.preventDefault();
+      if (!fichierPret || !dossierPret) return;
       alerteBox.hidden = true;
       bouton.disabled = true;
       bouton.textContent = 'Traitement en cours...';

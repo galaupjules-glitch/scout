@@ -86,25 +86,10 @@ h2 {
   margin: 0 0 16px;
 }
 
-.bouton-dossier {
-  width: 100%;
-  padding: 10px;
-  margin-bottom: 10px;
-  border: 1px dashed var(--accent);
-  border-radius: 10px;
-  background: rgba(91, 140, 255, 0.08);
-  color: var(--texte);
-  font-weight: 600;
-  font-size: 0.85rem;
-  cursor: pointer;
-  transition: background 0.15s;
-}
-.bouton-dossier:hover { background: rgba(91, 140, 255, 0.16); }
-
-.dossier-info {
-  margin: 0 0 16px;
+.note-reception {
+  margin: -12px 0 16px;
   font-size: 0.78rem;
-  color: var(--accent-hover);
+  color: var(--sous-texte);
 }
 
 .alerte {
@@ -122,6 +107,7 @@ h2 {
   display: flex;
   align-items: center;
   justify-content: center;
+  width: 100%;
   height: 140px;
   border: 2px dashed var(--bordure);
   border-radius: 12px;
@@ -130,6 +116,9 @@ h2 {
   text-align: center;
   padding: 16px;
   color: var(--sous-texte);
+  background: transparent;
+  font: inherit;
+  box-sizing: border-box;
   transition: border-color 0.15s, color 0.15s, background 0.15s;
 }
 .zone-fichier:hover,
@@ -139,6 +128,22 @@ h2 {
   background: rgba(91, 140, 255, 0.06);
 }
 .zone-fichier input { display: none; }
+
+.zone-fichier.pret {
+  border-style: solid;
+  border-color: #2ecc71;
+  color: var(--texte);
+  background: rgba(46, 204, 113, 0.1);
+}
+.zone-fichier.pret:hover {
+  border-color: #2ecc71;
+  background: rgba(46, 204, 113, 0.16);
+}
+.zone-fichier.pret span::before {
+  content: "✓ ";
+  color: #2ecc71;
+  font-weight: 700;
+}
 
 .options {
   display: flex;
