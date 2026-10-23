@@ -198,6 +198,13 @@ legend {
   border-bottom: 1px solid var(--bordure);
   margin-bottom: 20px;
 }
+.champ-ligne input[type="checkbox"] {
+  width: 20px;
+  height: 20px;
+  accent-color: var(--accent);
+  cursor: pointer;
+}
+
 .champ-ligne select,
 .champ-ligne input[type="number"] {
   background: var(--bg);
@@ -285,10 +292,37 @@ button[type="submit"]:disabled {
 }
 
 .variante {
+  position: relative;
   background: var(--bg);
   border: 1px solid var(--bordure);
   border-radius: 12px;
   padding: 12px;
+}
+
+.bouton-supprimer {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  z-index: 2;
+  width: 26px;
+  height: 26px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  border-radius: 50%;
+  background: var(--erreur);
+  color: #fff;
+  font-size: 0.85rem;
+  font-weight: 700;
+  line-height: 1;
+  cursor: pointer;
+  opacity: 0.85;
+  transition: opacity 0.15s, transform 0.15s;
+}
+.bouton-supprimer:hover {
+  opacity: 1;
+  transform: scale(1.08);
 }
 .variante video {
   width: 100%;

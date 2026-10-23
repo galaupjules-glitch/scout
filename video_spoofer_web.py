@@ -13,6 +13,7 @@ import json
 import os
 import secrets
 import threading
+import traceback
 import uuid
 import zipfile
 from concurrent.futures import ThreadPoolExecutor, as_completed
@@ -105,12 +106,20 @@ def safe_ext(filename: str) -> str:
 
 
 def _generer_une_variante(out_path: Path, src_path: Path, mode: str, locale: str, params: dict,
-                           threads_encodage: int) -> str:
-    build_variant(src_path, out_path, mode, locale, params, threads_encodage=threads_encodage)
+                           threads_encodage: int, miroir: bool) -> str:
+    try:
+        build_variant(src_path, out_path, mode, locale, params, threads_encodage=threads_encodage, miroir=miroir)
+    except Exception:
+        # traceback complet dans les logs serveur (console / spoofer_web.log)
+        # pour pouvoir diagnostiquer une vidéo précise qui a échoué, en plus
+        # du message résumé renvoyé au navigateur
+        print(f"--- échec génération {out_path.name} (source : {src_path.name}) ---")
+        traceback.print_exc()
+        raise
     return out_path.name
 
 
-def _traiter_job(job_id: str, src_path: Path, mode: str, locale: str, count: int, ext: str):
+def _traiter_job(job_id: str, src_path: Path, mode: str, locale: str, count: int, ext: str, miroir: bool):
     lot = batch_params(mode, count)
     taches = []
     for i, params in enumerate(lot):
@@ -130,7 +139,7 @@ def _traiter_job(job_id: str, src_path: Path, mode: str, locale: str, count: int
     threads_par_tache = max(1, (os.cpu_count() or 2) // nb_workers)
     with ThreadPoolExecutor(max_workers=nb_workers) as executor:
         futures = {
-            executor.submit(_generer_une_variante, out_path, src_path, mode, locale, params, threads_par_tache): out_path
+            executor.submit(_generer_une_variante, out_path, src_path, mode, locale, params, threads_par_tache, miroir): out_path
             for out_path, params in zip(taches, lot)
         }
         for future in as_completed(futures):
@@ -140,7 +149,7 @@ def _traiter_job(job_id: str, src_path: Path, mode: str, locale: str, count: int
                     JOBS[job_id]["resultats"].append(nom)
             except Exception as exc:  # noqa: BLE001 - affichée à l'utilisateur
                 with JOBS_LOCK:
-                    JOBS[job_id]["erreurs"].append(str(exc))
+                    JOBS[job_id]["erreurs"].append(f"{type(exc).__name__}: {exc}")
             with JOBS_LOCK:
                 JOBS[job_id]["done"] += 1
 
@@ -159,6 +168,7 @@ def api_spoof():
     fichier = request.files.get("video")
     mode = request.form.get("mode", "leger")
     locale = request.form.get("locale") or None
+    miroir = (request.form.get("miroir") or "").lower() in ("1", "true", "on", "oui")
     try:
         count = int(request.form.get("count", 1))
     except ValueError:
@@ -196,7 +206,7 @@ def api_spoof():
 
     threading.Thread(
         target=_traiter_job,
-        args=(job_id, src_path, mode, locale, count, ext),
+        args=(job_id, src_path, mode, locale, count, ext, miroir),
         daemon=True,
     ).start()
 
@@ -264,6 +274,19 @@ def telecharger_tout(job_id):
         as_attachment=True,
         download_name=f"vexa_{job_id}.zip",
     )
+
+
+@app.route("/supprimer/<path:nom>", methods=["POST"])
+def supprimer(nom):
+    chemin = (OUTPUT_DIR / nom).resolve()
+    if OUTPUT_DIR.resolve() not in chemin.parents:
+        abort(404)
+    chemin.unlink(missing_ok=True)
+    with JOBS_LOCK:
+        for job in JOBS.values():
+            if nom in job["resultats"]:
+                job["resultats"].remove(nom)
+    return jsonify(ok=True)
 
 
 @app.route("/fichier/<path:nom>")

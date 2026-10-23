@@ -55,7 +55,7 @@
           <label class="radio">
             <input type="radio" name="mode" value="agressif">
             <span>Agressif</span>
-            <small>Variations plus marquées (cadrage, couleurs, vitesse, miroir)</small>
+            <small>Variations plus marquées (cadrage, couleurs, vitesse)</small>
           </label>
         </fieldset>
 
@@ -73,6 +73,12 @@
             {% endfor %}
           </select>
         </label>
+
+        <label class="champ-ligne">
+          <span>Inverser la vidéo (miroir)</span>
+          <input type="checkbox" name="miroir" id="input-miroir" value="on">
+        </label>
+        <p class="note" style="margin-top: -14px;">Désactivé par défaut : la couleur/intensité change mais le texte à l'écran reste lisible. À activer seulement si tu veux explicitement une version inversée.</p>
 
         <button type="submit" id="bouton-envoyer" disabled>Générer</button>
         <p class="note" id="note-verrou">Sélectionne une vidéo (la case doit passer au vert).</p>
@@ -233,6 +239,7 @@
       const carte = document.createElement('div');
       carte.className = 'variante';
       carte.innerHTML = `
+        <button type="button" class="bouton-supprimer" title="Supprimer cette variante">✕</button>
         <video controls preload="metadata" src="/apercu/${nom}"></video>
         <p class="badge-meta">${badge}</p>
         <p class="etat-enregistrement" id="etat-${nom}"></p>
@@ -242,6 +249,17 @@
         </div>
       `;
       grille.appendChild(carte);
+
+      carte.querySelector('.bouton-supprimer').addEventListener('click', () => {
+        dejaAffiches.delete(nom);
+        carte.remove();
+        nbPretes.textContent = dejaAffiches.size;
+        if (dejaAffiches.size === 0) {
+          placeholder.hidden = false;
+          boutonTout.hidden = true;
+        }
+        fetch(`/supprimer/${nom}`, { method: 'POST' }).catch(() => {});
+      });
 
       const boutonSous = carte.querySelector('.bouton-enregistrer-sous');
       if (boutonSous) {

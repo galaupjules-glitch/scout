@@ -73,7 +73,11 @@ PARAM_SPECS = {
     },
 }
 
-MIRROR_CHANCE = {"leger": 0.0, "agressif": 0.5}
+# Le miroir horizontal n'est plus tiré au sort automatiquement : ça inverse
+# aussi tout texte présent dans la vidéo (sous-titres, logos, texte à
+# l'écran...) et le rend illisible à l'envers. C'est maintenant une option
+# explicite (voir build_variant(miroir=...) / le réglage "Inverser" côté web).
+MIRROR_CHANCE = {"leger": 0.0, "agressif": 0.0}
 
 # nombre de caractéristiques toujours modifiées (hors miroir, bonus en agressif)
 NB_CARACTERISTIQUES = len(PARAM_SPECS["leger"])
@@ -200,7 +204,7 @@ def _matrice_couleur(brightness: float, contrast: float, saturation: float, hue_
 
 
 def build_variant(src_path: Path, out_path: Path, mode: str, locale: str = None, params: dict = None,
-                   threads_encodage: int = None):
+                   threads_encodage: int = None, miroir: bool = False):
     """Génère une variante. Si `params` n'est pas fourni, un jeu de
     paramètres est tiré au sort (voir sample_params/batch_params pour
     générer plusieurs variantes garanties différentes les unes des autres).
@@ -208,7 +212,11 @@ def build_variant(src_path: Path, out_path: Path, mode: str, locale: str = None,
     `threads_encodage` : nombre de threads ffmpeg à utiliser pour CETTE
     vidéo. Par défaut tous les coeurs (THREADS_ENCODAGE) ; à réduire quand
     plusieurs variantes tournent en parallèle (sinon chaque ffmpeg réclame
-    tous les coeurs et elles se marchent dessus au lieu d'aller plus vite)."""
+    tous les coeurs et elles se marchent dessus au lieu d'aller plus vite).
+
+    `miroir` : inverse la vidéo horizontalement (effet miroir). Option
+    explicite seulement — jamais tirée au sort, car ça inverserait aussi
+    tout texte présent dans la vidéo."""
     if mode not in PARAM_SPECS:
         raise ValueError("mode doit être 'leger' ou 'agressif'")
     if locale is not None and locale not in LOCALES:
@@ -218,10 +226,13 @@ def build_variant(src_path: Path, out_path: Path, mode: str, locale: str = None,
 
     clip = VideoFileClip(str(src_path))
 
-    # 1) découpe légère au début/à la fin
-    trim_start = params["trim_start"]
-    trim_end = params["trim_end"]
-    end_t = max(trim_start + 0.3, clip.duration - trim_end)
+    # 1) découpe légère au début/à la fin — toujours bornée à la durée
+    #    réelle de la vidéo (sans ça, une vidéo courte peut demander une
+    #    découpe plus longue qu'elle-même et faire planter tout le job)
+    duree = clip.duration
+    trim_start = min(params["trim_start"], max(0.0, duree - 0.3))
+    marge_fin = min(params["trim_end"], max(0.0, duree - trim_start - 0.3))
+    end_t = duree - marge_fin
     clip = clip.subclipped(trim_start, end_t)
 
     w, h = clip.size
@@ -238,7 +249,7 @@ def build_variant(src_path: Path, out_path: Path, mode: str, locale: str = None,
     if abs(rotate_deg) > 0.01:
         rot_matrix = cv2.getRotationMatrix2D((w / 2, h / 2), rotate_deg, 1.0)
 
-    mirror = params["mirror"]
+    mirror = params["mirror"] or miroir
 
     # 3) étalonnage couleur (luminosité/contraste/saturation/teinte) : une
     #    seule matrice précalculée, appliquée par un seul cv2.transform
@@ -354,6 +365,8 @@ def main():
     parser.add_argument("--out", type=Path, default=None, help="Fichier de sortie (mode simple)")
     parser.add_argument("--count", type=int, default=1, help="Nombre de variantes à générer")
     parser.add_argument("--outdir", type=Path, default=None, help="Dossier de sortie si --count > 1")
+    parser.add_argument("--miroir", action="store_true",
+                         help="Inverse la vidéo horizontalement (jamais tiré au sort, car ça inverse aussi le texte à l'écran)")
     args = parser.parse_args()
 
     if not args.input.exists():
@@ -364,7 +377,7 @@ def main():
         out = args.out or args.input.with_name(
             f"{args.input.stem}_{args.mode}_{uuid.uuid4().hex[:6]}{args.input.suffix}"
         )
-        build_variant(args.input, out, args.mode, args.locale)
+        build_variant(args.input, out, args.mode, args.locale, miroir=args.miroir)
         print(f"Variante générée : {out}")
     else:
         outdir = args.outdir or args.input.parent / f"{args.input.stem}_variantes"
@@ -372,7 +385,7 @@ def main():
         lot = batch_params(args.mode, args.count)
         for i, params in enumerate(lot):
             out = outdir / f"{args.input.stem}_{args.mode}_{i+1:02d}_{uuid.uuid4().hex[:6]}{args.input.suffix}"
-            build_variant(args.input, out, args.mode, args.locale, params)
+            build_variant(args.input, out, args.mode, args.locale, params, miroir=args.miroir)
             print(f"[{i+1}/{args.count}] Variante générée : {out}")
 
 
