@@ -189,7 +189,14 @@ def _matrice_couleur(brightness: float, contrast: float, saturation: float, hue_
     k = 1.0 + contrast
     matrice = (H @ S) * k
     biais = brightness * 255.0 * (1.0 + contrast) - 128.0 * contrast
-    return matrice.astype(np.float32), np.float32(biais)
+
+    # matrice 3x4 (colonne de biais incluse) pour cv2.transform : un seul
+    # appel OpenCV saturant par image, bien plus rapide qu'un produit
+    # matriciel numpy + clip manuel à haute résolution (4K...)
+    matrice_biais = np.zeros((3, 4), dtype=np.float32)
+    matrice_biais[:, :3] = matrice
+    matrice_biais[:, 3] = biais
+    return matrice_biais
 
 
 def build_variant(src_path: Path, out_path: Path, mode: str, locale: str = None, params: dict = None):
@@ -228,12 +235,13 @@ def build_variant(src_path: Path, out_path: Path, mode: str, locale: str = None,
     mirror = params["mirror"]
 
     # 3) étalonnage couleur (luminosité/contraste/saturation/teinte) : une
-    #    seule matrice précalculée, appliquée par un seul produit matriciel
-    matrice_couleur, biais_couleur = _matrice_couleur(
+    #    seule matrice précalculée, appliquée par un seul cv2.transform
+    #    (saturant nativement, pas besoin de clip manuel ensuite)
+    matrice_couleur = _matrice_couleur(
         params["brightness"], params["contrast"], params["saturation"], params["hue_deg"]
     )
     noise_std = params["noise_std"]
-    bruit_buffer = np.empty((h, w, 3), dtype=np.float32)
+    bruit_buffer = np.empty((h, w, 3), dtype=np.int16)
 
     def _frame_func(get_frame, t):
         frame = get_frame(t)
@@ -247,13 +255,15 @@ def build_variant(src_path: Path, out_path: Path, mode: str, locale: str = None,
         if mirror:
             frame = frame[:, ::-1]
 
-        frame = frame.astype(np.float32) @ matrice_couleur.T + biais_couleur
+        frame = cv2.transform(frame, matrice_couleur)
         if noise_std > 0:
-            # cv2.randn est nettement plus rapide que numpy pour générer le bruit
+            # cv2.randn + cv2.add saturant : nettement plus rapide qu'un
+            # produit matriciel numpy + clip manuel, surtout en haute
+            # résolution (vidéos 4K de smartphone)
             cv2.randn(bruit_buffer, 0, noise_std)
-            frame = frame + bruit_buffer
+            frame = cv2.add(frame, bruit_buffer, dtype=cv2.CV_8U)
 
-        return np.clip(frame, 0, 255).astype(np.uint8)
+        return frame
 
     clip = clip.transform(_frame_func, apply_to="video")
 

@@ -86,6 +86,27 @@ h2 {
   margin: 0 0 16px;
 }
 
+.bouton-dossier {
+  width: 100%;
+  padding: 10px;
+  margin-bottom: 10px;
+  border: 1px dashed var(--accent);
+  border-radius: 10px;
+  background: rgba(91, 140, 255, 0.08);
+  color: var(--texte);
+  font-weight: 600;
+  font-size: 0.85rem;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+.bouton-dossier:hover { background: rgba(91, 140, 255, 0.16); }
+
+.dossier-info {
+  margin: 0 0 16px;
+  font-size: 0.78rem;
+  color: var(--accent-hover);
+}
+
 .alerte {
   background: rgba(255, 107, 107, 0.12);
   border: 1px solid var(--erreur);
@@ -273,13 +294,27 @@ button[type="submit"]:disabled {
 }
 
 .badge-meta {
-  margin: 0 0 10px;
+  margin: 0 0 6px;
   font-size: 0.78rem;
   color: var(--sous-texte);
   text-align: center;
 }
 
+.etat-enregistrement {
+  margin: 0 0 10px;
+  font-size: 0.75rem;
+  color: var(--accent-hover);
+  text-align: center;
+  min-height: 1em;
+}
+
+.actions-variante {
+  display: flex;
+  gap: 8px;
+}
+
 .bouton-telecharger {
+  flex: 1;
   display: block;
   text-align: center;
   padding: 10px;
@@ -291,6 +326,23 @@ button[type="submit"]:disabled {
   font-size: 0.85rem;
 }
 .bouton-telecharger:hover { background: var(--accent-hover); }
+
+.bouton-enregistrer-sous {
+  flex: 1;
+  padding: 10px;
+  border-radius: 8px;
+  border: 1px solid var(--bordure);
+  background: transparent;
+  color: var(--texte);
+  font-weight: 600;
+  font-size: 0.8rem;
+  cursor: pointer;
+  transition: border-color 0.15s, background 0.15s;
+}
+.bouton-enregistrer-sous:hover {
+  border-color: var(--accent);
+  background: rgba(91, 140, 255, 0.08);
+}
 
 .lien-retour {
   color: var(--accent);

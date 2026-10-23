@@ -29,6 +29,8 @@
         <!-- Réception (droite) -->
         <section class="carte colonne-reception">
           <h2>Réception</h2>
+          <button type="button" class="bouton-dossier" id="bouton-dossier" hidden>📁 Choisir où recevoir les vidéos</button>
+          <p class="dossier-info" id="dossier-info" hidden></p>
           <p class="placeholder" id="placeholder-reception">Les variantes générées apparaîtront ici au fur et à mesure.</p>
           <div class="grille-resultats" id="grille-resultats"></div>
           <button type="button" class="bouton-telecharger-tout" id="bouton-tout" hidden>
@@ -96,11 +98,58 @@
     const grille = document.getElementById('grille-resultats');
     const boutonTout = document.getElementById('bouton-tout');
     const nbPretes = document.getElementById('nb-pretes');
+    const boutonDossier = document.getElementById('bouton-dossier');
+    const dossierInfo = document.getElementById('dossier-info');
 
     const DRAPEAUX = { fr: '🇫🇷', us: '🇺🇸', ca: '🇨🇦', au: '🇦🇺' };
 
     const dejaAffiches = new Set();
     let telechargementAuto = false;
+    let dossierHandle = null;
+
+    // File System Access API : dispo sur Chrome/Edge desktop, pas sur
+    // Safari/Firefox — dans ce cas on retombe simplement sur le
+    // téléchargement classique (lien + zip automatique).
+    const supporteDossier = 'showDirectoryPicker' in window;
+    const supporteEnregistrerSous = 'showSaveFilePicker' in window;
+
+    if (supporteDossier) {
+      boutonDossier.hidden = false;
+      boutonDossier.addEventListener('click', async () => {
+        try {
+          dossierHandle = await window.showDirectoryPicker();
+          dossierInfo.textContent = `📁 Réception vers : "${dossierHandle.name}" — chaque variante y sera enregistrée automatiquement`;
+          dossierInfo.hidden = false;
+          boutonDossier.textContent = '📁 Changer de dossier de réception';
+        } catch (err) {
+          // annulé par l'utilisateur
+        }
+      });
+    }
+
+    async function enregistrerBlobDansDossier(nom, blob) {
+      const fileHandle = await dossierHandle.getFileHandle(nom, { create: true });
+      const writable = await fileHandle.createWritable();
+      await writable.write(blob);
+      await writable.close();
+    }
+
+    async function enregistrerSous(nom) {
+      try {
+        const handle = await window.showSaveFilePicker({
+          suggestedName: nom,
+          types: [{ description: 'Vidéo', accept: { 'video/mp4': ['.mp4', '.mov', '.webm', '.mkv', '.avi', '.m4v'] } }],
+        });
+        const reponse = await fetch(`/fichier/${nom}`);
+        const blob = await reponse.blob();
+        const writable = await handle.createWritable();
+        await writable.write(blob);
+        await writable.close();
+      } catch (err) {
+        // annulé par l'utilisateur ou refusé : rien à faire, le lien
+        // "Télécharger" classique reste disponible sur la carte
+      }
+    }
 
     input.addEventListener('change', () => {
       if (input.files.length) {
@@ -134,7 +183,7 @@
       etatTexte.textContent = texte;
     }
 
-    function ajouterVariante(jobId, nom, localeCode, localeLabel) {
+    async function ajouterVariante(jobId, nom, localeCode, localeLabel) {
       if (dejaAffiches.has(nom)) return;
       dejaAffiches.add(nom);
       placeholder.hidden = true;
@@ -148,13 +197,36 @@
       carte.innerHTML = `
         <video controls preload="metadata" src="/apercu/${nom}"></video>
         <p class="badge-meta">${badge}</p>
-        <a class="bouton-telecharger" href="/fichier/${nom}" download>Télécharger ${nom}</a>
+        <p class="etat-enregistrement" id="etat-${nom}"></p>
+        <div class="actions-variante">
+          <a class="bouton-telecharger" href="/fichier/${nom}" download>Télécharger</a>
+          ${supporteEnregistrerSous ? `<button type="button" class="bouton-enregistrer-sous" data-nom="${nom}">Enregistrer sous...</button>` : ''}
+        </div>
       `;
       grille.appendChild(carte);
+
+      const boutonSous = carte.querySelector('.bouton-enregistrer-sous');
+      if (boutonSous) {
+        boutonSous.addEventListener('click', () => enregistrerSous(nom));
+      }
 
       nbPretes.textContent = dejaAffiches.size;
       boutonTout.hidden = false;
       boutonTout.onclick = () => { window.location.href = `/telecharger-tout/${jobId}`; };
+
+      // dossier de réception choisi : on y enregistre direct, sans attendre
+      if (dossierHandle) {
+        const etatEl = document.getElementById(`etat-${nom}`);
+        etatEl.textContent = '⏳ Enregistrement dans le dossier choisi...';
+        try {
+          const reponse = await fetch(`/apercu/${nom}`);
+          const blob = await reponse.blob();
+          await enregistrerBlobDansDossier(nom, blob);
+          etatEl.textContent = `✓ Enregistré dans "${dossierHandle.name}"`;
+        } catch (err) {
+          etatEl.textContent = '⚠ Échec de l\'enregistrement auto — utilise "Télécharger"';
+        }
+      }
     }
 
     function suivreJob(jobId, total) {
@@ -169,7 +241,6 @@
               setProgress(45 + Math.round(fraction * 55), `Traitement : ${etat.done} / ${etat.total} variante(s)`);
             } else if (etat.status === 'termine') {
               clearInterval(intervalle);
-              setProgress(100, `Terminé ! ${etat.resultats.length} variante(s) — téléchargement en cours...`, true);
               bouton.disabled = false;
               bouton.textContent = 'Générer';
 
@@ -177,9 +248,13 @@
                 afficherErreur(etat.erreurs.join(' / '));
               }
 
-              // dès que la barre atteint 100%, on lance direct le téléchargement
-              if (!telechargementAuto && etat.resultats.length) {
+              if (dossierHandle) {
+                // déjà enregistrées une à une dans le dossier choisi
+                setProgress(100, `Terminé ! ${etat.resultats.length} variante(s) enregistrée(s) dans "${dossierHandle.name}".`, true);
+              } else if (!telechargementAuto && etat.resultats.length) {
+                // sinon, dès que la barre atteint 100%, on lance direct le téléchargement du zip
                 telechargementAuto = true;
+                setProgress(100, `Terminé ! ${etat.resultats.length} variante(s) — téléchargement en cours...`, true);
                 window.location.href = `/telecharger-tout/${jobId}`;
                 setTimeout(() => setProgress(100, `Terminé ! ${etat.resultats.length} variante(s) téléchargée(s).`, true), 800);
               }
