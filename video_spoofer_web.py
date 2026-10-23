@@ -10,10 +10,12 @@ Lancement :
 
 import io
 import json
+import os
 import secrets
 import threading
 import uuid
 import zipfile
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import timedelta
 from pathlib import Path
 
@@ -23,6 +25,11 @@ from flask import (
 )
 
 from video_spoofer import build_variant, batch_params, PARAM_SPECS, LOCALES
+
+# une variante = tout un coeur CPU occupé (ffmpeg + calcul image par image) ;
+# on en lance plusieurs en parallèle (processus séparés) pour un lot de
+# plusieurs variantes, en gardant un coeur libre pour le serveur web.
+WORKERS_PARALLELES = max(1, (os.cpu_count() or 2) - 1)
 
 BASE_DIR = Path(__file__).resolve().parent
 UPLOAD_DIR = BASE_DIR / "spoofer_uploads"
@@ -97,20 +104,45 @@ def safe_ext(filename: str) -> str:
     return Path(filename).suffix.lower()
 
 
+def _generer_une_variante(out_path: Path, src_path: Path, mode: str, locale: str, params: dict,
+                           threads_encodage: int) -> str:
+    build_variant(src_path, out_path, mode, locale, params, threads_encodage=threads_encodage)
+    return out_path.name
+
+
 def _traiter_job(job_id: str, src_path: Path, mode: str, locale: str, count: int, ext: str):
     lot = batch_params(mode, count)
+    taches = []
     for i, params in enumerate(lot):
         out_name = f"{job_id}_{mode}_{i+1:02d}{ext}"
-        out_path = OUTPUT_DIR / out_name
-        try:
-            build_variant(src_path, out_path, mode, locale, params)
+        taches.append(OUTPUT_DIR / out_name)
+
+    # plusieurs variantes = plusieurs threads en parallèle (chaque variante
+    # prend ~1 coeur plein pour le calcul image par image + ffmpeg ; OpenCV,
+    # numpy et le sous-processus ffmpeg libèrent le GIL pendant le gros du
+    # calcul, donc ça se parallélise vraiment), au lieu de les traiter une
+    # par une : le gain est quasi proportionnel au nombre de coeurs dispo,
+    # sans rien changer aux paramètres générés
+    nb_workers = min(len(taches), WORKERS_PARALLELES)
+    # chaque ffmpeg ne doit pas réclamer tous les coeurs quand plusieurs
+    # tournent déjà en parallèle, sinon elles se marchent dessus au lieu
+    # d'aller plus vite
+    threads_par_tache = max(1, (os.cpu_count() or 2) // nb_workers)
+    with ThreadPoolExecutor(max_workers=nb_workers) as executor:
+        futures = {
+            executor.submit(_generer_une_variante, out_path, src_path, mode, locale, params, threads_par_tache): out_path
+            for out_path, params in zip(taches, lot)
+        }
+        for future in as_completed(futures):
+            try:
+                nom = future.result()
+                with JOBS_LOCK:
+                    JOBS[job_id]["resultats"].append(nom)
+            except Exception as exc:  # noqa: BLE001 - affichée à l'utilisateur
+                with JOBS_LOCK:
+                    JOBS[job_id]["erreurs"].append(str(exc))
             with JOBS_LOCK:
-                JOBS[job_id]["resultats"].append(out_name)
-        except Exception as exc:  # noqa: BLE001 - affichée à l'utilisateur
-            with JOBS_LOCK:
-                JOBS[job_id]["erreurs"].append(str(exc))
-        with JOBS_LOCK:
-            JOBS[job_id]["done"] += 1
+                JOBS[job_id]["done"] += 1
 
     src_path.unlink(missing_ok=True)
     with JOBS_LOCK:

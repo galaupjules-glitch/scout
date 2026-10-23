@@ -128,13 +128,23 @@
     if (supporteDossier) {
       zoneReception.addEventListener('click', async () => {
         try {
-          dossierHandle = await window.showDirectoryPicker();
+          // "readwrite" est indispensable : par défaut le dossier n'est
+          // accordé qu'en lecture, et l'enregistrement échoue ensuite
+          // silencieusement (c'est le bug "erreur" rencontré avant ce fix).
+          const handle = await window.showDirectoryPicker({ mode: 'readwrite' });
+          const permission = await handle.requestPermission({ mode: 'readwrite' });
+          if (permission !== 'granted') {
+            throw new Error("Permission d'écriture refusée pour ce dossier.");
+          }
+          dossierHandle = handle;
           texteReception.textContent = `📁 "${dossierHandle.name}" — clique pour changer de dossier`;
           zoneReception.classList.add('pret');
           dossierPret = true;
           majVerrouGenerer();
         } catch (err) {
-          // annulé par l'utilisateur
+          if (err && err.name === 'AbortError') return; // annulé par l'utilisateur
+          console.error('Choix du dossier de réception :', err);
+          afficherErreur(`Impossible d'utiliser ce dossier (${err && (err.message || err.name) || 'erreur inconnue'}). Réessaie ou choisis-en un autre.`);
         }
       });
     } else {
@@ -163,8 +173,9 @@
         await writable.write(blob);
         await writable.close();
       } catch (err) {
-        // annulé par l'utilisateur ou refusé : rien à faire, le lien
-        // "Télécharger" classique reste disponible sur la carte
+        if (err && err.name === 'AbortError') return; // annulé par l'utilisateur
+        console.error('Enregistrer sous... échoué pour', nom, err);
+        // le lien "Télécharger" classique reste disponible sur la carte
       }
     }
 
@@ -246,11 +257,14 @@
         etatEl.textContent = '⏳ Enregistrement dans le dossier choisi...';
         try {
           const reponse = await fetch(`/apercu/${nom}`);
+          if (!reponse.ok) throw new Error(`téléchargement du fichier échoué (HTTP ${reponse.status})`);
           const blob = await reponse.blob();
           await enregistrerBlobDansDossier(nom, blob);
           etatEl.textContent = `✓ Enregistré dans "${dossierHandle.name}"`;
         } catch (err) {
-          etatEl.textContent = '⚠ Échec de l\'enregistrement auto — utilise "Télécharger"';
+          console.error('Enregistrement auto échoué pour', nom, err);
+          const detail = err && (err.message || err.name) || 'erreur inconnue';
+          etatEl.textContent = `⚠ Échec de l'enregistrement auto (${detail}) — utilise "Télécharger"`;
         }
       }
     }

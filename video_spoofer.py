@@ -199,10 +199,16 @@ def _matrice_couleur(brightness: float, contrast: float, saturation: float, hue_
     return matrice_biais
 
 
-def build_variant(src_path: Path, out_path: Path, mode: str, locale: str = None, params: dict = None):
+def build_variant(src_path: Path, out_path: Path, mode: str, locale: str = None, params: dict = None,
+                   threads_encodage: int = None):
     """Génère une variante. Si `params` n'est pas fourni, un jeu de
     paramètres est tiré au sort (voir sample_params/batch_params pour
-    générer plusieurs variantes garanties différentes les unes des autres)."""
+    générer plusieurs variantes garanties différentes les unes des autres).
+
+    `threads_encodage` : nombre de threads ffmpeg à utiliser pour CETTE
+    vidéo. Par défaut tous les coeurs (THREADS_ENCODAGE) ; à réduire quand
+    plusieurs variantes tournent en parallèle (sinon chaque ffmpeg réclame
+    tous les coeurs et elles se marchent dessus au lieu d'aller plus vite)."""
     if mode not in PARAM_SPECS:
         raise ValueError("mode doit être 'leger' ou 'agressif'")
     if locale is not None and locale not in LOCALES:
@@ -290,7 +296,7 @@ def build_variant(src_path: Path, out_path: Path, mode: str, locale: str = None,
         bitrate=bitrate,
         codec="libx264",
         preset=PRESET_ENCODAGE,
-        threads=THREADS_ENCODAGE,
+        threads=threads_encodage or THREADS_ENCODAGE,
         audio_codec="aac" if clip.audio is not None else None,
         temp_audiofile=str(out_path.with_suffix(".tmp.m4a")),
         remove_temp=True,
