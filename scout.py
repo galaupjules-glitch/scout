@@ -23,10 +23,13 @@ import base64
 import json
 import os
 import re
+import signal
 import subprocess
 import sys
 import time
 from pathlib import Path
+
+from reseau import connexion_ok
 
 # ----------------------------------------------------------------------------
 # CONFIG (modifiable en haut de fichier ou via les arguments CLI)
@@ -36,11 +39,50 @@ from pathlib import Path
 FOLLOWERS_MIN = 1500
 FOLLOWERS_MAX = 25000
 
+# Exception rare : au-dessus de FOLLOWERS_MAX, garde quand meme jusqu'a ce plafond SI lien OnlyFans direct en bio
+OF_EXCEPTION_MAX = 60000
+
 # Ratio following/followers max. Au-dessus = compte perso/college (pas une vitrine)
 MAX_FOLLOWING_RATIO = 1.6
 
 # Engagement minimum : likes sur le post le plus recent. En dessous = followers fantomes.
-MIN_LIKES_PER_POST = 500
+MIN_POSTS = 6  # au moins 6 publications sur le profil
+MAX_MENTIONS_BIO = 2  # au-dessus de 2 @ dans la bio : profil ecarte
+
+# regles apprises de ton tri dans Vivier (apprentissage.py), rechargees a chaque recherche
+try:
+    import apprentissage as _app
+    APPRIS = _app.charger()
+except Exception:
+    APPRIS = {"mots": [], "domaines": [], "abonnes_min": None}
+APPRIS.setdefault("gardes", 0)
+APPRIS.setdefault("jetes", 0)
+
+# avant chaque recherche : likes sur N profils types / favoris (1 like chacun) pour entretenir le feed
+ECHAUFFEMENT_PROFILS = 3
+
+# liens en bio prioritaires (juste derriere un lien OnlyFans direct)
+LINK_PRIORITAIRES = ["hoo.be", "link.me", "linkscale", "linktr.ee", "linktree"]
+PRIORITE_LIEN = {"of": 4, "agreg": 3, "autre": 2}  # + 1 si suivie par creatorsinc ; sans lien : 1
+
+MIN_LIKES_PER_POST = 600  # chaque post regarde (hors le dernier) doit faire au moins ca
+MIN_LIKES_DERNIER = 100    # le dernier post peut etre sous 600 (recent), mais pas sous ca
+
+# Activite : dernier post (hors posts epingles) il y a 6 mois maximum
+MAX_DAYS_SINCE_POST = 183
+
+# Rythme : pause au hasard entre deux profils, et une grande pause tous les 8 a 14 profils
+PAUSE_ENTRE_PROFILS = (6, 13)   # secondes (un peu plus rapide qu avant : 8-18)
+GRANDE_PAUSE = (45, 110)        # secondes (avant : 60-150)
+
+# Bio qui laisse penser a une mineure -> toujours exclue (18 ans minimum)
+MINOR_PATTERNS = [
+    r"\b(1[0-7])\s*(y/?o|yo|yrs?|years?\s*old|ans)\b",   # "16 y/o", "17yo", "15 ans"
+    r"\b(age|âge)\s*:?\s*1[0-7]\b",
+    r"\bclass\s*of\s*'?(20)?(2[7-9]|3\d)\b",              # lycee : promo 2027 et apres
+    r"\bhigh\s*school\b|\bhighschool\b|\bfreshman\b|\bsophomore\b|\bminor\b|\blycée\b|\bcollège\b",
+    r"\b(9th|10th|11th|12th)\s*grade\b",
+]
 
 # Un profil dont on a deroule les 'Comptes similaires' n'est pas re-mine avant N jours
 MINE_COOLDOWN_DAYS = 7
@@ -48,11 +90,54 @@ MINE_COOLDOWN_DAYS = 7
 # Mots-cles bio qui disqualifient (marques, coachs, business, deja managees...)
 BIO_BLACKLIST = [
     "coach", "nutrition", "personal trainer", "nail", "barber", "realtor",
-    "nurse", "crna", "phd", "ambassador", "trad wife", "homestead", "diesel",
+    "crna", "phd", "ambassador", "trad wife", "homestead", "diesel",
     "truck", "photograph", "esthetician", "makeup artist", "mua", "salon",
     "agency", "talent", "management", "repulse", "grail", "fanfix agency",
-    "licensed", "cosmo", "student nurse",
+    "licensed", "cosmo",
+    # bios religieuses : pas le profil recherche
+    "jesus", "jésus", "in christ", "christ is", "psalm", "bible",  # pas "christ" seul : Christina... "god first", "child of god", "daughter of the king",
+    "proverbs", "john 3:16", "philippians", "jeremiah 29", "romans 8", "✝", "🙏🏼✝",
+    # bague en bio = fiancee / mariee
+    "💍",
+    # bios business / "achete mon produit"
+    "shop now", "order now", "dm to order", "dm for orders", "free shipping", "worldwide shipping",
+    "customer service", "wholesale", "boutique", "online store", "official store", "small business",
+    "pre-order", "preorder", "handmade", "llc", "commandez", "livraison offerte", "e-shop", "eshop",
 ]
+
+# Contenu francais = pas interessant (on cherche des modeles US).
+# Mots tres frequents en francais et rares en anglais/espagnol ; 2 occurrences suffisent.
+FR_WORDS = [
+    "le", "les", "des", "du", "une", "est", "et", "je", "tu", "nous", "vous", "pour", "avec", "dans",
+    "sur", "pas", "mais", "qui", "que", "c'est", "j'ai", "mon", "ma", "mes", "ton", "ta", "tes",
+    "très", "trop", "été", "ça", "où", "à", "merci", "bonjour", "bisous", "toujours", "jamais",
+    "ici", "chez", "aussi", "avoir", "être", "petit", "petite", "belle", "beau", "soir", "demain",
+    "moi", "toi", "juste", "vie", "amour",
+]
+# bio qui dit "je vis en France / Belgique / Suisse / Quebec"
+FR_PLACES = [
+    "🇫🇷", "🇧🇪", "🇨🇭", "france", "paris", "lyon", "marseille", "bordeaux", "toulouse", "lille",
+    "nantes", "montpellier", "strasbourg", "nice 06", "belgique", "bruxelles", "suisse", "genève",
+    "québec", "quebec",
+]
+_FR_RE = re.compile(r"(?<![\w'’])(" + "|".join(re.escape(w) for w in FR_WORDS) + r")(?![\w'’])", re.I)
+
+
+def is_french(text, places=False):
+    """Vrai si le texte est en francais (ou, avec places=True, situe en pays francophone)."""
+    t = (text or "").replace("’", "'")
+    if places and any(p in t.lower() for p in FR_PLACES):
+        return True
+    return len(_FR_RE.findall(t)) >= 2
+
+
+# Categories de compte affichees par Instagram sous le nom (comptes business) -> exclus
+CATEGORY_BLACKLIST = [
+    "Produit/service", "Product/service", "Shopping et vente au détail", "Shopping & retail",
+    "Entreprise locale", "Local business", "Vêtements (marque)", "Clothing (Brand)",
+    "Site web de commerce", "E-commerce website", "Media/news company", "Société de médias/actualités",
+    "Restaurant", "Agence de marketing", "Marketing agency",
+]  # pas "Brand"/"Marque" seuls : beaucoup de modeles ecrivent "brand collabs" dans leur bio
 
 # Comptes de depart pour la recolte (les meilleurs seeds "vitrine" trouves).
 # Le moteur ajoute automatiquement chaque nouveau lead comme seed (effet boule de neige).
@@ -97,11 +182,20 @@ def find_opencli():
     sys.exit("ERREUR : opencli introuvable. Installe-le : npm install -g @jackwener/opencli")
 
 
-OPENCLI = find_opencli()
+# Moteur navigateur : "maison" (navigateur.py, defaut) ou "opencli" (secours).
+# Pour repasser sur OpenCLI :  SCOUT_MOTEUR=opencli python3 scout.py ...
+MOTEUR = os.environ.get("SCOUT_MOTEUR", "maison")
+if MOTEUR == "opencli":
+    OPENCLI = find_opencli()
+else:
+    import navigateur
+    SESSION_ID_MAISON = navigateur.SESSION_ID
 
 
 def run(args, timeout=60):
-    """Lance une commande opencli, retourne stdout (str)."""
+    """Lance une commande navigateur (maison ou opencli), retourne stdout (str)."""
+    if MOTEUR != "opencli":
+        return navigateur.run(args)
     try:
         r = subprocess.run(
             [OPENCLI] + args, capture_output=True, text=True, timeout=timeout
@@ -125,6 +219,9 @@ def get_session():
     m = re.search(r"•\s*([0-9a-z]{8}):\s*connected", out)
     if m:
         return m.group(1)
+    if MOTEUR != "opencli":
+        sys.exit("ERREUR : le Chrome Scout ne demarre pas.\n"
+                 "Verifie avec: python3 navigateur.py doctor")
     sys.exit("ERREUR : aucun navigateur connecte au bridge OpenCLI.\n"
              "Ouvre Chrome, connecte-toi au compte scouting, verifie avec: opencli doctor")
 
@@ -139,9 +236,29 @@ def whoami(session):
 # Navigation + extraction
 # ----------------------------------------------------------------------------
 
+def pause(a, b):
+    """Pause au hasard entre a et b secondes : Instagram repere les rythmes trop reguliers/rapides."""
+    time.sleep(random.uniform(a, b))
+
+
+def _sur_profil(user):
+    """Vrai si l'onglet affiche deja le profil de user (arrive par un clic depuis le feed)."""
+    if MOTEUR == "opencli":
+        return False
+    try:
+        return bool(navigateur.onglet().js(
+            "location.pathname.toLowerCase()===%s && !!document.querySelector('main header')"
+            % json.dumps(f"/{user.lower()}/"), timeout=10))
+    except Exception:
+        return False
+
+
 def open_profile(session, user):
+    if _sur_profil(user):  # deja dessus (clic depuis le feed) : pas de rechargement
+        pause(1, 2.5)
+        return
     run(["browser", session, "open", f"https://www.instagram.com/{user}/"], timeout=40)
-    time.sleep(3)
+    pause(2.5, 5)
 
 
 def links_on_page(session, limit=60):
@@ -171,11 +288,14 @@ def similar_accounts(session, user):
     open_profile(session, user)
     out = run(["browser", session, "find", "--role", "button",
                "--name", "Comptes similaires", "--limit", "1"], timeout=40)
+    if '"ref"' not in out:  # Instagram en anglais
+        out = run(["browser", session, "find", "--role", "button",
+                   "--name", "Similar accounts", "--limit", "1"], timeout=40)
     m = re.search(r'"ref":\s*(\d+)', out)
     if not m:
         return []
     run(["browser", session, "click", m.group(1)], timeout=30)
-    time.sleep(3)
+    pause(2.5, 5)
     return links_on_page(session, limit=60)
 
 
@@ -183,29 +303,225 @@ def explore_people(session):
     """Recupere une fournee de comptes suggeres depuis explore/people."""
     run(["browser", session, "open",
          "https://www.instagram.com/explore/people/"], timeout=40)
-    time.sleep(3)
+    pause(2.5, 5)
     for _ in range(6):
         run(["browser", session, "scroll", "down", "--repeat", "2"], timeout=20)
-        time.sleep(1)
+        pause(2, 4)
     return links_on_page(session, limit=250)
 
 
-FEED_JS = r"""(async()=>{const s=new Set();for(let i=0;i<%d;i++){
-document.querySelectorAll("article").forEach(a=>{
- const l=a.querySelector('header a[href^="/"], a[role=link][href^="/"]');
- if(l){const m=l.getAttribute("href").match(/^\/([A-Za-z0-9_.]+)\/$/);if(m)s.add(m[1])}});
-window.scrollBy(0,1400);await new Promise(r=>setTimeout(r,1300))}
-return "HANDLES:"+[...s].join(",")})()"""
+# Feed : auteurs des posts + filtre AVANT visite (pas de pub, pas de compte geant).
+# Defilement lent et irregulier (2,5 a 5,5 s) pour ressembler a un humain.
+FEED_JS = r"""(async()=>{const keep=new Map(),skip=new Set();
+const FRW=__FR_WORDS__;const pat="(?<![\\w'’])("+FRW.map(w=>w.replace(/[.*+?^${}()|[\]\\]/g,"\\$&")).join("|")+")(?![\\w'’])";
+const FR=new RegExp(pat,"i"),FRG=new RegExp(pat,"gi");
+// toujours sur l'onglet "For you" (jamais "Following") : on le selectionne s'il ne l'est pas
+const wait=ms=>new Promise(r=>setTimeout(r,ms));
+const tab=ts=>[...document.querySelectorAll('[role=tab]')].find(e=>ts.includes(e.textContent.trim()));
+const forYou=async()=>{const fy=tab(['For you','Pour vous']);
+  if(fy&&fy.getAttribute('aria-selected')!=='true'){fy.click();await wait(3000+Math.random()*1500)}};
+await forYou();
+// le feed n'est jamais recharge : on reprend la ou on s'etait arrete, en sautant les posts deja vus
+if(!window.__sv){window.__sv=new Set();window.scrollTo(0,0)}
+// profils types / favoris (deja vus, deja aimes) et posts deja likes : servent de reference, on ne les touche plus
+const AIMES=new Set(__AIMES__),aimes=new Set();
+const dejaLike=a=>!!a.querySelector('svg[aria-label="Unlike"],svg[aria-label="Je n’aime plus"]');
+const num=t=>{const m=t.trim().match(/^(\d[\d\s.,\u202f\u00a0]*)\s*([kKmM])?$/);if(!m)return null;
+ let v=parseFloat(m[1].replace(/[\s\u202f\u00a0]/g,'').replace(',','.'));if(m[2])v*=/m/i.test(m[2])?1e6:1e3;
+ else v=parseFloat(m[1].replace(/[\s.,\u202f\u00a0]/g,''));return v};
+for(let i=0;i<%d;i++){
+ if(i%%5===0)await forYou();  // on reverifie regulierement qu'on est bien sur "For you"
+ document.querySelectorAll("article").forEach(a=>{
+  const l=a.querySelector('header a[href^="/"], a[role=link][href^="/"]');if(!l)return;
+  const m=l.getAttribute("href").match(/^\/([A-Za-z0-9_.]+)\/$/);if(!m)return;const h=m[1];
+  const pid=h+'|'+((a.querySelector('a[href*="/p/"],a[href*="/reel/"]')||{}).getAttribute?.('href')||a.innerText.slice(0,40));
+  if(window.__sv.has(pid))return;window.__sv.add(pid);  // post deja passe lors d'un tour precedent
+  // deja like ou deja connu (profil type / favori) : reference seulement -> on passe, sans rien toucher
+  if(AIMES.has(h.toLowerCase())||dejaLike(a)){skip.add(h);return}
+  const lines=a.innerText.split("\n").slice(1,12);
+  if(lines.some(t=>/^(Sponsoris|Sponsored|Publicit)/.test(t.trim()))){skip.add(h);return}
+  const likes=lines.map(num).find(v=>v!=null);
+  if(likes!=null&&likes>%d){skip.add(h);return}
+  // legende en francais -> pas interessant (la legende suit la 2e occurrence du pseudo)
+  const all=a.innerText.split("\n").map(t=>t.trim()).filter(Boolean);
+  const i2=all.indexOf(h,all.indexOf(h)+1);
+  const cap=i2>0?all.slice(i2+1,i2+4).filter(t=>!/^(Voir la traduction|Afficher|Ajouter un commentaire|plus|Voir les|See translation|View all|View more|Add a comment|more)/i.test(t)).join(" "):"";
+  if(FR.test(cap)&&(cap.replace(/’/g,"'").match(FRG)||[]).length>=2){skip.add(h);return}
+  if(!skip.has(h))keep.set(h,Math.max(keep.get(h)||0,likes||0))});  // likes du post vu dans le feed
+ window.scrollBy(0,700+Math.random()*700);
+ await new Promise(r=>setTimeout(r,2500+Math.random()*3000))}
+const ok=[...keep.entries()].filter(([h])=>!skip.has(h)).sort((x,y)=>y[1]-x[1]);  // plus gros likes d'abord
+return "HANDLES:"+ok.map(e=>e[0]).join(",")+" AIMES:"+[...aimes].join(",")+" SKIP:"+skip.size+" LIKES:"+JSON.stringify(Object.fromEntries(ok))})()"""
+
+# profils types + favoris : reference seulement, ignores dans le feed (ni like, ni visite) ; rempli dans main()
+AIMES_FEED = set()
+
+# likes du post vu dans le feed, par pseudo (sert de preuve d'engagement + priorite de visite)
+FEED_LIKES = {}
+# un post du feed a partir de ce nombre de likes : profil TOUJOURS verifie, en priorite
+FEED_LIKES_PRIORITE = 1000
+
+# likes au-dessus desquels un post du feed trahit un tres gros compte : pas de visite.
+# Large expres : une modele a 10K abonnes peut avoir un post viral a 30-50K likes.
+MAX_FEED_LIKES = 10000  # au-dessus de 10 000 likes sur un post du feed : tres rare chez nos profils -> ignore
 
 
-def feed_authors(session, scrolls=30):
-    """Recupere les auteurs des posts du feed 'Pour toi' (FYP) du compte scouting."""
-    run(["browser", session, "open", "https://www.instagram.com/"], timeout=40)
-    time.sleep(4)
-    out = run(["browser", session, "eval", FEED_JS % scrolls], timeout=scrolls * 3 + 60)
+# Feed, un post a la fois : on descend jusqu'au prochain post interessant (memes filtres que le feed),
+# on le marque, et on s'arrete dessus. Les posts deja passes ne sont jamais reexamines.
+FEED_NEXT_JS = FEED_JS.replace(
+    "  if(!skip.has(h))keep.set(h,Math.max(keep.get(h)||0,likes||0))});  // likes du post vu dans le feed",
+    "  if(!skip.has(h)&&!DEJA.has(h.toLowerCase())&&!cible){cible=h;cibleLikes=likes||0;"
+    "a.setAttribute('data-scout-cible',h)}});\n if(cible)break;").replace(
+    "const AIMES=new Set(__AIMES__),aimes=new Set();",
+    "const AIMES=new Set(__AIMES__),aimes=new Set(),DEJA=new Set(__DEJA__);let cible=null,cibleLikes=0;\n"
+    "document.querySelectorAll('article[data-scout-cible]').forEach(x=>x.removeAttribute('data-scout-cible'));").replace(
+    'return "HANDLES:"',
+    "if(cible){const a=document.querySelector('article[data-scout-cible]');a&&a.scrollIntoView({block:'center'});"
+    "await new Promise(r=>setTimeout(r,800+Math.random()*1200))}\n"
+    "return 'CIBLE:'+(cible||'')+'|'+cibleLikes+' '+\"HANDLES:\"").replace(
+    ' document.querySelectorAll("article").forEach(a=>{',
+    ' document.querySelectorAll("article").forEach(a=>{if(cible)return;  // les posts suivants attendent leur tour')
+
+# clic sur le nom de la fille dans le post marque -> son profil s'ouvre (comme un humain)
+CLIC_PROFIL_JS = r"""(async()=>{const w=ms=>new Promise(r=>setTimeout(r,ms));
+const a=document.querySelector('article[data-scout-cible]');if(!a)return 'NON';const h=a.getAttribute('data-scout-cible');
+const l=a.querySelector('a[href="/'+h+'/"]');if(!l)return 'NON';l.click();
+for(let i=0;i<60;i++){await w(250);if(location.pathname.toLowerCase()==='/'+h.toLowerCase()+'/'&&document.querySelector('main header'))return 'OK'}
+return 'NON'})()"""
+
+# retour arriere jusqu'au feed (accueil), la ou on s'etait arrete
+RETOUR_FEED_JS = r"""(async()=>{const w=ms=>new Promise(r=>setTimeout(r,ms));
+for(let k=0;k<4&&location.pathname!=='/';k++){history.back();for(let i=0;i<30&&location.pathname!=='/';i++)await w(200)}
+for(let i=0;i<40;i++){if(location.pathname==='/'&&document.querySelector('article'))return 'OK';await w(250)}
+return 'NON'})()"""
+
+FEED_ETAT = {"ouvert": False, "vides": 0}
+
+
+def feed_prochaine(exclus):
+    """Un seul onglet, comme un humain : retour au feed -> descend jusqu'au prochain post interessant ->
+    clic sur le nom -> on est sur son profil. Renvoie [pseudo] (ou [] si rien de neuf ce coup-ci)."""
+    o = navigateur.onglet()
+    if FEED_ETAT["ouvert"]:
+        if (o.js(RETOUR_FEED_JS, timeout=30) or "NON") != "OK":
+            FEED_ETAT["ouvert"] = False  # feed perdu : on le rouvre
+    if not FEED_ETAT["ouvert"] or FEED_ETAT["vides"] >= 4:
+        try:  # feed neuf : memoire Instagram videe (sans deconnexion)
+            o.cmd("Storage.clearDataForOrigin", {"origin": "https://www.instagram.com",
+                  "storageTypes": "local_storage,indexeddb,cache_storage,service_workers"})
+        except Exception:
+            pass
+        o.ouvrir("https://www.instagram.com/")
+        pause(4, 7)
+        FEED_ETAT.update(ouvert=True, vides=0)
+    js = (FEED_NEXT_JS % (6, MAX_FEED_LIKES)).replace("__FR_WORDS__", json.dumps(FR_WORDS)) \
+        .replace("__AIMES__", json.dumps(sorted(AIMES_FEED))) \
+        .replace("__DEJA__", json.dumps(sorted(h.lower() for h in exclus)))
+    try:
+        out = o.js(js, timeout=6 * 8 + 60) or ""
+    except Exception:
+        FEED_ETAT["ouvert"] = False
+        return []
+    m = re.search(r"CIBLE:([A-Za-z0-9_.]*)\|(\d*)", out)
+    h = m.group(1) if m else ""
+    if not h or h.lower() in IGNORE or h.lower() in (YOUR_HANDLE, SCOUT_ACCOUNT, CONNECTED_ACCOUNT or ""):
+        FEED_ETAT["vides"] += 1
+        return []
+    FEED_ETAT["vides"] = 0
+    if m.group(2):
+        FEED_LIKES[h.lower()] = int(m.group(2))
+    if (o.js(CLIC_PROFIL_JS, timeout=30) or "NON") != "OK":
+        return [h]  # clic rate : Scout ouvrira le profil normalement
+    return [h]
+
+
+def feed_suite(scrolls=3):
+    """Continue a descendre dans le feed (onglet dedie, jamais recharge) et renvoie les nouvelles
+    autrices interessantes. Scout revient ensuite ici apres chaque profil verifie, la ou il s'etait arrete."""
+    f = navigateur.onglet_feed()
+    try:
+        f.cmd("Page.bringToFront", timeout=10)  # on revient sur le feed
+    except Exception:
+        pass
+    if not FEED_ETAT["ouvert"] or FEED_ETAT["vides"] >= 4:
+        # 1re ouverture (ou feed vraiment a sec) : feed neuf, memoire Instagram videe (sans deconnexion)
+        try:
+            f.cmd("Storage.clearDataForOrigin", {"origin": "https://www.instagram.com",
+                  "storageTypes": "local_storage,indexeddb,cache_storage,service_workers"})
+        except Exception:
+            pass
+        f.ouvrir("https://www.instagram.com/")
+        pause(4, 7)
+        FEED_ETAT.update(ouvert=True, vides=0)
+    js = (FEED_JS % (scrolls, MAX_FEED_LIKES)).replace("__FR_WORDS__", json.dumps(FR_WORDS)) \
+        .replace("__AIMES__", json.dumps(sorted(AIMES_FEED)))
+    try:
+        out = f.js(js, timeout=scrolls * 8 + 60) or ""
+    except Exception:
+        FEED_ETAT["ouvert"] = False  # onglet perdu : on le rouvrira
+        return []
+    handles = _parse_feed(out)
+    FEED_ETAT["vides"] = 0 if handles else FEED_ETAT["vides"] + 1
+    try:
+        navigateur.onglet().cmd("Page.bringToFront", timeout=10)  # on part verifier les profils
+    except Exception:
+        pass
+    return handles
+
+
+def _parse_feed(out):
+    """Resultat du script du feed -> liste des autrices a verifier (+ likes notes)."""
     m = re.search(r"HANDLES:([A-Za-z0-9_.,]*)", out)
     if not m:
         return []
+    lk = re.search(r"LIKES:(\{.*\})", out)
+    if lk:
+        try:
+            FEED_LIKES.update({h.lower(): int(v) for h, v in json.loads(lk.group(1)).items() if v})
+        except Exception:
+            pass
+    clean = []
+    for h in m.group(1).split(","):
+        hl = h.lower()
+        if not h or hl in IGNORE or hl == YOUR_HANDLE or hl == SCOUT_ACCOUNT \
+                or (CONNECTED_ACCOUNT and hl == CONNECTED_ACCOUNT):
+            continue
+        clean.append(h)
+    return list(dict.fromkeys(clean))
+
+
+def feed_authors(session, scrolls=20):
+    """Recupere les auteurs des posts du feed 'Pour toi' (FYP) du compte scouting."""
+    # feed tout neuf a chaque ouverture : on vide la memoire d'Instagram dans le navigateur
+    # (feed deja charge, cache), SANS les cookies -> le compte reste connecte
+    if MOTEUR != "opencli":
+        try:
+            navigateur.onglet().cmd("Storage.clearDataForOrigin", {
+                "origin": "https://www.instagram.com",
+                "storageTypes": "local_storage,indexeddb,cache_storage,service_workers"})
+        except Exception:
+            pass
+    run(["browser", session, "open", "https://www.instagram.com/"], timeout=40)
+    pause(4, 7)
+    js = (FEED_JS % (scrolls, MAX_FEED_LIKES)).replace("__FR_WORDS__", json.dumps(FR_WORDS)) \
+        .replace("__AIMES__", json.dumps(sorted(AIMES_FEED)))
+    out = run(["browser", session, "eval", js], timeout=scrolls * 7 + 60)
+    m = re.search(r"HANDLES:([A-Za-z0-9_.,]*)", out)
+    if not m:
+        return []
+    lk = re.search(r"LIKES:(\{.*\})", out)
+    if lk:
+        try:
+            FEED_LIKES.update({h.lower(): int(v) for h, v in json.loads(lk.group(1)).items() if v})
+        except Exception:
+            pass
+    sk = re.search(r"SKIP:(\d+)", out)
+    if sk and int(sk.group(1)):
+        print(f"  ... feed : {sk.group(1)} comptes ecartes sans visite (pub, francais, trop gros ou deja connus)")
+    am = re.search(r"AIMES:([A-Za-z0-9_.,]*)", out)
+    if am and am.group(1):
+        print("  ... ♥ 1 like dans le feed (sans ouvrir le compte) : "
+              + ", ".join("@" + h for h in am.group(1).split(",")))
     clean = []
     for h in m.group(1).split(","):
         hl = h.lower()
@@ -220,24 +536,190 @@ def screenshot(session, user, path):
     run(["browser", session, "screenshot", str(path)], timeout=40)
 
 
-def first_post_likes(session, user):
-    """Ouvre le post le plus recent du profil et renvoie son nb de likes (ou None)."""
+BIO_LINK_JS = r"""(()=>{const h=document.querySelector('main header');if(!h)return 'LINK:';
+for(const a of h.querySelectorAll('a[href]')){let u=a.href;
+  try{const p=new URL(u);if(p.hostname==='l.instagram.com')u=p.searchParams.get('u')||u;}catch(e){}
+  if(/^https?:\/\//.test(u)&&!/(^|\.)(instagram|threads)\.(com|net)\//.test(u.replace(/^https?:\/\//,'')+'/'))return 'LINK:'+u;}
+const t=h.textContent.match(/(?:Icône de lien|Link icon)\s*([^\s]+)/);return 'LINK:'+(t?t[1]:'')})()"""
+
+
+PRIVATE_JS = r"""(()=>{const m=document.querySelector('main');
+return 'PRIVE:'+(m&&/Ce compte est privé|This account is private|Ce compte est priv/.test(m.innerText)?1:0)})()"""
+
+
+def is_private(session):
+    """Vrai si le profil courant est un compte prive."""
+    return "PRIVE:1" in run(["browser", session, "eval", PRIVATE_JS], timeout=30)
+
+
+def bio_link(session):
+    """Lien en bio du profil courant -> (type, lien). type: 'of' (OnlyFans direct), 'autre', ou ''."""
+    out = run(["browser", session, "eval", BIO_LINK_JS], timeout=30)
+    m = re.search(r"LINK:(\S*)", out)
+    link = m.group(1).strip() if m else ""
+    if not link or re.search(r"(^|\.|//)(instagram|threads)\.(com|net)", link.lower()):
+        return "", ""
+    l = link.lower()
+    if "onlyfans.com" in l:
+        return "of", link
+    if any(d in l for d in LINK_PRIORITAIRES):
+        return "agreg", link  # hoo.be, link.me, linkscale, linktree : prioritaires
+    return "autre", link
+
+
+def avatar_datauri(session, user, shots):
+    """Photo de profil du profil courant, en petite vignette ronde-ready (data URI jpeg ~10 Ko)."""
+    out = run(["browser", session, "eval",
+               "(document.querySelector('header img')||{}).src||''"], timeout=30)
+    m = re.search(r"https://\S+", out)
+    if not m:
+        return ""
+    raw = shots / f"{user}.avatar"
+    jpg = shots / f"{user}.avatar.jpg"
+    try:
+        import urllib.request
+        req = urllib.request.Request(m.group(0), headers={"User-Agent": "Mozilla/5.0"})
+        raw.write_bytes(urllib.request.urlopen(req, timeout=20).read())
+        subprocess.run(["sips", "-Z", "200", "-s", "format", "jpeg", "-s", "formatOptions", "70",
+                        str(raw), "--out", str(jpg)], capture_output=True, timeout=30)
+        return "data:image/jpeg;base64," + base64.b64encode(jpg.read_bytes()).decode()
+    except Exception:
+        return ""
+    finally:
+        raw.unlink(missing_ok=True)
+
+
+# 1er post de la grille qui n'est PAS epingle (un post epingle peut dater de 3 ans)
+LATEST_POST_JS = r"""(()=>{const as=[...document.querySelectorAll('main a[href*="/p/"],main a[href*="/reel/"]')];
+const pinned=a=>a.querySelector('svg[aria-label*="pingl" i],svg[aria-label*="pinned" i]');
+const ok=as.filter(x=>!pinned(x));return 'POSTS:'+(ok.length?ok:as).slice(0,3).map(a=>a.getAttribute('href')).join(' ')})()"""
+
+# date du post ouvert : <time datetime> (visible) ou "taken_at" du JSON de la page
+POST_DATE_JS = r"""(()=>{const t=document.querySelector('main time[datetime],article time[datetime],time[datetime]');
+if(t)return 'DATE:'+Math.floor(Date.parse(t.getAttribute('datetime'))/1000);
+const m=document.body.textContent.match(/taken_at\\?"\s*:\s*(\d{10})/);return 'DATE:'+(m?m[1]:'')})()"""
+
+
+def latest_post(session, user):
+    """Ouvre le dernier post (hors epingles) : renvoie (likes ou None, timestamp du post ou None)."""
     open_profile(session, user)
-    out = run(["browser", session, "find", "--css", "a[href*='/p/']",
-               "--limit", "1"], timeout=40)
-    m = re.search(r"/p/([A-Za-z0-9_-]+)", out)
-    if not m:  # pas de post photo/carrousel -> tente un reel
-        out = run(["browser", session, "find", "--css", "a[href*='/reel/']",
-                   "--limit", "1"], timeout=40)
-        m = re.search(r"/reel/([A-Za-z0-9_-]+)", out)
-        if not m:
-            return None
-        code, kind = m.group(1), "reel"
-    else:
-        code, kind = m.group(1), "p"
-    run(["browser", session, "open",
-         f"https://www.instagram.com/{kind}/{code}/"], timeout=40)
-    time.sleep(3)
+    out = run(["browser", session, "eval", LATEST_POST_JS], timeout=40)
+    posts = re.findall(r"/(p|reel)/([A-Za-z0-9_-]+)", out.split("POSTS:", 1)[-1])
+    if not posts:
+        return None, None
+    likes = posted = None
+    for i, (kind, code) in enumerate(posts[:2]):
+        run(["browser", session, "open",
+             f"https://www.instagram.com/{kind}/{code}/"], timeout=40)
+        pause(2.5, 5)
+        d = re.search(r"DATE:(\d{10})", run(["browser", session, "eval", POST_DATE_JS], timeout=30))
+        ts = int(d.group(1)) if d else None
+        if i == 0:
+            posted = ts
+        likes = _likes_on_post_page(session)
+        # un post de moins de 2 jours n'a pas encore ses likes -> on mesure sur le precedent
+        if not ts or time.time() - ts > 2 * 86400:
+            break
+    return likes, posted
+
+
+# sur le profil : clic sur un post de la grille -> il s'ouvre dans sa fenetre ; on lit likes + date
+OUVRIR_POST_JS = r"""(async()=>{const w=ms=>new Promise(r=>setTimeout(r,ms));
+const a=document.querySelector('main a[href=%s]');if(!a)return 'NON';a.click();
+for(let i=0;i<40;i++){await w(250);const d=document.querySelector('div[role="dialog"]')||(/\/(p|reel)\//.test(location.pathname)?document.querySelector('main'):null);
+ if(d&&/\d/.test(d.innerText)&&d.querySelector('time[datetime]')){
+  const t=d.innerText;const m=t.match(/([\d.,]+\s*[KkMm]?)\s+likes?\b/);
+  const tm=d.querySelector('time[datetime]');
+  return 'LIKES:'+(m?m[1].replace(/\s/g,''):'')+' DATE:'+Math.floor(Date.parse(tm.getAttribute('datetime'))/1000)}}
+return 'NON'})()"""
+
+RETOUR_JS = r"""(async()=>{const w=ms=>new Promise(r=>setTimeout(r,ms));const avant=location.pathname;history.back();
+for(let i=0;i<40;i++){await w(250);if(location.pathname!==avant)return 'OK'}return 'NON'})()"""
+
+
+def _nombre_likes(txt):
+    """'1,234' -> 1234 ; '12.5K' -> 12500."""
+    t = txt.strip().upper()
+    mult = 1000 if t.endswith("K") else 1000000 if t.endswith("M") else 1
+    t = t.rstrip("KM")
+    try:
+        return int(float(t.replace(",", "")) * mult) if mult > 1 else int(re.sub(r"[.,]", "", t))
+    except ValueError:
+        return None
+
+
+def recent_likes_clic(user, n=3):
+    """Sur le profil (arrive par un clic) : clique ses n derniers posts un par un, lit les likes dans la
+    fenetre du post, puis revient au profil. Aucun chargement de page."""
+    o = navigateur.onglet()
+    out = o.js(LATEST_POST_JS) or ""   # posts de la grille, epingles (icone) deja retires
+    hrefs = out.split("POSTS:", 1)[-1].split()
+    vus = []  # (date, likes) dans l'ordre de la grille
+    for href in hrefs[:n + 1]:  # 1 post de plus : filet de securite si un epingle n'a pas d'icone
+        r = o.js(OUVRIR_POST_JS % json.dumps(href), timeout=30) or "NON"
+        if r == "NON":
+            continue
+        m = re.search(r"LIKES:(\S*)", r)
+        d = re.search(r"DATE:(\d{10})", r)
+        vus.append((int(d.group(1)) if d else 0, _nombre_likes(m.group(1)) if m and m.group(1) else None))
+        pause(1.5, 3.5)  # regarde le post
+        o.js(RETOUR_JS, timeout=20)  # ferme le post : retour au profil
+        pause(0.8, 1.8)
+    # un post plus ancien que celui qui le suit dans la grille = post epingle -> on l'ignore
+    normaux = [v for i, v in enumerate(vus) if all(v[0] >= w[0] for w in vus[i + 1:])]
+    normaux = normaux[:n]
+    likes = [l for _, l in normaux]
+    posted = normaux[0][0] if normaux and normaux[0][0] else None
+    return likes, posted
+
+
+def recent_likes(session, user, n=3):
+    """Ouvre les n derniers posts (hors epingles) : renvoie ([likes du plus recent au plus ancien], date du dernier)."""
+    if _sur_profil(user):  # arrive par un clic depuis le feed : on clique les posts, sans recharger
+        return recent_likes_clic(user, n)
+    open_profile(session, user)
+    out = run(["browser", session, "eval", LATEST_POST_JS], timeout=40)
+    posts = re.findall(r"/(p|reel)/([A-Za-z0-9_-]+)", out.split("POSTS:", 1)[-1])
+    likes, posted = [], None
+    for i, (kind, code) in enumerate(posts[:n]):
+        run(["browser", session, "open", f"https://www.instagram.com/{kind}/{code}/"], timeout=40)
+        pause(2.5, 5)
+        if i == 0:
+            d = re.search(r"DATE:(\d{10})", run(["browser", session, "eval", POST_DATE_JS], timeout=30))
+            posted = int(d.group(1)) if d else None
+        likes.append(_likes_on_post_page(session))
+    return likes, posted
+
+
+def engagement(likes, posted, feed_like=None):
+    """Regle des likes (ok, raison, likes typiques) :
+    - le dernier post peut etre sous 600 (normal s'il est recent) mais pas sous 100 ;
+    - les autres posts regardes (et le post vu dans le feed) doivent tous faire >= 600."""
+    connus = [x for x in likes if x is not None]
+    typique = sorted(connus)[len(connus) // 2] if connus else feed_like
+    if not connus and not feed_like:
+        return True, "ok (likes masques)", None
+    dernier = likes[0] if likes else None
+    recent = posted and time.time() - posted < 2 * 86400
+    if dernier is not None and dernier < MIN_LIKES_DERNIER and not recent:
+        return False, f"engagement faible (dernier post {dernier} likes)", typique
+    # le post vu dans le feed ne compte qu'en positif (il est souvent tout recent, likes pas encore la)
+    autres = [x for x in likes[1:] if x is not None] + \
+        ([feed_like] if feed_like and feed_like >= MIN_LIKES_PER_POST else [])
+    if not autres:  # un seul post mesurable : il doit faire 600 lui-meme
+        autres = [dernier] if dernier is not None else []
+    faibles = [x for x in autres if x < MIN_LIKES_PER_POST]
+    if faibles:
+        return False, f"engagement faible ({'/'.join(str(x) for x in connus)} likes)", typique
+    return True, "ok", typique
+
+
+def first_post_likes(session, user):
+    """Nb de likes du dernier post (hors epingles), ou None."""
+    return latest_post(session, user)[0]
+
+
+def _likes_on_post_page(session):
     # les likes sont dans le JSON de la page ("like_count":N), pas dans le texte visible.
     # Les petites valeurs (0,1,2,3...) sont des likes de COMMENTAIRES -> on les ignore.
     # Le post principal = 1er like_count >= 100 (les posts d'un compte 2k+ depassent 100).
@@ -256,14 +738,18 @@ def first_post_likes(session, user):
 # ----------------------------------------------------------------------------
 
 def to_number(s):
-    """'6 406' -> 6406, '10,8 k' -> 10800, '1,5 m' -> 1500000."""
-    s = s.strip().lower().replace(" ", " ").replace("\xa0", " ")
+    """'6 406' -> 6406, '4,084' -> 4084, '10,8 k' / '10.8K' -> 10800, '1,5 m' -> 1500000."""
+    s = s.strip().lower().replace("\u202f", " ").replace("\xa0", " ")
     mult = 1
     if s.endswith("k"):
         mult, s = 1000, s[:-1]
     elif s.endswith("m"):
         mult, s = 1000000, s[:-1]
-    s = s.replace(" ", "").replace(",", ".")
+    s = s.replace(" ", "")
+    if mult == 1:   # nombre entier : virgules/points = separateurs de milliers (FR ou EN)
+        s = re.sub(r"[.,]", "", s)
+    else:           # 10,8 k (FR) ou 10.8K (EN) : decimale
+        s = s.replace(",", ".")
     try:
         return int(float(s) * mult)
     except ValueError:
@@ -271,12 +757,12 @@ def to_number(s):
 
 
 def parse_header(text):
-    """Extrait username, posts, followers, following, bio, statut suivi, verifie."""
+    """Extrait posts, followers, following, bio, statut suivi, verifie (Instagram en FR ou en EN)."""
     info = {"raw": text}
     m = re.search(
-        r"([\d.,\s]+?)\s*(?:publication|publications)\s*"
-        r"([\d.,\s]*[km]?)\s*followers\s*"
-        r"([\d.,\s]*[km]?)\s*suivi",
+        r"([\d.,\s]+?)\s*(?:publications?|posts?)\s*"
+        r"([\d.,\s]*[km]?)\s*followers?\s*"
+        r"([\d.,\s]*[km]?)\s*(?:suivi|following)",
         text, re.IGNORECASE,
     )
     if not m:
@@ -284,41 +770,73 @@ def parse_header(text):
     info["posts"] = to_number(m.group(1))
     info["followers"] = to_number(m.group(2))
     info["following"] = to_number(m.group(3))
-    info["verified"] = "Vérifié" in text or "Verifie" in text
-    info["followed_by_you"] = f"Suivi(e) par {YOUR_HANDLE}" in text
-    # bouton "Suivi(e)" (= le compte connecte suit deja) vs "Suivre"
-    tail = text.split("suivi(e)s", 1)[-1] if "suivi(e)s" in text else text
+    info["verified"] = any(w in text for w in ("Vérifié", "Verifie", "Verified"))
+    # ligne "Suivi(e) par X, Y et N autres" / "Followed by X, Y and N others"
+    # (= comptes suivis par le compte scouting)
+    suivis = ""
+    for lab in ("Suivi(e) par", "Followed by"):
+        if lab in text:
+            suivis = text.split(lab, 1)[1][:200]
+            break
+    info["followed_by_you"] = bool(YOUR_HANDLE) and YOUR_HANDLE.lower() in suivis.lower()
+    # suivie par creatorsinc (plus grosse agence) : bon signal, souvent de petits profils prometteurs
+    info["creatorsinc"] = "creatorsinc" in suivis.lower()
+    # ce qui suit le compteur d'abonnements : bio puis boutons
+    tail = text[m.end():]
+    # bouton "Suivi(e)" / "Following" (= le compte scouting suit deja) vs "Suivre" / "Follow"
     info["followed_by_account"] = bool(
-        re.search(r"Suivi\(e\)(Icône|Contacter|Comptes)", tail)
+        re.search(r"Suivi\(e\)(Icône|Contacter|Comptes)|Following(Message|Similar|Link)|Requested", tail)
     )
-    # bio = ce qui suit le compteur de following, avant les boutons
     bio = tail
-    for cut in ["Suivre", "Suivi(e)", "Contacter", "Comptes similaires",
-                "Icône de lien", "Threads"]:
+    for cut in ["Suivre", "Suivi(e)", "Contacter", "Comptes similaires", "Icône de lien",
+                "Followed by", "Following", "Follow", "Message", "Similar accounts", "Link icon", "Threads"]:
         bio = bio.split(cut)[0]
     info["bio"] = bio.strip()
     return info
 
 
-def passes(info):
+def passes(info, of_exception=False):
     """Retourne (ok: bool, raison: str)."""
     if not info or info.get("followers") is None:
         return False, "stats illisibles"
     f = info["followers"]
     if f < FOLLOWERS_MIN:
         return False, f"trop petit ({f})"
-    if f > FOLLOWERS_MAX:
+    if f > FOLLOWERS_MAX and not (of_exception and f <= OF_EXCEPTION_MAX):
         return False, f"trop gros ({f})"
     if info.get("following") and f and info["following"] / max(f, 1) > MAX_FOLLOWING_RATIO:
         return False, "ratio perso/college"
     if info.get("followed_by_account") or info.get("followed_by_you"):
         return False, "deja suivi (deja contacte)"
+    raw = info.get("raw", "")
+    for cat in CATEGORY_BLACKLIST:  # mot entier : "Marque" ne doit pas matcher "Remarque"
+        if re.search(r"(?<![A-Za-zÀ-ÿ])" + re.escape(cat) + r"(?![A-Za-zÀ-ÿ])", raw):
+            return False, f"compte business ({cat})"
+    if is_french(info.get("bio", ""), places=True):
+        return False, "contenu francais"
+    mentions = re.findall(r"@[A-Za-z0-9_.]+", info.get("bio", ""))
+    if len(mentions) > MAX_MENTIONS_BIO:  # trop de @ en bio (marques, ecole, agences...)
+        return False, f"trop de @ en bio ({len(mentions)})"
+    # appris de ton tri : comme tes jetees, jamais comme tes gardees
+    if APPRIS.get("abonnes_min") and f < APPRIS["abonnes_min"] and not of_exception:
+        return False, f"appris : plus petit que tes gardees ({f})"
+    bio_mots = set(re.findall(r"[a-zà-ÿ]{3,}", info.get("bio", "").lower()))
+    mot = next((m for m in APPRIS.get("mots", []) if m in bio_mots), None)
+    if mot:
+        return False, f"appris : bio comme tes jetees ({mot})"
+    raw_l = info.get("raw", "").lower()
+    dom = next((d for d in APPRIS.get("domaines", []) if d and d in raw_l), None)
+    if dom:
+        return False, f"appris : lien comme tes jetees ({dom})"
     bio_l = info.get("bio", "").lower()
+    for pat in MINOR_PATTERNS:
+        if re.search(pat, bio_l):
+            return False, "possiblement mineure (bio)"
     for kw in BIO_BLACKLIST:
         if kw in bio_l:
             return False, f"bio: {kw}"
-    if info.get("posts") == 0:
-        return False, "0 post"
+    if info.get("posts") is not None and info["posts"] < MIN_POSTS:
+        return False, f"pas assez de posts ({info['posts']})"
     return True, "ok"
 
 
@@ -339,18 +857,37 @@ def main():
     ap.add_argument("--min", type=int, default=FOLLOWERS_MIN, help="abonnes min")
     ap.add_argument("--max", type=int, default=FOLLOWERS_MAX, help="abonnes max")
     ap.add_argument("--seeds", type=str, default="", help="seeds separes par virgule")
-    ap.add_argument("--similaires", action="store_true",
-                    help="ancienne methode : derouler les 'Comptes similaires' des seeds (sinon FYP)")
+    ap.add_argument("--suggestions", action="store_true",
+                    help="ancienne methode : suggestions des profils types (par defaut : feed uniquement)")
     ap.add_argument("--out", type=str, default="resultats", help="dossier de sortie")
+    ap.add_argument("--max-visites", type=int, default=0,
+                    help="arrete apres N profils visites (quota Instagram du jour, 0 = pas de limite)")
     args = ap.parse_args()
+    # mode par defaut : FEED uniquement (le compte scouting suit les profils types -> son feed
+    # en est rempli ; chaque auteur du feed est verifie, puis retour au feed, en boucle)
+    args.similaires = args.suggestions
+    args.fyp = not args.suggestions
+    started = time.time()
+    statut = "termine"
 
     FOLLOWERS_MIN, FOLLOWERS_MAX = args.min, args.max
     out = Path(__file__).parent / args.out
     shots = out / "shots"
     shots.mkdir(parents=True, exist_ok=True)
 
+    ok_net, msg_net = connexion_ok()  # jamais sur l'internet normal : ca ferait reperer le compte
+    if not ok_net:
+        print("BLOQUE : " + msg_net)
+        log_search(out / "recherches.json", {
+            "debut": time.strftime("%Y-%m-%dT%H:%M:%S"), "duree_min": 0, "demandes": args.target,
+            "gardes": 0, "visites": 0, "min": FOLLOWERS_MIN, "max": FOLLOWERS_MAX,
+            "statut": "reseau", "credits_claude": 0})
+        sys.exit(2)
     session = get_session()
     CONNECTED_ACCOUNT = (whoami(session) or "").lower()
+    if not CONNECTED_ACCOUNT and MOTEUR != "opencli":
+        sys.exit("ERREUR : pas connecte a Instagram dans le Chrome Scout.\n"
+                 "Connecte-toi au compte scouting dans la fenetre Chrome Scout, puis relance.")
     print(f"Bridge : {session}  |  compte connecte : @{CONNECTED_ACCOUNT}")
     print(f"Cible : {args.target} leads  |  fourchette : {FOLLOWERS_MIN}-{FOLLOWERS_MAX} abonnes\n")
 
@@ -384,22 +921,92 @@ def main():
 
     # seeds : ceux donnes + les leads deja connus (boule de neige entre runs),
     # en sautant ceux deja mines recemment -> chaque run explore de nouvelles branches
-    base = [s.strip() for s in args.seeds.split(",") if s.strip()] or list(DEFAULT_SEEDS)
+    # graines = profils types (suivis par jeannechartre, profils_types.txt) + config
+    types_file = Path(__file__).parent / "profils_types.txt"
+    types = [l.strip().lstrip("@").lower() for l in types_file.read_text().splitlines()
+             if l.strip() and not l.startswith("#")] if types_file.exists() else []
+    # Vivier : tes "♥ Gardees" deviennent des profils types ; toute fille deja dans Vivier
+    # (nouvelle, vue, jetee, gardee) ne sera plus jamais reproposee
+    deja_vivier = set()
+    try:
+        import vivier_live
+        choix = vivier_live.lire_choix() or []
+        deja_vivier = {h for h, _, _ in choix}
+        nouveaux_types = [h for h, _, fav in choix if fav and h not in types]
+        if nouveaux_types:
+            with open(types_file, "a", encoding="utf-8") as f:
+                f.write("\n".join(nouveaux_types) + "\n")
+            types += nouveaux_types
+            print(f"{len(nouveaux_types)} favoris de Vivier ajoutes aux profils types : "
+                  + ", ".join("@" + h for h in nouveaux_types))
+        if deja_vivier:
+            print(f"{len(deja_vivier)} profils deja dans Vivier : jamais reproposes.")
+        # apprentissage : ton tri (♥ / jetes) -> regles recalculees a chaque recherche
+        import apprentissage
+        APPRIS.update(apprentissage.apprendre(choix))
+        print(f"Appris de ton tri ({APPRIS['gardes']} gardees, {APPRIS['jetes']} jetees) : "
+              f"{len(APPRIS['mots'])} mots de bio et {len(APPRIS['domaines'])} liens a eviter"
+              + (f", minimum {APPRIS['abonnes_min']} abonnes" if APPRIS.get("abonnes_min") else "") + ".")
+    except Exception as e:
+        print(f"(lecture de Vivier impossible : {e})")
+    base = [s.strip() for s in args.seeds.split(",") if s.strip()] or (types + list(DEFAULT_SEEDS))
     pool = list(dict.fromkeys(base + sorted(known)))
     random.shuffle(pool)
     seeds = [h for h in pool if not recently_mined(h)] if args.similaires else []
     if args.similaires:
-        print(f"Mode comptes similaires : {len(seeds)} seeds frais (sur {len(pool)}).\n")
+        print(f"Mode suggestions : {len(seeds)} profils de depart frais (sur {len(pool)}), "
+              "puis suggestions des profils gardes.\n")
     else:
         print("Mode FYP : recolte sur le feed 'Pour toi' du compte scouting.\n")
     queue = list(seeds)
     seen = set(s.lower() for s in pool)
+    seed_set = set(h.lower() for h in seeds)  # profils de depart : on deroule leurs suggestions
     kept = []          # leads retenus (dicts)
     examined = 0
+    next_break = random.randint(10, 16)  # prochaine grande pause (en profils visites)
+    rapide = False  # le profil precedent a ete ecarte tout de suite -> on enchaine vite
+
+    rot = {"list": random.sample(types, len(types)), "i": 0, "vides": 0}  # rotation des profils types
+    prof = {"scrolls": 15}  # profondeur de defilement du feed (augmente si rien de nouveau)
+    nuls = 0  # profils pas interessants d'affilee (mode feed -> reactualiser le feed a 3)
 
     def harvest_more():
-        """Ajoute de nouveaux candidats a la file : FYP d'abord, explore/people en secours."""
-        sources = [("FYP", feed_authors), ("explore/people", explore_people)]
+        """File vide (ou branche trop petite) : on repart d'un profil type, en boucle.
+        Renvoie False quand plus rien de nouveau nulle part (tous les profils types + explore)."""
+        if args.fyp:  # mode feed : le feed "For you" de l'accueil + ses suggestions. JAMAIS les Reels.
+            def ajoute(handles):
+                n = 0
+                for h in handles:
+                    if h.lower() not in seen and h.lower() not in done:
+                        seen.add(h.lower())
+                        queue.append(h)
+                        n += 1
+                return n
+            # on descend un peu dans le feed (onglet dedie, jamais recharge), puis on va verifier les
+            # profils trouves, puis on revient au feed la ou on s'etait arrete -> en boucle
+            if MOTEUR != "opencli":
+                new = ajoute(feed_prochaine(done | seen))  # un post a la fois, clic sur le profil
+            else:
+                new = ajoute(feed_authors(session, scrolls=prof["scrolls"]))
+            print(f"  ... feed : {new} nouveaux profils a verifier")
+            return True  # on y retourne toujours
+        for _ in range(min(3, len(rot["list"]))):
+            t = rot["list"][rot["i"] % len(rot["list"])]
+            rot["i"] += 1
+            new = 0
+            for h in similar_accounts(session, t):
+                if h.lower() not in seen and h.lower() not in done:
+                    seen.add(h.lower())
+                    queue.append(h)
+                    new += 1
+            print(f"  ... reprise depuis le profil type @{t} : {new} nouvelles suggestions")
+            if new:
+                rot["vides"] = 0
+                return True
+            rot["vides"] += 1
+        if rot["vides"] < len(rot["list"]):
+            return True  # il reste des profils types pas encore retentes dans ce tour
+        sources = ([("FYP", feed_authors)] if args.fyp else []) + [("explore/people", explore_people)]
         for name, fn in sources:
             new = 0
             for h in fn(session):
@@ -409,8 +1016,10 @@ def main():
                     new += 1
             print(f"  ... {name} : {new} nouveaux profils a verifier")
             if new:
-                return
+                return True
+        return False
     empty_harvests = 0
+    petits = 0  # profils trop petits d'affilee : la branche de suggestions s'epuise
 
     def save_outputs():
         """Ecrit toutes les sorties + known.txt (appele a chaque lead et en fin de run)."""
@@ -420,99 +1029,253 @@ def main():
         write_review(out / "review.html", kept)              # version ordi (photos = dossier shots/)
         write_mobile(out / "mobile.html", kept, shots)       # version autonome pour le tel
         write_cloud_export(out / "export-vivier.json", kept, shots)  # a importer dans l'artifact Vivier
+        add_to_library(out / "bibliotheque.json", kept)      # tous les gardes, tous runs confondus (app.py)
         # memorise tous les @ connus pour que le prochain run ne ramene que du nouveau
         all_known = known | set(k["handle"].lower() for k in kept)
         known_file.write_text("\n".join(sorted(all_known)), encoding="utf-8")
 
     idx = 0
     done = set(known) | rejected  # connus + deja qualifies : recoltes mais jamais re-exportes
+    done |= set(types)  # profils types = deja contactes (suivis par jeannechartre) : graines seulement
+    done |= deja_vivier  # deja dans Vivier : jamais la meme fille deux fois
     dry = 0            # rejets consecutifs (detection de tarissement/throttle)
-    while len(kept) < args.target:
-        if idx >= len(queue):
-            before = len(queue)
-            harvest_more()
-            if len(queue) == before:
-                empty_harvests += 1
-                if empty_harvests >= 3:
-                    print("  Sources epuisees. Laisse reposer quelques heures et relance.")
-                    break
-                continue
-            empty_harvests = 0
-        user = queue[idx]
-        idx += 1
+    # tes profils types / favoris : deja vus et aimes -> reference seulement ; croises dans le feed,
+    # ils sont ignores (ni like, ni visite)
+    AIMES_FEED.update(types)
 
-        # 1) recolte les comptes similaires de ce profil (BFS) -> nouveaux candidats
-        if args.similaires and not recently_mined(user):
-            new = 0
-            for h in similar_accounts(session, user):
-                if h.lower() not in seen:
-                    seen.add(h.lower())
-                    queue.insert(idx + new, h)  # qualifies juste apres ce seed
-                    new += 1
-            mined[user.lower()] = time.time()
-            mined_file.write_text(json.dumps(mined), encoding="utf-8")
+    # bouton Arreter (app / Vivier) : SIGTERM -> arret propre, on garde ce qui a ete trouve
+    signal.signal(signal.SIGTERM, _stop_requested)
+    try:
+        while len(kept) < args.target:
+            if not connexion_ok()[0]:  # le Mac a quitte le partage de connexion en cours de route
+                print("  Connexion normale detectee : arret immediat pour proteger le compte.")
+                statut = "reseau"
+                break
+            if args.max_visites and examined >= args.max_visites:
+                print(f"  Quota Instagram du jour atteint ({examined} profils visites). "
+                      "Arret pour proteger le compte, relance demain.")
+                statut = "quota"
+                break
+            if idx >= len(queue):
+                before = len(queue)
+                encore = harvest_more()
+                if len(queue) == before and args.fyp:
+                    # feed sans rien de nouveau : on laisse Instagram le renouveler, puis on y retourne
+                    empty_harvests += 1
+                    # rien de neuf sur ces quelques posts : on continue simplement a descendre.
+                    # Seulement si le feed est vraiment a sec (rouvert plusieurs fois), petite pause
+                    # pour laisser Instagram le renouveler. Jamais d'arret avant l'objectif.
+                    if empty_harvests >= 8:
+                        b = random.uniform(60, 150)
+                        print(f"  ... le feed ne donne plus rien de neuf, pause de {int(b)} s puis on reprend")
+                        time.sleep(b)
+                        empty_harvests = 0
+                    continue
+                if len(queue) == before:
+                    if not encore:  # tous les profils types + explore ne donnent plus rien de nouveau
+                        empty_harvests += 1
+                        if empty_harvests >= 2:
+                            print("  Plus aucune suggestion nouvelle : ajoute des profils types et relance.")
+                            statut = "epuise"
+                            break
+                    continue
+                empty_harvests = 0
+            user = queue[idx]
+            idx += 1
+            if examined:  # rythme humain entre deux profils + grande pause reguliere
+                # profil precedent ecarte sur ses chiffres -> on enchaine vite (comme un humain qui zappe)
+                pause(*((1, 2.5) if rapide else PAUSE_ENTRE_PROFILS))
+                if examined >= next_break:
+                    b = random.uniform(*GRANDE_PAUSE)
+                    print(f"  ... pause de {int(b)} s (rythme humain)")
+                    time.sleep(b)
+                    next_break = examined + random.randint(10, 16)
+
+            # 1) recolte les comptes similaires de ce profil (BFS) -> nouveaux candidats
+            if args.similaires and user.lower() in seed_set and not recently_mined(user):
+                new = 0
+                for h in similar_accounts(session, user):
+                    if h.lower() not in seen:
+                        seen.add(h.lower())
+                        queue.insert(idx + new, h)  # qualifies juste apres ce seed
+                        new += 1
+                mined[user.lower()] = time.time()
+                mined_file.write_text(json.dumps(mined), encoding="utf-8")
+                if user.lower() in done:
+                    print(f"  · seed @{user} -> {new} nouveaux candidats (file: {len(queue) - idx})")
+
+            # deja qualifie ? on a juste re-recolte son reseau, on ne le re-qualifie pas
             if user.lower() in done:
-                print(f"  · seed @{user} -> {new} nouveaux candidats (file: {len(queue) - idx})")
+                continue
+            done.add(user.lower())
 
-        # deja qualifie ? on a juste re-recolte son reseau, on ne le re-qualifie pas
-        if user.lower() in done:
-            continue
-        done.add(user.lower())
-
-        # 2) qualifie ce profil (on est deja dessus apres similar_accounts)
-        open_profile(session, user)
-        info = parse_header(header_of(session))
-        if info is None:  # chargement lent -> un retry
-            time.sleep(2)
+            # 2) qualifie ce profil (on est deja dessus apres similar_accounts)
+            open_profile(session, user)
             info = parse_header(header_of(session))
-        examined += 1
-        ok, why = passes(info)
-        likes = None
-        if ok:  # ne verifie l'engagement que si les stats passent (economie)
-            likes = first_post_likes(session, user)
-            if likes is not None and likes < MIN_LIKES_PER_POST:
-                ok, why = False, f"engagement faible ({likes} likes)"
-            elif likes is None:
-                why = "ok (likes masques)"
-        tag = "GARDE" if ok else "jette"
-        fol = info.get("followers") if info else "?"
-        lk = f"{likes} likes" if likes is not None else "likes ?"
-        print(f"[{len(kept)}/{args.target}] {tag:5} @{user}  ({fol} abo, {lk})  {why}")
-        if ok:
-            shot = shots / f"{user}.png"
-            open_profile(session, user)  # revient sur le profil pour la capture
-            screenshot(session, user, shot)
-            kept.append({
-                "handle": user,
-                "followers": info["followers"],
-                "following": info.get("following"),
-                "posts": info.get("posts"),
-                "likes": likes,
-                "verified": info.get("verified"),
-                "bio": info.get("bio", ""),
-                "url": f"https://www.instagram.com/{user}/",
-                "shot": f"shots/{user}.png",
-            })
-            dry = 0
-            save_outputs()  # sauvegarde a chaque lead : un arret ne perd rien
-        else:
-            if info is not None:  # rejet reel (pas un echec de chargement) -> memorise
+            if info is None:  # chargement lent -> un retry
+                time.sleep(2)
+                info = parse_header(header_of(session))
+            examined += 1
+            # exception : 25K-60K abonnes avec un lien OnlyFans direct -> on la garde quand meme
+            of_exc = bool(info and info.get("followers") and FOLLOWERS_MAX < info["followers"] <= OF_EXCEPTION_MAX
+                          and bio_link(session)[0] == "of")
+            ok, why = passes(info, of_exception=of_exc)
+            if ok and is_private(session):  # compte prive : on ne voit pas son contenu -> pas interessant
+                ok, why = False, "compte prive"
+            rapide = not ok  # ecartee des le haut du profil (abonnes, ratio, bio...) : retour feed sans attendre
+            if ok and of_exc:
+                why = f"ok (exception : {info['followers']} abonnes mais lien OF direct)"
+            likes = posted = None
+            if ok:  # ne verifie l'engagement que si les stats passent (economie)
+                likes_posts, posted = recent_likes(session, user)
+                age_j = int((time.time() - posted) / 86400) if posted else None
+                if age_j is not None and age_j > MAX_DAYS_SINCE_POST:
+                    ok, why = False, f"inactive (dernier post il y a {age_j // 30} mois)"
+                    likes = None
+                else:
+                    ok, why, likes = engagement(likes_posts, posted, FEED_LIKES.get(user.lower()))
+            tag = "GARDE" if ok else "jette"
+            fol = info.get("followers") if info else "?"
+            lk = f"{likes} likes" if likes is not None else "likes ?"
+            print(f"[{len(kept)}/{args.target}] {tag:5} @{user}  ({fol} abo, {lk})  {why}")
+            if ok:
+                shot = shots / f"{user}.png"
+                open_profile(session, user)  # revient sur le profil pour la capture
+                screenshot(session, user, shot)
+                lien_type, lien = bio_link(session)
+                if lien_type == "of":
+                    print("        ⭐ lien OnlyFans direct en bio : prioritaire")
+                kept.append({
+                    "lien_type": lien_type,  # 'of' = OnlyFans direct (priorite max), 'autre' = linktree/link.me...
+                    "lien": lien,
+                    "priorite": PRIORITE_LIEN.get(lien_type, 1) + (1 if info.get("creatorsinc") else 0),
+                    "creatorsinc": bool(info.get("creatorsinc")),
+                    "dernier_post": time.strftime("%Y-%m-%d", time.localtime(posted)) if posted else None,
+                    "handle": user,
+                    "followers": info["followers"],
+                    "following": info.get("following"),
+                    "posts": info.get("posts"),
+                    "likes": likes,
+                    "verified": info.get("verified"),
+                    "bio": info.get("bio", ""),
+                    "url": f"https://www.instagram.com/{user}/",
+                    "shot": f"shots/{user}.png",
+                    "avatar": avatar_datauri(session, user, shots),
+                })
+                dry = petits = nuls = 0
+                save_outputs()  # sauvegarde a chaque lead : un arret ne perd rien
+                vivier_direct(kept, en_cours=True)  # le profil apparait tout de suite dans Vivier
+                # boule de neige : les suggestions d'une fille gardee passent en tete de file
+                if args.similaires and not recently_mined(user):
+                    new = 0
+                    for h in similar_accounts(session, user):
+                        if h.lower() not in seen and h.lower() not in done:
+                            seen.add(h.lower())
+                            queue.insert(idx + new, h)
+                            new += 1
+                    mined[user.lower()] = time.time()
+                    mined_file.write_text(json.dumps(mined), encoding="utf-8")
+                    print(f"        + {new} suggestions de @{user} ajoutees")
+            else:
+                # tout profil deja ouvert est memorise : Scout n'y retourne jamais
                 rejected.add(user.lower())
                 with open(rejected_file, "a", encoding="utf-8") as f:
                     f.write(user.lower() + "\n")
-            dry += 1
-            if dry >= 40:
-                print("  40 rejets d'affilee -> sources taries ou Instagram throttle.")
-                print("  Laisse reposer quelques heures et relance.")
-                break
+                dry += 1
+                # branche qui descend sous la fourchette (comptes trop petits) -> on la laisse tomber
+                # et on repart d'un profil type
+                petits = petits + 1 if why.startswith("trop petit") else 0
+                # (ancien mode : 3 profils pas interessants -> on rechargeait le feed. Plus maintenant :
+                #  le feed reste ouvert et on continue a descendre, sinon Instagram bloque sur 4 posts)
+                nuls += 1
+                if args.fyp and nuls >= 3 and idx < len(queue) and MOTEUR == "opencli":
+                    # on garde quand meme les profils vus avec un gros post dans le feed (>= 1000 likes)
+                    gros = [h for h in queue[idx:] if FEED_LIKES.get(h.lower(), 0) >= FEED_LIKES_PRIORITE]
+                    print("  3 profils pas interessants d'affilee : on reactualise le feed"
+                          + (f" (on garde {len(gros)} profils a gros likes)" if gros else "") + ".")
+                    for h in queue[idx:]:  # pas vus : ils pourront revenir plus tard dans le feed
+                        if h not in gros:
+                            seen.discard(h.lower())
+                    queue[idx:] = gros
+                    nuls = 0
+                if petits >= 5 and args.similaires:
+                    print("  Suggestions trop petites (< "
+                          f"{FOLLOWERS_MIN} abonnes) : on abandonne cette branche, reprise depuis un profil type.")
+                    del queue[idx:]
+                    petits = 0
+
+    except KeyboardInterrupt:
+        print("  Recherche arretee a ta demande.")
+        statut = "arrete"
+        signal.signal(signal.SIGTERM, signal.SIG_IGN)  # laisse finir la sauvegarde
 
     save_outputs()
+    log_search(out / "recherches.json", {
+        "debut": time.strftime("%Y-%m-%dT%H:%M:%S", time.localtime(started)),
+        "duree_min": round((time.time() - started) / 60, 1),
+        "demandes": args.target, "gardes": len(kept), "visites": examined,
+        "min": FOLLOWERS_MIN, "max": FOLLOWERS_MAX, "statut": statut,
+        "credits_claude": 0,  # Scout tourne en local : aucun token consomme
+    })
+    vivier_direct([], en_cours=False)  # panneau Vivier a jour (recherche terminee + historique)
 
     print(f"\nTermine. {len(kept)} leads retenus sur {examined} profils examines.")
     print(f"  -> {out/'leads.csv'}")
     print(f"  -> ORDI : ouvre {out/'review.html'} pour swiper")
     print(f"  -> TEL  : envoie {out/'mobile.html'} sur ton telephone (AirDrop), autonome")
     print(f"  -> CLOUD: importe {out/'export-vivier.json'} dans ton artifact Vivier (synchro partout)")
+
+
+def _stop_requested(*_):
+    raise KeyboardInterrupt
+
+
+def vivier_direct(kept, en_cours):
+    """Envoie le dernier profil garde + la progression dans la page Vivier (onglet du Chrome Scout).
+    Sans effet si la page n'est pas accessible (pas connecte a claude.ai) : on continue sans."""
+    try:
+        import preparer_vivier
+        import vivier_live
+        st = preparer_vivier.stats()
+        if en_cours:
+            st["gardes_jour"] += len(kept)  # la recherche en cours n'est pas encore dans l'historique
+        st.update(en_cours=en_cours, maj=time.strftime("%Y-%m-%dT%H:%M:%S"))
+        docs = [preparer_vivier.build_doc(kept[-1])] if kept else []
+        n = vivier_live.push(docs, st)
+        if docs and n:
+            print("        → ajoute dans Vivier")
+        elif docs and n is None:
+            print("        (Vivier pas accessible : connecte-toi a claude.ai dans Chrome Scout)")
+    except Exception as e:
+        print(f"        (envoi Vivier impossible : {e})")
+
+
+def log_search(path, entry):
+    """Ajoute une recherche a l'historique (affiche dans l'app et sur Vivier)."""
+    try:
+        hist = json.loads(path.read_text(encoding="utf-8"))
+    except Exception:
+        hist = []
+    hist.append(entry)
+    path.write_text(json.dumps(hist[-200:], ensure_ascii=False, indent=1), encoding="utf-8")
+
+
+def add_to_library(path, rows):
+    """Ajoute les leads gardes a la bibliotheque permanente (jamais videe d'un run a l'autre)."""
+    lib = {}
+    if path.exists():
+        try:
+            lib = {d["handle"].lower(): d for d in json.loads(path.read_text(encoding="utf-8"))}
+        except Exception:
+            pass
+    today = time.strftime("%Y-%m-%d")
+    for r in rows:
+        h = r["handle"].lower()
+        d = dict(lib.get(h, {}))
+        d.update(r)
+        d.setdefault("added", today)
+        lib[h] = d
+    path.write_text(json.dumps(list(lib.values()), ensure_ascii=False, indent=2), encoding="utf-8")
 
 
 def write_csv(path, rows):

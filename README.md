@@ -16,8 +16,12 @@ Outil qui trouve et pré-qualifie des modèles Instagram automatiquement, **sur 
 
 ## Prérequis
 
-- Chrome ouvert avec l'extension OpenCLI connectée, et **connecté au compte scouting** (pas ta modèle !).
-- Vérifier : `opencli doctor` doit afficher `Extension: connected`.
+Scout pilote Chrome avec son **propre moteur** (`navigateur.py`, aucune dépendance externe). Il ouvre un Chrome séparé, le « Chrome Scout », avec son propre profil dans `~/.scout-chrome`.
+
+- 1re fois : `python3 navigateur.py ouvrir` → connecte-toi au **compte scouting** (pas ta modèle !) dans cette fenêtre. La session reste mémorisée.
+- Vérifier : `python3 navigateur.py doctor` doit afficher le compte connecté.
+
+Secours : l'ancien moteur OpenCLI reste utilisable avec `SCOUT_MOTEUR=opencli python3 scout.py ...`. Une copie complète d'OpenCLI 1.8.8 et de son extension est sauvegardée dans `vendor/opencli-1.8.8/`. Si un jour il disparaît d'internet, double-clique `reinstaller.command`.
 
 ## Utilisation
 

@@ -5,3 +5,5 @@ resultats/
 config_local.py
 __pycache__/
 .DS_Store
+profils_types.txt
+A-IMPORTER-dans-Vivier.json

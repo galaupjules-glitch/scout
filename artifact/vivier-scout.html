@@ -1,0 +1,347 @@
+<title>Vivier Scout</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Familjen+Grotesk:wght@500;700&family=Manrope:wght@400;500;600;700&display=swap">
+<style>
+/* Layout: en-tête compact avec compteurs + onglets, puis grille de bulles façon stories Instagram (anneau coloré = pas encore ouvert) */
+:root{
+  --bg:#faf7f8; --surface:#ffffff; --fg:#1f1a1d; --muted:#76696f; --line:#ece4e8;
+  --ring-a:#f9a03f; --ring-b:#e1306c; --ring-c:#8a3ab9; --seen:#cfc5ca;
+  --accent:#d1245f; --accent-ink:#ffffff; --danger:#b4332f; --chip:#f4ebef;
+  --display:"Familjen Grotesk",ui-sans-serif,system-ui,sans-serif;
+  --body:"Manrope",ui-sans-serif,system-ui,sans-serif;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --bg:#151114; --surface:#1f1a1e; --fg:#f3edf0; --muted:#a8999f; --line:#33292f;
+  --ring-a:#f7b25e; --ring-b:#f0558c; --ring-c:#a65fd3; --seen:#4a3f45;
+  --accent:#f0558c; --accent-ink:#1a0c12; --danger:#f07a74; --chip:#2b2228; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#151114; --surface:#1f1a1e; --fg:#f3edf0; --muted:#a8999f; --line:#33292f;
+  --ring-a:#f7b25e; --ring-b:#f0558c; --ring-c:#a65fd3; --seen:#4a3f45;
+  --accent:#f0558c; --accent-ink:#1a0c12; --danger:#f07a74; --chip:#2b2228; color-scheme:dark}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--fg);font-family:var(--body);font-size:15px;line-height:1.45}
+.wrap{max-width:1040px;margin:0 auto;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:28px 64px;display:grid;gap:22px}
+header{display:flex;flex-wrap:wrap;align-items:end;justify-content:space-between;gap:12px 24px}
+h1{font-family:var(--display);font-weight:700;font-size:clamp(1.7rem,4vw,2.3rem);letter-spacing:-.02em;margin:0;text-wrap:balance}
+.sub{color:var(--muted);margin:2px 0 0;font-size:.92rem}
+.counts{display:flex;gap:18px;font-variant-numeric:tabular-nums;color:var(--muted);font-size:.9rem}
+.counts b{display:block;font-family:var(--display);font-size:1.5rem;color:var(--fg);line-height:1.1}
+.tabs{display:flex;gap:6px;flex-wrap:wrap}
+.tabs button{font:inherit;font-weight:600;font-size:.9rem;border:1px solid var(--line);background:var(--surface);color:var(--fg);border-radius:999px;padding:8px 14px;cursor:pointer}
+.tabs button[aria-pressed="true"]{background:var(--fg);color:var(--bg);border-color:var(--fg)}
+button:focus-visible,a:focus-visible{outline:2px solid var(--accent);outline-offset:3px}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(132px,1fr));gap:26px 14px}
+.bubble{display:grid;justify-items:center;gap:8px;text-align:center;min-width:0;position:relative}
+.ring{display:block;width:112px;height:112px;max-width:100%;border-radius:50%;padding:4px;background:conic-gradient(from 210deg,var(--ring-a),var(--ring-b),var(--ring-c),var(--ring-a));transition:transform .15s}
+.bubble.vu .ring{background:var(--seen)}
+.bubble.jete .ring{background:var(--line);opacity:.6}
+.ring:hover{transform:scale(1.04)}
+.ring .in{display:grid;place-items:center;width:100%;height:100%;border-radius:50%;border:3px solid var(--bg);overflow:hidden;font-family:var(--display);font-weight:700;font-size:1.8rem;color:#fff}
+.ring img{width:100%;height:100%;object-fit:cover;display:block}
+.h{font-weight:700;font-size:.92rem;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--fg);text-decoration:none}
+.st{font-size:.78rem;color:var(--muted);font-variant-numeric:tabular-nums;line-height:1.35}
+.st .lk{color:var(--fg);font-weight:600}
+.tag{font-size:.68rem;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);border:1px dashed var(--muted);border-radius:999px;padding:1px 7px}
+.x{position:absolute;top:0;right:calc(50% - 62px);width:28px;height:28px;border-radius:50%;border:1px solid var(--line);background:var(--surface);color:var(--muted);font:600 15px/1 var(--body);cursor:pointer;display:grid;place-items:center}
+.x:hover{color:var(--danger);border-color:var(--danger)}
+.empty{grid-column:1/-1;text-align:center;color:var(--muted);padding:44px 16px;border:1px dashed var(--line);border-radius:16px;max-width:60ch;justify-self:center}
+.empty b{display:block;color:var(--fg);font-family:var(--display);font-size:1.15rem;margin-bottom:4px}
+.note{font-size:.82rem;color:var(--muted)}
+.ring{cursor:pointer;border:0;font:inherit}
+.h{background:none;border:0;padding:0;font-family:inherit;cursor:pointer}
+/* Fiche profil : reprend l'en-tête d'un profil Instagram (photo + 3 compteurs, puis pseudo et bio) */
+.sheet{position:fixed;inset:0;z-index:10;display:grid;place-items:center;background:color-mix(in srgb,var(--fg) 45%,transparent);padding:max(16px,env(safe-area-inset-top,0px)) max(16px,env(safe-area-inset-right,0px)) max(16px,env(safe-area-inset-bottom,0px)) max(16px,env(safe-area-inset-left,0px))}
+.card{background:var(--surface);color:var(--fg);border-radius:18px;width:min(460px,100%);max-height:100%;overflow:auto;display:grid;gap:16px;padding:20px;position:relative;box-shadow:0 20px 60px rgba(0,0,0,.25)}
+.close{position:absolute;top:12px;right:12px;width:34px;height:34px;border-radius:50%;border:1px solid var(--line);background:var(--surface);color:var(--fg);font:600 18px/1 var(--body);cursor:pointer}
+.ph{display:flex;align-items:center;gap:18px;padding-right:36px}
+.ph .ring{width:88px;height:88px;flex:none;cursor:default}
+.ph .ring:hover{transform:none}
+.nums{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:4px;flex:1;text-align:center}
+.nums b{display:block;font-family:var(--display);font-size:1.15rem;font-variant-numeric:tabular-nums}
+.nums span{font-size:.78rem;color:var(--muted)}
+.pn{font-weight:700;font-size:1rem;display:flex;align-items:center;gap:6px;overflow-wrap:anywhere}
+.ver{display:inline-grid;place-items:center;width:16px;height:16px;border-radius:50%;background:#3897f0;color:#fff;font-size:10px;flex:none}
+.bio{white-space:pre-line;font-size:.92rem;overflow-wrap:anywhere;margin:4px 0 0}
+.chips{display:flex;flex-wrap:wrap;gap:6px}
+.chip{background:var(--chip);border-radius:999px;padding:4px 10px;font-size:.8rem;font-weight:600;font-variant-numeric:tabular-nums}
+.shot{border-radius:12px;overflow:hidden;border:1px solid var(--line)}
+.shot img{display:block;width:100%}
+.shot figcaption{font-size:.75rem;color:var(--muted);padding:6px 10px}
+.acts{display:grid;grid-template-columns:2fr 1fr;gap:8px}
+.btn{font:inherit;font-weight:700;border-radius:10px;padding:12px;border:1px solid var(--line);background:var(--surface);color:var(--fg);text-align:center;text-decoration:none;cursor:pointer}
+.btn.go{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+.lb{position:absolute;top:84px;left:calc(50% - 60px);font-size:.68rem;font-weight:800;letter-spacing:.03em;padding:2px 8px;border-radius:999px;border:2px solid var(--bg);background:var(--chip);color:var(--fg)}
+.lb.of{background:var(--accent);color:var(--accent-ink)}
+@media (max-width:420px){.lb{top:68px;left:calc(50% - 50px)}}
+.chip.of{background:var(--accent);color:var(--accent-ink)}
+.tag.ci{border:0;background:var(--ring-c);color:#fff}
+.chip a{color:inherit}
+/* Bandeau compact : lancer + quota + historique replié, sur une seule ligne */
+.tool{display:flex;flex-wrap:wrap;align-items:center;gap:10px 16px;margin-top:-6px}
+.sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)}
+.go{display:flex;align-items:center;border:1px solid var(--line);border-radius:999px;background:var(--surface);overflow:hidden}
+.go input{width:64px;border:0;background:transparent;color:var(--fg);font:600 .9rem var(--body);padding:8px 4px 8px 14px;font-variant-numeric:tabular-nums}
+.go-btn{background:var(--accent);color:var(--accent-ink);font-weight:700;font-size:.88rem;padding:9px 16px;text-decoration:none;white-space:nowrap}
+.stop-btn{border:1px solid var(--line);background:var(--surface);color:var(--fg);font-weight:700;font-size:.88rem;padding:8px 14px;border-radius:999px;text-decoration:none;white-space:nowrap}
+.stop-btn:hover{border-color:var(--danger);color:var(--danger)}
+.qmini{display:flex;align-items:center;gap:7px;font-size:.82rem;color:var(--muted)}
+.qmini b{color:var(--fg);font-variant-numeric:tabular-nums}
+.live{color:var(--accent);font-weight:700;animation:pulse 1.6s ease-in-out infinite}
+@keyframes pulse{50%{opacity:.4}}
+@media (prefers-reduced-motion:reduce){.live{animation:none}}
+.qbar{display:block;width:70px;height:6px;border-radius:99px;background:var(--chip);overflow:hidden}
+.qbar i{display:block;height:100%;width:0;background:var(--accent)}
+.qbar.full i{background:var(--danger)}
+.histd{font-size:.82rem;color:var(--muted)}
+.histd summary{cursor:pointer}
+.histd[open]{flex-basis:100%;background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:10px 14px}
+.histd[open] summary{margin-bottom:8px}
+/* Fiche profil : capture de Scout en grand, petite bulle + pseudo, 3 boutons */
+.ph2{display:flex;align-items:center;gap:10px;padding-right:40px;min-width:0}
+.ring.sm{width:44px;height:44px;padding:2px;flex:none;cursor:default}
+.ring.sm .in{border-width:2px;font-size:1rem}
+.ring.sm:hover{transform:none}
+.mini{font-size:.68rem;font-weight:800;padding:2px 7px;border-radius:999px;margin-left:6px}
+.mini.of{background:var(--accent);color:var(--accent-ink)}
+.biobox{display:grid;gap:4px;min-width:0}
+.biobox .bio{margin:0;font-size:.9rem;white-space:pre-line;overflow-wrap:anywhere}
+.lienbio{font-size:.86rem;font-weight:600;color:var(--fg);text-decoration:none;overflow-wrap:anywhere}
+.lienbio:hover{text-decoration:underline}
+.lienbio.prio{color:var(--accent)}
+.lb.agreg{background:var(--accent);color:var(--accent-ink)}
+.noshot{margin:0;padding:24px 12px;text-align:center;color:var(--muted);border:1px dashed var(--line);border-radius:12px}
+.acts3{display:grid;grid-template-columns:1fr 1.4fr 1fr;gap:8px}
+.btn.fav.on{background:var(--chip);border-color:var(--accent);color:var(--accent)}
+.favb{position:absolute;top:0;left:calc(50% - 62px);width:28px;height:28px;border-radius:50%;display:grid;place-items:center;background:var(--accent);color:var(--accent-ink);font-size:14px;border:2px solid var(--bg)}
+@media (max-width:420px){.favb{left:calc(50% - 52px);width:24px;height:24px;font-size:12px}}
+.toast{position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);z-index:30;background:var(--fg);color:var(--bg);padding:10px 18px;border-radius:999px;font-weight:600;font-size:.9rem;max-width:calc(100% - 32px)}
+.small{font-size:.8rem;color:var(--muted);margin:0}
+.hist{display:grid;gap:6px;margin:0;padding:0;list-style:none}
+.hist li{display:flex;flex-wrap:wrap;justify-content:space-between;gap:2px 12px;border-top:1px solid var(--line);padding-top:6px}
+.hist li:first-child{border-top:0;padding-top:0}
+.hist .t{display:flex;gap:8px;align-items:center;font-weight:700;color:var(--fg)}
+.pill{font-size:.64rem;font-weight:700;text-transform:uppercase;letter-spacing:.05em;padding:2px 7px;border-radius:99px;background:var(--chip);color:var(--muted);white-space:nowrap}
+.pill.quota{color:var(--danger)}
+@media (prefers-reduced-motion:reduce){.ring{transition:none}}
+@media (max-width:420px){.grid{grid-template-columns:repeat(3,minmax(0,1fr));gap:20px 8px}.ring{width:92px;height:92px}.x{right:calc(50% - 52px);width:24px;height:24px;font-size:13px}}
+</style>
+
+<div class="wrap">
+  <header>
+    <div>
+      <h1>Vivier Scout</h1>
+      <p class="sub">Les profils gardés par Scout. Touche une bulle pour ouvrir son Instagram.</p>
+    </div>
+    <div class="counts" aria-live="polite">
+      <span><b id="n-new">0</b>nouveaux</span>
+      <span><b id="n-vu">0</b>déjà vus</span>
+      <span><b id="n-jete">0</b>jetés</span>
+    </div>
+  </header>
+
+  <div class="tool">
+    <div class="go">
+      <a class="go-btn" id="go-btn" href="http://127.0.0.1:8765/?lancer=120" target="_blank" rel="noopener"
+         title="Cherche jusqu'à avoir 120 profils gardés aujourd'hui">▶ Lancer la recherche (objectif 120/jour)</a>
+    </div>
+    <a class="stop-btn" href="http://127.0.0.1:8765/arreter" target="_blank" rel="noopener">■ Arrêter</a>
+    <div class="qmini" id="q-box" title="Scout s'arrête tout seul à 120 profils gardés par jour pour protéger le compte">
+      <span class="live" id="live" hidden>● en cours</span><span>Gardés aujourd'hui</span><b><span id="q-n">0</span>/<span id="q-max">120</span></b>
+      <span class="qbar" id="q-bar"><i id="q-fill"></i></span>
+    </div>
+    <details class="histd">
+      <summary>Historique (<span id="h-n">0</span>) · 0 crédit</summary>
+      <ul class="hist" id="hist"><li class="small">Aucune recherche pour l'instant.</li></ul>
+    </details>
+  </div>
+
+  <div class="tabs" role="group" aria-label="Filtre">
+    <button id="t-new" data-f="new" aria-pressed="true">Nouveaux</button>
+    <button id="t-fav" data-f="fav" aria-pressed="false">♥ Gardées <span id="n-fav"></span></button>
+    <button id="t-vu" data-f="vu" aria-pressed="false">Déjà vus</button>
+    <button id="t-all" data-f="all" aria-pressed="false">Tous</button>
+    <button id="t-jete" data-f="jete" aria-pressed="false">Jetés</button>
+  </div>
+
+  <div class="grid" id="grid">
+    <div class="empty"><b>Chargement des profils…</b>Tes profils arrivent depuis Scout.</div>
+  </div>
+  <p class="note" id="note" hidden></p>
+</div>
+<div class="sheet" id="sheet" hidden role="dialog" aria-modal="true" aria-labelledby="pn">
+  <div class="card">
+    <button class="close" id="close" type="button" aria-label="Fermer">×</button>
+    <div class="ph2">
+      <span class="ring sm" id="p-ring"><span class="in" id="p-av"></span></span>
+      <div class="pn" id="pn"></div>
+    </div>
+    <div class="biobox">
+      <p class="bio" id="p-bio"></p>
+      <a class="lienbio" id="p-lien" target="_blank" rel="noopener" hidden></a>
+    </div>
+    <figure class="shot" id="p-shot" style="margin:0"><img id="p-shot-img" alt="Capture du profil Instagram par Scout"></figure>
+    <p class="noshot" id="p-noshot" hidden>Pas de capture pour ce profil : ouvre son Instagram pour le voir.</p>
+    <div class="acts3">
+      <button class="btn fav" id="p-fav" type="button" aria-pressed="false">♡ Garder</button>
+      <a class="btn go" id="p-go" target="_blank" rel="noopener">Ouvrir Instagram</a>
+      <button class="btn" id="p-jete" type="button"></button>
+    </div>
+  </div>
+</div>
+
+<script>
+let rows=[], filter='new', db=null, canWrite=true;
+try{filter=localStorage.getItem('vivier-filtre')||'new'}catch(e){}
+const $=id=>document.getElementById(id);
+const fmt=n=>n==null?'?':n>=1e6?(n/1e6).toLocaleString('fr-FR',{maximumFractionDigits:1})+' M':n>=1e4?Math.round(n/1e3)+' k':n>=1e3?(n/1e3).toLocaleString('fr-FR',{maximumFractionDigits:1})+' k':String(n);
+function hue(s){let h=0;for(const c of s)h=(h*31+c.charCodeAt(0))%360;return h}
+const etat=r=>r.etat||'new';
+const TABS={new:r=>etat(r)==='new',fav:r=>!!r.favori&&etat(r)!=='jete',vu:r=>etat(r)==='vu',all:r=>etat(r)!=='jete',jete:r=>etat(r)==='jete'};
+
+function render(){
+  document.querySelectorAll('.tabs button').forEach(b=>b.setAttribute('aria-pressed',b.dataset.f===filter));
+  const c={new:0,vu:0,jete:0};rows.forEach(r=>c[etat(r)]++);
+  $('n-new').textContent=c.new;$('n-vu').textContent=c.vu;$('n-jete').textContent=c.jete;
+  const nf=rows.filter(TABS.fav).length;$('n-fav').textContent=nf?'('+nf+')':'';
+  const g=$('grid');g.innerHTML='';
+  const list=rows.filter(TABS[filter]);
+  if(!list.length){
+    const msg=rows.length
+      ?{new:['Tout est vu','Tous les profils ont été ouverts. Les prochains arriveront au prochain passage de Scout.'],
+        vu:['Aucun profil ouvert','Touche une bulle dans « Nouveaux » pour ouvrir son Instagram.'],
+        fav:['Aucun profil gardé','Ouvre un profil et touche « ♡ Garder » pour le retrouver ici plus tard.'],
+        jete:['Aucun profil jeté','Le petit × sur une bulle la range ici.'],all:['Rien ici','']}[filter]
+      :['Aucun profil pour l\'instant','Quand Scout aura trouvé des profils, Claude les enverra ici et ils apparaîtront en bulles.'];
+    g.innerHTML=`<div class="empty"><b></b><span></span></div>`;
+    g.querySelector('b').textContent=msg[0];g.querySelector('span').textContent=msg[1];return;
+  }
+  for(const r of list){
+    const url='https://www.instagram.com/'+encodeURIComponent(r.handle)+'/';
+    const el=document.createElement('div');el.className='bubble '+(etat(r)==='new'?'':etat(r));
+    el.innerHTML=`<button class="ring" type="button"><span class="in"></span></button>
+      <button class="h" type="button"></button>
+      <div class="st"></div>
+      ${canWrite?`<button class="x" type="button"></button>`:''}`;
+    fillAvatar(el.querySelector('.in'),r);
+    el.querySelector('.ring').setAttribute('aria-label','Voir le profil @'+r.handle);
+    el.querySelector('.h').textContent='@'+r.handle;
+    el.querySelectorAll('.ring,.h').forEach(b=>b.onclick=()=>openProfile(r));
+    const st=el.querySelector('.st');
+    st.innerHTML=`${fmt(r.followers)} abonnés<br><span class="lk"></span>`;
+    st.querySelector('.lk').textContent=r.likes!=null?fmt(r.likes)+' likes / post':'likes masqués';
+    if(['of','agreg','autre'].includes(r.lien_type)){const b=document.createElement('span');
+      b.className='lb '+r.lien_type;b.textContent={of:'★ OF',agreg:'★ lien',autre:'lien'}[r.lien_type];
+      b.title={of:'Lien OnlyFans direct en bio : prioritaire',agreg:'Lien hoo.be / link.me / linkscale / linktree : prioritaire',
+        autre:'Autre lien en bio'}[r.lien_type];el.appendChild(b)}
+    if(r.creatorsinc){const t=document.createElement('span');t.className='tag ci';t.textContent='creatorsinc';
+      t.title='Suivie par creatorsinc : bon signal';el.appendChild(t)}
+    if(r.ex){const t=document.createElement('span');t.className='tag';t.textContent='exemple';el.appendChild(t)}
+    if(r.favori){const f=document.createElement('span');f.className='favb';f.textContent='♥';f.title='Gardée pour plus tard';el.appendChild(f)}
+    const x=el.querySelector('.x');
+    if(x){
+      const j=etat(r)==='jete';
+      x.textContent=j?'↺':'×';
+      x.title=j?'Remettre ce profil':'Jeter ce profil';x.setAttribute('aria-label',x.title+' @'+r.handle);
+      x.onclick=()=>setEtat(r,j?'':'jete');
+    }
+    g.appendChild(el);
+  }
+}
+
+const STATUTS={termine:'terminée',quota:'quota atteint',epuise:'sources épuisées',arrete:'arrêtée',reseau:'bloquée (réseau)'};
+function renderStats(s){
+  const q=s.quota||120;
+  const today=new Date().toISOString().slice(0,10);
+  const v=s.jour===today?(s.gardes_jour||0):0;
+  const recent=s.maj&&(Date.now()-Date.parse(s.maj))<20*60*1000;  // derniere nouvelle de Scout < 20 min
+  $('live').hidden=!(s.en_cours&&recent);
+  $('q-n').textContent=v;$('q-max').textContent=q;
+  $('q-fill').style.width=Math.min(100,v/q*100)+'%';
+  $('q-bar').className='qbar'+(v>=q?' full':'');
+  $('q-box').title=v>=q?'Objectif atteint : relance demain pour protéger le compte.':`Encore ${q-v} profils à garder aujourd'hui. Scout s'arrête tout seul à ${q}.`;
+  const h=$('hist'),list=Array.isArray(s.historique)?s.historique:[];
+  $('h-n').textContent=list.length;
+  if(!list.length)return;
+  h.innerHTML='';
+  for(const r of list.slice(0,20)){
+    const li=document.createElement('li');const d=new Date(r.debut);
+    li.innerHTML='<div class="t"><span></span><span class="pill"></span></div><span class="small"></span>';
+    li.querySelector('.t span').textContent=isNaN(d)?'':d.toLocaleDateString('fr-FR',{day:'numeric',month:'short'})+' · '+d.toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'});
+    const p=li.querySelector('.pill');p.textContent=STATUTS[r.statut]||r.statut||'';if(r.statut==='quota')p.classList.add('quota');
+    li.querySelector('.small').textContent=`${r.gardes??0}/${r.demandes??0} gardés · ${r.visites??0} visités · ${r.duree_min??0} min`;
+    h.appendChild(li);
+  }
+}
+const isImg=s=>typeof s==='string'&&s.startsWith('data:image/');
+const full=n=>n==null?'?':n.toLocaleString('fr-FR');
+function fillAvatar(inner,r){
+  inner.textContent='';inner.style.background='';
+  if(isImg(r.avatar)){const img=document.createElement('img');img.src=r.avatar;img.alt='';img.loading='lazy';inner.appendChild(img)}
+  else{inner.style.background=`hsl(${hue(r.handle)} 50% 46%)`;inner.textContent=r.handle.slice(0,1).toUpperCase()}
+}
+let current=null;
+function syncFav(){const f=$('p-fav'),on=!!(current&&current.favori);
+  f.textContent=on?'♥ Gardée':'♡ Garder';f.setAttribute('aria-pressed',on);f.classList.toggle('on',on)}
+function openProfile(r){
+  current=r;
+  fillAvatar($('p-av'),r);
+  $('p-ring').style.background=etat(r)==='new'?'':'var(--seen)';
+  const pn=$('pn');pn.textContent='@'+r.handle;
+  if(r.lien_type==='of'){const b=document.createElement('span');b.className='mini of';b.textContent='★ OF';pn.appendChild(b)}
+  $('p-bio').textContent=r.bio||'';$('p-bio').hidden=!r.bio;
+  const lien=String(r.lien||''),pl=$('p-lien');pl.hidden=!lien;
+  if(lien){pl.href=/^https?:\/\//.test(lien)?lien:'https://'+lien;
+    pl.textContent='🔗 '+lien.replace(/^https?:\/\/(www\.)?/,'').slice(0,60);
+    pl.className='lienbio'+(r.lien_type==='of'||r.lien_type==='agreg'?' prio':'')}
+  const shot=isImg(r.shot);
+  $('p-shot').hidden=!shot;$('p-noshot').hidden=shot;if(shot)$('p-shot-img').src=r.shot;
+  $('p-go').href='https://www.instagram.com/'+encodeURIComponent(r.handle)+'/';
+  $('p-fav').hidden=!canWrite;syncFav();
+  const j=$('p-jete');j.hidden=!canWrite;j.textContent=etat(r)==='jete'?'Remettre':'Jeter';
+  $('sheet').hidden=false;$('close').focus();
+}
+async function setFav(r,v){
+  r.favori=v;syncFav();render();
+  if(!db||!canWrite)return;
+  try{await db.collection('profils').doc(r.id).update({favori:v})}
+  catch(e){if(e&&e.code==='invalid_argument'){canWrite=false;render()}}
+}
+$('p-fav').onclick=()=>{if(current)setFav(current,!current.favori)};
+function closeProfile(){$('sheet').hidden=true;current=null}
+$('close').onclick=closeProfile;
+$('sheet').onclick=e=>{if(e.target===$('sheet'))closeProfile()};
+document.addEventListener('keydown',e=>{if(e.key==='Escape'&&!$('sheet').hidden)closeProfile()});
+$('p-go').onclick=()=>{if(current&&etat(current)==='new')setEtat(current,'vu')};
+$('p-jete').onclick=()=>{if(current){setEtat(current,etat(current)==='jete'?'':'jete');closeProfile()}};
+
+async function setEtat(r,v){
+  r.etat=v;render();
+  if(!db||!canWrite)return;
+  try{await db.collection('profils').doc(r.id).update({etat:v})}
+  catch(e){if(e&&e.code==='invalid_argument'){canWrite=false;render()}}
+}
+
+document.querySelectorAll('.tabs button').forEach(b=>b.onclick=()=>{
+  filter=b.dataset.f;try{localStorage.setItem('vivier-filtre',filter)}catch(e){}render()});
+
+(async()=>{
+  db=await window.claude?.use?.('db');
+  if(!db){
+    $('grid').innerHTML='<div class="empty"><b>Profils indisponibles ici</b>Ouvre cette page sur claude.ai, connecté à ton compte, pour voir tes profils.</div>';
+    return;
+  }
+  const user=await window.claude.use('user');
+  if(user&&(await user.can('data.write'))===false)canWrite=false;
+  db.doc('stats/scout').onSnapshot(s=>{if(s.exists)renderStats(s.data())},()=>{});
+  db.collection('profils').orderBy('added','desc').limit(1000).onSnapshot(snap=>{
+    rows=snap.docs.map(d=>({id:d.id,...d.data()})).filter(r=>typeof r.handle==='string');
+    // OF direct en premier, puis autre lien en bio, puis le reste (chacun du plus recent au plus ancien)
+    rows.sort((a,b)=>(b.priorite||1)-(a.priorite||1)||String(b.added||'').localeCompare(String(a.added||'')));
+    render();
+  },err=>{
+    $('note').hidden=false;$('note').textContent='La liste ne se met plus à jour. Recharge la page pour la reconnecter.';
+  });
+})();
+document.querySelectorAll('.tabs button').forEach(b=>b.setAttribute('aria-pressed',b.dataset.f===filter));
+</script>
