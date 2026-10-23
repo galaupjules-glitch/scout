@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Résultats - Spoofer vidéo</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+  <main class="carte large">
+    <h1>Résultats</h1>
+    <p class="sous-titre">
+      {{ nom_original }} — mode <strong>{{ mode }}</strong> — {{ resultats|length }} variante(s) générée(s)
+    </p>
+
+    {% if erreurs %}
+      <div class="alerte">
+        {% for e in erreurs %}<p>Erreur : {{ e }}</p>{% endfor %}
+      </div>
+    {% endif %}
+
+    <div class="grille-resultats">
+      {% for nom in resultats %}
+        <div class="variante">
+          <video controls preload="metadata" src="{{ url_for('apercu', nom=nom) }}"></video>
+          <a class="bouton-telecharger" href="{{ url_for('telecharger', nom=nom) }}" download>
+            Télécharger {{ nom }}
+          </a>
+        </div>
+      {% endfor %}
+    </div>
+
+    <a class="lien-retour" href="{{ url_for('index') }}">← Spoofer une autre vidéo</a>
+  </main>
+</body>
+</html>

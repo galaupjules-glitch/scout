@@ -50,3 +50,18 @@ Tout est en haut de `scout.py` (fourchette abonnés, ratio, mots-clés bio black
 - Instagram throttle après ~90 profils d'affilée : si ça se tarit, laisse reposer quelques heures.
 - Les likes masqués par certains comptes → le profil passe quand même (marqué "likes masqués"), à toi de juger au swipe.
 - Le jugement du physique reste humain (au swipe) — c'est voulu : c'est gratuit et c'est toi qui juges le mieux.
+
+## Spoofer vidéo
+
+Petite appli web locale pour générer des variantes d'une vidéo (recadrage, couleurs, vitesse, bruit, métadonnées...) en mode léger ou agressif.
+
+```bash
+python3 -m pip install --user flask moviepy numpy pillow
+python3 video_spoofer_web.py
+```
+
+Ou double-clique `lancer-spoofer.command`. Ouvre http://127.0.0.1:8766/, dépose ta vidéo, choisis un mode et le nombre de variantes, télécharge le résultat.
+
+Ligne de commande directe : `python3 video_spoofer.py ma_video.mp4 --mode leger`.
+
+Limite à garder en tête : ça change l'empreinte technique du fichier (hash, métadonnées, bitrate...), mais Instagram utilise aussi du hachage perceptuel sur l'image/le son — aucune garantie que le mode léger suffise à éviter une détection de contenu dupliqué.
