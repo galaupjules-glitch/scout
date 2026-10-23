@@ -7,58 +7,76 @@
   <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
 </head>
 <body>
-  <main class="carte">
-    <h1>Vexa</h1>
-    <p class="sous-titre">Dépose une vidéo, choisis un mode, récupère une (ou plusieurs) variante(s) — chacune modifie au moins 5 caractéristiques, et aucune ne ressemble à une autre.</p>
+  <div class="page">
+    <header class="entete">
+      <h1>Vexa</h1>
+      <p class="sous-titre">Dépose ta vidéo à gauche, récupère tes variantes à droite — chacune modifie au moins 5 caractéristiques, et aucune ne ressemble à une autre.</p>
+    </header>
 
     <div class="alerte" id="alerte-js" hidden><p id="alerte-texte"></p></div>
 
-    <form action="{{ url_for('api_spoof') }}" method="post" enctype="multipart/form-data" id="form-spoof">
-      <label class="zone-fichier" id="zone-drop">
-        <input type="file" name="video" id="input-video" accept=".mp4,.mov,.m4v,.avi,.mkv,.webm" required>
-        <span id="texte-fichier">Clique ou dépose ta vidéo ici</span>
-      </label>
-
-      <div class="options">
-        <fieldset>
-          <legend>Mode</legend>
-          <label class="radio">
-            <input type="radio" name="mode" value="leger" checked>
-            <span>Léger</span>
-            <small>Variations discrètes, rendu quasi identique à l'œil</small>
+    <div class="colonnes">
+      <!-- Dépôt (gauche) -->
+      <section class="carte colonne-depot">
+        <h2>Dépôt</h2>
+        <form id="form-spoof">
+          <label class="zone-fichier" id="zone-drop">
+            <input type="file" name="video" id="input-video" accept=".mp4,.mov,.m4v,.avi,.mkv,.webm" required>
+            <span id="texte-fichier">Clique ou dépose ta vidéo ici</span>
           </label>
-          <label class="radio">
-            <input type="radio" name="mode" value="agressif">
-            <span>Agressif</span>
-            <small>Variations plus marquées (cadrage, couleurs, vitesse, miroir)</small>
-          </label>
-        </fieldset>
 
-        <label class="champ-nombre">
-          Nombre de variantes
-          <input type="number" name="count" id="input-count" value="1" min="1" max="{{ max_count }}" step="1">
-        </label>
+          <div class="options">
+            <fieldset>
+              <legend>Mode</legend>
+              <label class="radio">
+                <input type="radio" name="mode" value="leger" checked>
+                <span>Léger</span>
+                <small>Variations discrètes, rendu quasi identique à l'œil</small>
+              </label>
+              <label class="radio">
+                <input type="radio" name="mode" value="agressif">
+                <span>Agressif</span>
+                <small>Variations plus marquées (cadrage, couleurs, vitesse, miroir)</small>
+              </label>
+            </fieldset>
 
-        <label class="champ-nombre">
-          Pays (métadonnées)
-          <select name="locale">
-            <option value="">Aucun (aléatoire)</option>
-            {% for code, loc in locales.items() %}
-              <option value="{{ code }}" {{ "selected" if code == "us" else "" }}>{{ loc.label }}</option>
-            {% endfor %}
-          </select>
-        </label>
-      </div>
+            <label class="champ-nombre">
+              Nombre de variantes
+              <input type="number" name="count" id="input-count" value="1" min="1" max="{{ max_count }}" step="1">
+            </label>
 
-      <button type="submit" id="bouton-envoyer">Générer</button>
-      <p class="note" id="note-traitement">Le traitement se fait localement, ça peut prendre un moment selon la taille de la vidéo et le nombre de variantes.</p>
+            <label class="champ-nombre">
+              Pays (métadonnées)
+              <select name="locale">
+                <option value="">Aucun (aléatoire)</option>
+                {% for code, loc in locales.items() %}
+                  <option value="{{ code }}" {{ "selected" if code == "us" else "" }}>{{ loc.label }}</option>
+                {% endfor %}
+              </select>
+            </label>
+          </div>
 
-      <div class="progression" id="progression" hidden>
-        <div class="barre"><div class="remplissage" id="barre-remplissage"></div></div>
-        <p class="etat-texte" id="etat-texte">Envoi : 0 %</p>
-      </div>
-    </form>
-  </main>
+          <button type="submit" id="bouton-envoyer">Générer</button>
+        </form>
+      </section>
+
+      <!-- Réception (droite) -->
+      <section class="carte colonne-reception">
+        <h2>Réception</h2>
+        <p class="placeholder" id="placeholder-reception">Les variantes générées apparaîtront ici au fur et à mesure.</p>
+        <div class="grille-resultats" id="grille-resultats"></div>
+        <button type="button" class="bouton-telecharger-tout" id="bouton-tout" hidden>
+          ⬇ Télécharger tout (<span id="nb-pretes">0</span>)
+        </button>
+      </section>
+    </div>
+
+    <!-- Progression (bas de page) -->
+    <div class="progression" id="progression" hidden>
+      <div class="barre"><div class="remplissage" id="barre-remplissage"></div></div>
+      <p class="etat-texte" id="etat-texte">Envoi : 0 %</p>
+    </div>
+  </div>
 
   <script>
     const zone = document.getElementById('zone-drop');
@@ -71,6 +89,13 @@
     const etatTexte = document.getElementById('etat-texte');
     const alerteBox = document.getElementById('alerte-js');
     const alerteTexte = document.getElementById('alerte-texte');
+    const placeholder = document.getElementById('placeholder-reception');
+    const grille = document.getElementById('grille-resultats');
+    const boutonTout = document.getElementById('bouton-tout');
+    const nbPretes = document.getElementById('nb-pretes');
+
+    let jobIdCourant = null;
+    const dejaAffiches = new Set();
 
     input.addEventListener('change', () => {
       if (input.files.length) {
@@ -103,18 +128,42 @@
       etatTexte.textContent = texte;
     }
 
+    function ajouterVariante(jobId, nom) {
+      if (dejaAffiches.has(nom)) return;
+      dejaAffiches.add(nom);
+      placeholder.hidden = true;
+
+      const carte = document.createElement('div');
+      carte.className = 'variante';
+      carte.innerHTML = `
+        <video controls preload="metadata" src="/apercu/${nom}"></video>
+        <a class="bouton-telecharger" href="/fichier/${nom}" download>Télécharger ${nom}</a>
+      `;
+      grille.appendChild(carte);
+
+      nbPretes.textContent = dejaAffiches.size;
+      boutonTout.hidden = false;
+      boutonTout.onclick = () => { window.location.href = `/telecharger-tout/${jobId}`; };
+    }
+
     function suivreJob(jobId, total) {
       const intervalle = setInterval(() => {
         fetch(`/api/etat/${jobId}`)
           .then(r => r.json())
           .then(etat => {
+            (etat.resultats || []).forEach(nom => ajouterVariante(jobId, nom));
+
             if (etat.status === 'traitement') {
               const fraction = etat.total ? etat.done / etat.total : 0;
               setProgress(45 + Math.round(fraction * 55), `Traitement : ${etat.done} / ${etat.total} variante(s)`);
             } else if (etat.status === 'termine') {
               clearInterval(intervalle);
-              setProgress(100, 'Terminé !');
-              window.location.href = `/resultats/${jobId}`;
+              setProgress(100, `Terminé ! ${etat.resultats.length} variante(s) prête(s).`);
+              bouton.disabled = false;
+              bouton.textContent = 'Générer';
+              if (etat.erreurs && etat.erreurs.length) {
+                afficherErreur(etat.erreurs.join(' / '));
+              }
             }
           })
           .catch(() => {});
@@ -130,7 +179,7 @@
       setProgress(0, 'Envoi : 0 %');
 
       const xhr = new XMLHttpRequest();
-      xhr.open('POST', form.action);
+      xhr.open('POST', '/api/spoof');
 
       xhr.upload.addEventListener('progress', (ev) => {
         if (ev.lengthComputable) {
@@ -149,6 +198,7 @@
           return;
         }
 
+        jobIdCourant = reponse.job_id;
         setProgress(45, `Traitement : 0 / ${reponse.total} variante(s)`);
         suivreJob(reponse.job_id, reponse.total);
       });

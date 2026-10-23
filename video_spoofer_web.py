@@ -8,13 +8,15 @@ Lancement :
     -> ouvre http://127.0.0.1:8766/
 """
 
+import io
 import threading
 import uuid
+import zipfile
 from pathlib import Path
 
 from flask import (
     Flask, render_template, request, jsonify,
-    send_from_directory, abort,
+    send_from_directory, send_file, abort,
 )
 
 from video_spoofer import build_variant, batch_params, PARAM_SPECS, LOCALES
@@ -120,7 +122,13 @@ def api_etat(job_id):
         job = JOBS.get(job_id)
         if not job:
             return jsonify(erreur="job inconnu"), 404
-        return jsonify(status=job["status"], total=job["total"], done=job["done"])
+        return jsonify(
+            status=job["status"],
+            total=job["total"],
+            done=job["done"],
+            resultats=list(job["resultats"]),
+            erreurs=list(job["erreurs"]),
+        )
 
 
 @app.route("/resultats/<job_id>")
@@ -136,6 +144,31 @@ def resultats(job_id):
         resultats=job["resultats"],
         erreurs=job["erreurs"],
         nom_original=job["nom_original"],
+    )
+
+
+@app.route("/telecharger-tout/<job_id>")
+def telecharger_tout(job_id):
+    with JOBS_LOCK:
+        job = JOBS.get(job_id)
+        resultats = list(job["resultats"]) if job else []
+
+    if not resultats:
+        abort(404)
+
+    buffer = io.BytesIO()
+    with zipfile.ZipFile(buffer, "w", zipfile.ZIP_DEFLATED) as zf:
+        for nom in resultats:
+            chemin = OUTPUT_DIR / nom
+            if chemin.exists():
+                zf.write(chemin, arcname=nom)
+    buffer.seek(0)
+
+    return send_file(
+        buffer,
+        mimetype="application/zip",
+        as_attachment=True,
+        download_name=f"vexa_{job_id}.zip",
     )
 
 
