@@ -51,17 +51,19 @@ Tout est en haut de `scout.py` (fourchette abonnés, ratio, mots-clés bio black
 - Les likes masqués par certains comptes → le profil passe quand même (marqué "likes masqués"), à toi de juger au swipe.
 - Le jugement du physique reste humain (au swipe) — c'est voulu : c'est gratuit et c'est toi qui juges le mieux.
 
-## Spoofer vidéo
+## Vexa — spoofer vidéo
 
-Petite appli web locale pour générer des variantes d'une vidéo (recadrage, couleurs, vitesse, bruit, métadonnées...) en mode léger ou agressif.
+Petite appli web locale pour générer des variantes d'une vidéo (recadrage, couleurs, vitesse, bruit, métadonnées...) en mode léger ou agressif, avec localisation des métadonnées par pays.
 
 ```bash
 python3 -m pip install --user flask moviepy numpy pillow
 python3 video_spoofer_web.py
 ```
 
-Ou double-clique `lancer-spoofer.command`. Ouvre http://127.0.0.1:8766/, dépose ta vidéo, choisis un mode et le nombre de variantes, télécharge le résultat.
+Ou double-clique `lancer-spoofer.command`. Ouvre http://127.0.0.1:8766/, dépose ta vidéo, choisis un mode, le nombre de variantes et le pays, télécharge le résultat.
 
-Ligne de commande directe : `python3 video_spoofer.py ma_video.mp4 --mode leger`.
+**Pays (métadonnées)** : France, États-Unis, Canada, Australie. Ça fixe la langue, la position (ISO 6709) et le fuseau horaire du fichier sur une grande ville du pays choisi, au lieu du lieu réel de tournage.
+
+Ligne de commande directe : `python3 video_spoofer.py ma_video.mp4 --mode leger --locale us`.
 
 Limite à garder en tête : ça change l'empreinte technique du fichier (hash, métadonnées, bitrate...), mais Instagram utilise aussi du hachage perceptuel sur l'image/le son — aucune garantie que le mode léger suffise à éviter une détection de contenu dupliqué.

@@ -16,7 +16,7 @@ from flask import (
     send_from_directory, flash, abort,
 )
 
-from video_spoofer import build_variant, RANGES
+from video_spoofer import build_variant, RANGES, LOCALES
 
 BASE_DIR = Path(__file__).resolve().parent
 UPLOAD_DIR = BASE_DIR / "spoofer_uploads"
@@ -38,13 +38,14 @@ def safe_ext(filename: str) -> str:
 
 @app.route("/", methods=["GET"])
 def index():
-    return render_template("index.html")
+    return render_template("index.html", locales=LOCALES)
 
 
 @app.route("/spoof", methods=["POST"])
 def spoof():
     fichier = request.files.get("video")
     mode = request.form.get("mode", "leger")
+    locale = request.form.get("locale") or None
     try:
         count = int(request.form.get("count", 1))
     except ValueError:
@@ -53,6 +54,10 @@ def spoof():
 
     if mode not in RANGES:
         flash("Mode invalide.")
+        return redirect(url_for("index"))
+
+    if locale is not None and locale not in LOCALES:
+        flash("Pays invalide.")
         return redirect(url_for("index"))
 
     if not fichier or fichier.filename == "":
@@ -74,7 +79,7 @@ def spoof():
         out_name = f"{job_id}_{mode}_{i+1:02d}{ext}"
         out_path = OUTPUT_DIR / out_name
         try:
-            build_variant(src_path, out_path, mode)
+            build_variant(src_path, out_path, mode, locale)
             resultats.append(out_name)
         except Exception as exc:  # noqa: BLE001 - on veut afficher l'erreur à l'utilisateur
             erreurs.append(str(exc))
@@ -85,6 +90,7 @@ def spoof():
     return render_template(
         "resultats.html",
         mode=mode,
+        locale_label=LOCALES[locale]["label"] if locale else None,
         resultats=resultats,
         erreurs=erreurs,
         nom_original=fichier.filename,
@@ -108,5 +114,5 @@ def apercu(nom):
 
 
 if __name__ == "__main__":
-    print("Spoofer vidéo sur http://127.0.0.1:8766/")
+    print("Vexa sur http://127.0.0.1:8766/")
     app.run(host="127.0.0.1", port=8766, debug=False)

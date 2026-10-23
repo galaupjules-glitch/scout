@@ -3,14 +3,16 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Résultats - Spoofer vidéo</title>
+  <title>Vexa — résultats</title>
   <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
 </head>
 <body>
   <main class="carte large">
     <h1>Résultats</h1>
     <p class="sous-titre">
-      {{ nom_original }} — mode <strong>{{ mode }}</strong> — {{ resultats|length }} variante(s) générée(s)
+      {{ nom_original }} — mode <strong>{{ mode }}</strong>
+      {% if locale_label %} — métadonnées <strong>{{ locale_label }}</strong>{% endif %}
+      — {{ resultats|length }} variante(s) générée(s)
     </p>
 
     {% if erreurs %}

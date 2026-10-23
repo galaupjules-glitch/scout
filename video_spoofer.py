@@ -19,6 +19,7 @@ import random
 import subprocess
 import sys
 import uuid
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 import numpy as np
@@ -62,6 +63,44 @@ RANGES = {
         "mirror_chance": 0.5,
     },
 }
+
+# Localisation des métadonnées : langue, position (ISO 6709) et fuseau
+# horaire d'une grande ville du pays visé, pour que le fichier porte une
+# empreinte cohérente avec ce pays plutôt qu'avec le lieu réel de tournage.
+LOCALES = {
+    "fr": {
+        "label": "France",
+        "language": "fra",
+        "location": "+48.8566+002.3522/",
+        "tz": "+01:00",
+    },
+    "us": {
+        "label": "États-Unis",
+        "language": "eng",
+        "location": "+40.7128-074.0060/",
+        "tz": "-05:00",
+    },
+    "ca": {
+        "label": "Canada",
+        "language": "eng",
+        "location": "+45.5017-073.5673/",
+        "tz": "-05:00",
+    },
+    "au": {
+        "label": "Australie",
+        "language": "eng",
+        "location": "-33.8688+151.2093/",
+        "tz": "+11:00",
+    },
+}
+
+
+def creation_time_for(tz_offset: str) -> str:
+    sign = 1 if tz_offset.startswith("+") else -1
+    hh, mm = tz_offset[1:].split(":")
+    delta = timedelta(hours=int(hh), minutes=int(mm)) * sign
+    local = datetime.now(timezone.utc) + delta
+    return local.strftime("%Y-%m-%dT%H:%M:%S") + tz_offset
 
 
 def rand_in(bounds):
@@ -110,9 +149,11 @@ def apply_color_grade(get_frame, t, brightness, contrast, saturation, hue_deg):
     return np.clip(frame, 0, 255).astype("uint8")
 
 
-def build_variant(src_path: Path, out_path: Path, mode: str):
+def build_variant(src_path: Path, out_path: Path, mode: str, locale: str = None):
     if mode not in RANGES:
         raise ValueError("mode doit être 'leger' ou 'agressif'")
+    if locale is not None and locale not in LOCALES:
+        raise ValueError(f"locale doit être parmi {list(LOCALES)}")
     r = RANGES[mode]
 
     clip = VideoFileClip(str(src_path))
@@ -191,25 +232,40 @@ def build_variant(src_path: Path, out_path: Path, mode: str):
     )
     clip.close()
 
-    randomize_metadata(tmp_out, out_path)
+    randomize_metadata(tmp_out, out_path, locale)
     tmp_out.unlink(missing_ok=True)
 
 
-def randomize_metadata(src: Path, dst: Path):
+def randomize_metadata(src: Path, dst: Path, locale: str = None):
     """Réécrit les métadonnées (titre, auteur, horodatage, encodeur, id
-    unique) pour que le conteneur ne porte plus l'empreinte d'origine."""
+    unique) pour que le conteneur ne porte plus l'empreinte d'origine, et
+    les localise sur le pays demandé (langue, position, fuseau horaire)."""
     unique_id = uuid.uuid4().hex[:12]
     fake_encoders = ["Lavf60.16.100", "Lavf61.1.100", "HandBrake 1.7.3", "Lavf59.27.100"]
-    cmd = [
-        FFMPEG, "-y", "-i", str(src),
-        "-map_metadata", "-1",
+
+    cmd = [FFMPEG, "-y", "-i", str(src), "-map_metadata", "-1"]
+
+    loc = LOCALES.get(locale)
+    creation_time = creation_time_for(loc["tz"]) if loc else "now"
+
+    cmd += [
         "-metadata", f"title=clip_{unique_id}",
         "-metadata", f"comment={unique_id}",
         "-metadata", f"encoder={random.choice(fake_encoders)}",
-        "-metadata", "creation_time=now",
-        "-c", "copy",
-        str(dst),
+        "-metadata", f"creation_time={creation_time}",
     ]
+
+    if loc:
+        cmd += [
+            "-metadata", f"location={loc['location']}",
+            "-metadata", f"location-eng={loc['location']}",
+            "-metadata", f"com.apple.quicktime.location.ISO6709={loc['location']}",
+            "-metadata:s:v:0", f"language={loc['language']}",
+            "-metadata:s:a:0", f"language={loc['language']}",
+        ]
+
+    cmd += ["-c", "copy", str(dst)]
+
     result = subprocess.run(cmd, capture_output=True, text=True)
     if result.returncode != 0:
         # fallback : si -c copy échoue (conteneur particulier), on garde
@@ -221,6 +277,8 @@ def main():
     parser = argparse.ArgumentParser(description="Génère des variantes d'une vidéo.")
     parser.add_argument("input", type=Path, help="Vidéo source")
     parser.add_argument("--mode", choices=["leger", "agressif"], default="leger")
+    parser.add_argument("--locale", choices=list(LOCALES), default=None,
+                         help="Pays à utiliser pour localiser les métadonnées (langue, position, fuseau horaire)")
     parser.add_argument("--out", type=Path, default=None, help="Fichier de sortie (mode simple)")
     parser.add_argument("--count", type=int, default=1, help="Nombre de variantes à générer")
     parser.add_argument("--outdir", type=Path, default=None, help="Dossier de sortie si --count > 1")
@@ -234,14 +292,14 @@ def main():
         out = args.out or args.input.with_name(
             f"{args.input.stem}_{args.mode}_{uuid.uuid4().hex[:6]}{args.input.suffix}"
         )
-        build_variant(args.input, out, args.mode)
+        build_variant(args.input, out, args.mode, args.locale)
         print(f"Variante générée : {out}")
     else:
         outdir = args.outdir or args.input.parent / f"{args.input.stem}_variantes"
         outdir.mkdir(parents=True, exist_ok=True)
         for i in range(args.count):
             out = outdir / f"{args.input.stem}_{args.mode}_{i+1:02d}_{uuid.uuid4().hex[:6]}{args.input.suffix}"
-            build_variant(args.input, out, args.mode)
+            build_variant(args.input, out, args.mode, args.locale)
             print(f"[{i+1}/{args.count}] Variante générée : {out}")
 
 

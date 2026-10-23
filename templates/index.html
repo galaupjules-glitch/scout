@@ -3,12 +3,12 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Spoofer vidéo</title>
+  <title>Vexa</title>
   <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
 </head>
 <body>
   <main class="carte">
-    <h1>Spoofer vidéo</h1>
+    <h1>Vexa</h1>
     <p class="sous-titre">Dépose une vidéo, choisis un mode, récupère une (ou plusieurs) variante(s).</p>
 
     {% with messages = get_flashed_messages() %}
@@ -48,6 +48,16 @@
             <option value="3">3</option>
             <option value="4">4</option>
             <option value="5">5</option>
+          </select>
+        </label>
+
+        <label class="champ-nombre">
+          Pays (métadonnées)
+          <select name="locale">
+            <option value="">Aucun (aléatoire)</option>
+            {% for code, loc in locales.items() %}
+              <option value="{{ code }}" {{ "selected" if code == "us" else "" }}>{{ loc.label }}</option>
+            {% endfor %}
           </select>
         </label>
       </div>
