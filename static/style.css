@@ -130,12 +130,15 @@ legend {
   font-size: 0.9rem;
   color: var(--sous-texte);
 }
-.champ-nombre select {
+.champ-nombre select,
+.champ-nombre input[type="number"] {
   background: var(--bg);
   color: var(--texte);
   border: 1px solid var(--bordure);
   border-radius: 8px;
   padding: 6px 10px;
+  width: 80px;
+  text-align: right;
 }
 
 button[type="submit"] {
@@ -154,6 +157,30 @@ button[type="submit"]:hover { background: var(--accent-hover); }
 button[type="submit"]:disabled {
   opacity: 0.7;
   cursor: wait;
+}
+
+.progression {
+  margin-top: 18px;
+}
+.progression .barre {
+  width: 100%;
+  height: 10px;
+  border-radius: 999px;
+  background: var(--bg);
+  border: 1px solid var(--bordure);
+  overflow: hidden;
+}
+.progression .remplissage {
+  height: 100%;
+  width: 0%;
+  background: linear-gradient(90deg, var(--accent), var(--accent-hover));
+  transition: width 0.25s ease;
+}
+.progression .etat-texte {
+  margin: 8px 0 0;
+  text-align: center;
+  font-size: 0.8rem;
+  color: var(--sous-texte);
 }
 
 .note {

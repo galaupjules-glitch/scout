@@ -9,17 +9,11 @@
 <body>
   <main class="carte">
     <h1>Vexa</h1>
-    <p class="sous-titre">Dépose une vidéo, choisis un mode, récupère une (ou plusieurs) variante(s).</p>
+    <p class="sous-titre">Dépose une vidéo, choisis un mode, récupère une (ou plusieurs) variante(s) — chacune modifie au moins 5 caractéristiques, et aucune ne ressemble à une autre.</p>
 
-    {% with messages = get_flashed_messages() %}
-      {% if messages %}
-        <div class="alerte">
-          {% for m in messages %}<p>{{ m }}</p>{% endfor %}
-        </div>
-      {% endif %}
-    {% endwith %}
+    <div class="alerte" id="alerte-js" hidden><p id="alerte-texte"></p></div>
 
-    <form action="{{ url_for('spoof') }}" method="post" enctype="multipart/form-data" id="form-spoof">
+    <form action="{{ url_for('api_spoof') }}" method="post" enctype="multipart/form-data" id="form-spoof">
       <label class="zone-fichier" id="zone-drop">
         <input type="file" name="video" id="input-video" accept=".mp4,.mov,.m4v,.avi,.mkv,.webm" required>
         <span id="texte-fichier">Clique ou dépose ta vidéo ici</span>
@@ -42,13 +36,7 @@
 
         <label class="champ-nombre">
           Nombre de variantes
-          <select name="count">
-            <option value="1">1</option>
-            <option value="2">2</option>
-            <option value="3">3</option>
-            <option value="4">4</option>
-            <option value="5">5</option>
-          </select>
+          <input type="number" name="count" id="input-count" value="1" min="1" max="{{ max_count }}" step="1">
         </label>
 
         <label class="champ-nombre">
@@ -63,7 +51,12 @@
       </div>
 
       <button type="submit" id="bouton-envoyer">Générer</button>
-      <p class="note" id="note-traitement">Le traitement se fait localement, ça peut prendre une minute selon la taille de la vidéo.</p>
+      <p class="note" id="note-traitement">Le traitement se fait localement, ça peut prendre un moment selon la taille de la vidéo et le nombre de variantes.</p>
+
+      <div class="progression" id="progression" hidden>
+        <div class="barre"><div class="remplissage" id="barre-remplissage"></div></div>
+        <p class="etat-texte" id="etat-texte">Envoi : 0 %</p>
+      </div>
     </form>
   </main>
 
@@ -73,6 +66,11 @@
     const texte = document.getElementById('texte-fichier');
     const form = document.getElementById('form-spoof');
     const bouton = document.getElementById('bouton-envoyer');
+    const progression = document.getElementById('progression');
+    const barre = document.getElementById('barre-remplissage');
+    const etatTexte = document.getElementById('etat-texte');
+    const alerteBox = document.getElementById('alerte-js');
+    const alerteTexte = document.getElementById('alerte-texte');
 
     input.addEventListener('change', () => {
       if (input.files.length) {
@@ -93,9 +91,74 @@
       }
     });
 
-    form.addEventListener('submit', () => {
+    function afficherErreur(msg) {
+      alerteTexte.textContent = msg;
+      alerteBox.hidden = false;
+      bouton.disabled = false;
+      bouton.textContent = 'Générer';
+    }
+
+    function setProgress(pct, texte) {
+      barre.style.width = Math.max(0, Math.min(100, pct)) + '%';
+      etatTexte.textContent = texte;
+    }
+
+    function suivreJob(jobId, total) {
+      const intervalle = setInterval(() => {
+        fetch(`/api/etat/${jobId}`)
+          .then(r => r.json())
+          .then(etat => {
+            if (etat.status === 'traitement') {
+              const fraction = etat.total ? etat.done / etat.total : 0;
+              setProgress(45 + Math.round(fraction * 55), `Traitement : ${etat.done} / ${etat.total} variante(s)`);
+            } else if (etat.status === 'termine') {
+              clearInterval(intervalle);
+              setProgress(100, 'Terminé !');
+              window.location.href = `/resultats/${jobId}`;
+            }
+          })
+          .catch(() => {});
+      }, 700);
+    }
+
+    form.addEventListener('submit', (e) => {
+      e.preventDefault();
+      alerteBox.hidden = true;
       bouton.disabled = true;
       bouton.textContent = 'Traitement en cours...';
+      progression.hidden = false;
+      setProgress(0, 'Envoi : 0 %');
+
+      const xhr = new XMLHttpRequest();
+      xhr.open('POST', form.action);
+
+      xhr.upload.addEventListener('progress', (ev) => {
+        if (ev.lengthComputable) {
+          const pct = Math.round((ev.loaded / ev.total) * 100);
+          setProgress(Math.round(pct * 0.45), `Envoi : ${pct} %`);
+        }
+      });
+
+      xhr.addEventListener('load', () => {
+        let reponse = {};
+        try { reponse = JSON.parse(xhr.responseText); } catch (err) { /* ignore */ }
+
+        if (xhr.status !== 200) {
+          afficherErreur(reponse.erreur || "Erreur lors de l'envoi.");
+          progression.hidden = true;
+          return;
+        }
+
+        setProgress(45, `Traitement : 0 / ${reponse.total} variante(s)`);
+        suivreJob(reponse.job_id, reponse.total);
+      });
+
+      xhr.addEventListener('error', () => {
+        afficherErreur("Erreur réseau pendant l'envoi.");
+        progression.hidden = true;
+      });
+
+      xhr.send(new FormData(form));
     });
   </script>
 </body>

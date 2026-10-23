@@ -30,39 +30,96 @@ from imageio_ffmpeg import get_ffmpeg_exe
 
 FFMPEG = get_ffmpeg_exe()
 
-# Plages de variation par mode : (min, max) sauf indication contraire
-RANGES = {
+# Chaque caractéristique a un plancher (floor) > 0 : elle est donc TOUJOURS
+# appliquée avec une amplitude perceptible, jamais à ~0. "signed" = la valeur
+# peut être positive ou négative (tirée au sort). Ça garantit qu'une variante
+# modifie toujours au moins ces 12 caractéristiques (bien plus que les 5
+# minimum demandées), et jamais de façon négligeable.
+PARAM_SPECS = {
     "leger": {
-        "crop_pct": (0.0, 0.025),       # recadrage des bords, 0 à 2.5%
-        "zoom": (1.0, 1.03),            # léger zoom
-        "brightness": (-0.04, 0.04),    # +/- 4%
-        "contrast": (-0.05, 0.05),
-        "saturation": (-0.06, 0.06),
-        "hue_deg": (-3, 3),
-        "speed": (0.98, 1.02),
-        "rotate_deg": (-0.8, 0.8),
-        "noise_std": (0.0, 2.0),        # bruit gaussien léger (0-255)
-        "volume": (0.97, 1.03),
-        "trim_start": (0.0, 0.15),      # secondes coupées au début
-        "trim_end": (0.0, 0.15),
-        "mirror_chance": 0.0,
+        "crop_pct":     {"floor": 0.008, "ceil": 0.025, "signed": False},  # recadrage des bords
+        "zoom":         {"floor": 0.008, "ceil": 0.030, "signed": False},  # zoom (1 + valeur)
+        "brightness":   {"floor": 0.015, "ceil": 0.040, "signed": True},   # luminosité
+        "contrast":     {"floor": 0.020, "ceil": 0.050, "signed": True},   # contraste
+        "saturation":   {"floor": 0.020, "ceil": 0.060, "signed": True},   # saturation (≈ opacité des couleurs)
+        "hue_deg":      {"floor": 1.0,   "ceil": 3.0,   "signed": True},   # teinte
+        "speed_delta":  {"floor": 0.008, "ceil": 0.020, "signed": True},   # vitesse (1 + valeur)
+        "rotate_deg":   {"floor": 0.3,   "ceil": 0.8,   "signed": True},   # rotation
+        "noise_std":    {"floor": 0.8,   "ceil": 2.0,   "signed": False},  # grain/bruit
+        "volume_delta": {"floor": 0.01,  "ceil": 0.030, "signed": True},   # volume audio (1 + valeur)
+        "trim_start":   {"floor": 0.03,  "ceil": 0.15,  "signed": False},  # coupe au début (s)
+        "trim_end":     {"floor": 0.03,  "ceil": 0.15,  "signed": False},  # coupe à la fin (s)
     },
     "agressif": {
-        "crop_pct": (0.04, 0.09),
-        "zoom": (1.03, 1.12),
-        "brightness": (-0.12, 0.12),
-        "contrast": (-0.15, 0.15),
-        "saturation": (-0.18, 0.18),
-        "hue_deg": (-15, 15),
-        "speed": (0.90, 1.10),
-        "rotate_deg": (-2.5, 2.5),
-        "noise_std": (3.0, 9.0),
-        "volume": (0.85, 1.15),
-        "trim_start": (0.1, 0.5),
-        "trim_end": (0.1, 0.5),
-        "mirror_chance": 0.5,
+        "crop_pct":     {"floor": 0.04, "ceil": 0.09, "signed": False},
+        "zoom":         {"floor": 0.04, "ceil": 0.12, "signed": False},
+        "brightness":   {"floor": 0.05, "ceil": 0.12, "signed": True},
+        "contrast":     {"floor": 0.06, "ceil": 0.15, "signed": True},
+        "saturation":   {"floor": 0.07, "ceil": 0.18, "signed": True},
+        "hue_deg":      {"floor": 5.0,  "ceil": 15.0, "signed": True},
+        "speed_delta":  {"floor": 0.04, "ceil": 0.10, "signed": True},
+        "rotate_deg":   {"floor": 1.0,  "ceil": 2.5,  "signed": True},
+        "noise_std":    {"floor": 3.0,  "ceil": 9.0,  "signed": False},
+        "volume_delta": {"floor": 0.05, "ceil": 0.15, "signed": True},
+        "trim_start":   {"floor": 0.1,  "ceil": 0.5,  "signed": False},
+        "trim_end":     {"floor": 0.1,  "ceil": 0.5,  "signed": False},
     },
 }
+
+MIRROR_CHANCE = {"leger": 0.0, "agressif": 0.5}
+
+# nombre de caractéristiques toujours modifiées (hors miroir, bonus en agressif)
+NB_CARACTERISTIQUES = len(PARAM_SPECS["leger"])
+
+# distance minimale (dans l'espace normalisé des paramètres) exigée entre
+# deux variantes d'un même lot, pour qu'aucune ne se ressemble trop
+DISTANCE_MIN_LOT = 0.55
+
+
+def sample_params(mode: str) -> dict:
+    """Tire un jeu de paramètres où chaque caractéristique a une amplitude
+    garantie (jamais nulle, jamais négligeable)."""
+    specs = PARAM_SPECS[mode]
+    params = {}
+    for name, spec in specs.items():
+        mag = random.uniform(spec["floor"], spec["ceil"])
+        if spec["signed"]:
+            mag *= random.choice([-1, 1])
+        params[name] = mag
+    params["mirror"] = random.random() < MIRROR_CHANCE[mode]
+    return params
+
+
+def _params_vector(mode: str, params: dict) -> list:
+    specs = PARAM_SPECS[mode]
+    vec = [params[name] / spec["ceil"] for name, spec in specs.items()]
+    vec.append(1.0 if params["mirror"] else 0.0)
+    return vec
+
+
+def _distance(a: list, b: list) -> float:
+    return sum((x - y) ** 2 for x, y in zip(a, b)) ** 0.5
+
+
+def batch_params(mode: str, count: int, min_dist: float = DISTANCE_MIN_LOT, max_tries: int = 80) -> list:
+    """Génère `count` jeux de paramètres pour qu'aucune variante du lot ne
+    ressemble aux autres (distance minimale imposée entre chaque paire)."""
+    vecteurs = []
+    resultat = []
+    for _ in range(count):
+        meilleur, meilleur_score = None, -1.0
+        for _ in range(max_tries):
+            candidat = sample_params(mode)
+            v = _params_vector(mode, candidat)
+            score = min((_distance(v, autre) for autre in vecteurs), default=float("inf"))
+            if score >= min_dist:
+                meilleur = candidat
+                break
+            if score > meilleur_score:
+                meilleur_score, meilleur = score, candidat
+        resultat.append(meilleur)
+        vecteurs.append(_params_vector(mode, meilleur))
+    return resultat
 
 # Localisation des métadonnées : langue, position (ISO 6709) et fuseau
 # horaire d'une grande ville du pays visé, pour que le fichier porte une
@@ -101,11 +158,6 @@ def creation_time_for(tz_offset: str) -> str:
     delta = timedelta(hours=int(hh), minutes=int(mm)) * sign
     local = datetime.now(timezone.utc) + delta
     return local.strftime("%Y-%m-%dT%H:%M:%S") + tz_offset
-
-
-def rand_in(bounds):
-    lo, hi = bounds
-    return random.uniform(lo, hi)
 
 
 def add_noise_frame(get_frame, t, std):
@@ -149,30 +201,34 @@ def apply_color_grade(get_frame, t, brightness, contrast, saturation, hue_deg):
     return np.clip(frame, 0, 255).astype("uint8")
 
 
-def build_variant(src_path: Path, out_path: Path, mode: str, locale: str = None):
-    if mode not in RANGES:
+def build_variant(src_path: Path, out_path: Path, mode: str, locale: str = None, params: dict = None):
+    """Génère une variante. Si `params` n'est pas fourni, un jeu de
+    paramètres est tiré au sort (voir sample_params/batch_params pour
+    générer plusieurs variantes garanties différentes les unes des autres)."""
+    if mode not in PARAM_SPECS:
         raise ValueError("mode doit être 'leger' ou 'agressif'")
     if locale is not None and locale not in LOCALES:
         raise ValueError(f"locale doit être parmi {list(LOCALES)}")
-    r = RANGES[mode]
+    if params is None:
+        params = sample_params(mode)
 
     clip = VideoFileClip(str(src_path))
 
     # 1) découpe légère au début/à la fin
-    trim_start = rand_in(r["trim_start"])
-    trim_end = rand_in(r["trim_end"])
+    trim_start = params["trim_start"]
+    trim_end = params["trim_end"]
     end_t = max(trim_start + 0.3, clip.duration - trim_end)
     clip = clip.subclipped(trim_start, end_t)
 
-    # 2) miroir horizontal (mode agressif seulement, aléatoire)
-    if random.random() < r["mirror_chance"]:
+    # 2) miroir horizontal (mode agressif seulement, tiré au sort)
+    if params["mirror"]:
         clip = clip.with_effects([vfx.MirrorX()])
 
     # 3) rotation très légère + zoom + recadrage des bords (supprime les
     #    marges noires introduites par la rotation et change le cadrage)
-    rotate_deg = rand_in(r["rotate_deg"])
-    zoom = rand_in(r["zoom"])
-    crop_pct = rand_in(r["crop_pct"]) + abs(rotate_deg) / 90.0
+    rotate_deg = params["rotate_deg"]
+    zoom = 1.0 + params["zoom"]
+    crop_pct = params["crop_pct"] + abs(rotate_deg) / 90.0
 
     if abs(rotate_deg) > 0.01:
         clip = clip.with_effects([vfx.Rotate(rotate_deg, unit="deg")])
@@ -191,11 +247,11 @@ def build_variant(src_path: Path, out_path: Path, mode: str, locale: str = None)
         clip = clip.with_effects([vfx.Resize((w, h))])
 
     # 4) étalonnage couleur + bruit, image par image
-    brightness = rand_in(r["brightness"])
-    contrast = rand_in(r["contrast"])
-    saturation = rand_in(r["saturation"])
-    hue_deg = rand_in(r["hue_deg"])
-    noise_std = rand_in(r["noise_std"])
+    brightness = params["brightness"]
+    contrast = params["contrast"]
+    saturation = params["saturation"]
+    hue_deg = params["hue_deg"]
+    noise_std = params["noise_std"]
 
     def _frame_func(get_frame, t):
         graded = apply_color_grade(get_frame, t, brightness, contrast, saturation, hue_deg)
@@ -204,13 +260,13 @@ def build_variant(src_path: Path, out_path: Path, mode: str, locale: str = None)
     clip = clip.transform(_frame_func, apply_to="video")
 
     # 5) vitesse de lecture (image + son, restent synchronisés)
-    speed = rand_in(r["speed"])
+    speed = 1.0 + params["speed_delta"]
     if abs(speed - 1.0) > 1e-3:
         clip = clip.with_effects([vfx.MultiplySpeed(speed)])
 
     # 6) volume audio
     if clip.audio is not None:
-        volume = rand_in(r["volume"])
+        volume = 1.0 + params["volume_delta"]
         clip = clip.with_effects([afx.MultiplyVolume(volume)])
 
     # un bitrate/fps légèrement différent à chaque export change aussi
@@ -297,9 +353,10 @@ def main():
     else:
         outdir = args.outdir or args.input.parent / f"{args.input.stem}_variantes"
         outdir.mkdir(parents=True, exist_ok=True)
-        for i in range(args.count):
+        lot = batch_params(args.mode, args.count)
+        for i, params in enumerate(lot):
             out = outdir / f"{args.input.stem}_{args.mode}_{i+1:02d}_{uuid.uuid4().hex[:6]}{args.input.suffix}"
-            build_variant(args.input, out, args.mode, args.locale)
+            build_variant(args.input, out, args.mode, args.locale, params)
             print(f"[{i+1}/{args.count}] Variante générée : {out}")
 
 

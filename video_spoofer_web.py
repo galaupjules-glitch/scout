@@ -8,15 +8,16 @@ Lancement :
     -> ouvre http://127.0.0.1:8766/
 """
 
+import threading
 import uuid
 from pathlib import Path
 
 from flask import (
-    Flask, render_template, request, redirect, url_for,
-    send_from_directory, flash, abort,
+    Flask, render_template, request, jsonify,
+    send_from_directory, abort,
 )
 
-from video_spoofer import build_variant, RANGES, LOCALES
+from video_spoofer import build_variant, batch_params, PARAM_SPECS, LOCALES
 
 BASE_DIR = Path(__file__).resolve().parent
 UPLOAD_DIR = BASE_DIR / "spoofer_uploads"
@@ -25,24 +26,48 @@ UPLOAD_DIR.mkdir(exist_ok=True)
 OUTPUT_DIR.mkdir(exist_ok=True)
 
 ALLOWED_EXT = {".mp4", ".mov", ".m4v", ".avi", ".mkv", ".webm"}
-MAX_COUNT = 5
+MAX_COUNT = 20
 
 app = Flask(__name__)
 app.secret_key = "scout-video-spoofer-local"
 app.config["MAX_CONTENT_LENGTH"] = 600 * 1024 * 1024  # 600 Mo
+
+# Suivi des traitements en cours (local, en mémoire : usage mono-utilisateur)
+JOBS = {}
+JOBS_LOCK = threading.Lock()
 
 
 def safe_ext(filename: str) -> str:
     return Path(filename).suffix.lower()
 
 
+def _traiter_job(job_id: str, src_path: Path, mode: str, locale: str, count: int, ext: str):
+    lot = batch_params(mode, count)
+    for i, params in enumerate(lot):
+        out_name = f"{job_id}_{mode}_{i+1:02d}{ext}"
+        out_path = OUTPUT_DIR / out_name
+        try:
+            build_variant(src_path, out_path, mode, locale, params)
+            with JOBS_LOCK:
+                JOBS[job_id]["resultats"].append(out_name)
+        except Exception as exc:  # noqa: BLE001 - affichée à l'utilisateur
+            with JOBS_LOCK:
+                JOBS[job_id]["erreurs"].append(str(exc))
+        with JOBS_LOCK:
+            JOBS[job_id]["done"] += 1
+
+    src_path.unlink(missing_ok=True)
+    with JOBS_LOCK:
+        JOBS[job_id]["status"] = "termine"
+
+
 @app.route("/", methods=["GET"])
 def index():
-    return render_template("index.html", locales=LOCALES)
+    return render_template("index.html", locales=LOCALES, max_count=MAX_COUNT)
 
 
-@app.route("/spoof", methods=["POST"])
-def spoof():
+@app.route("/api/spoof", methods=["POST"])
+def api_spoof():
     fichier = request.files.get("video")
     mode = request.form.get("mode", "leger")
     locale = request.form.get("locale") or None
@@ -52,48 +77,65 @@ def spoof():
         count = 1
     count = max(1, min(MAX_COUNT, count))
 
-    if mode not in RANGES:
-        flash("Mode invalide.")
-        return redirect(url_for("index"))
-
+    if mode not in PARAM_SPECS:
+        return jsonify(erreur="Mode invalide."), 400
     if locale is not None and locale not in LOCALES:
-        flash("Pays invalide.")
-        return redirect(url_for("index"))
-
+        return jsonify(erreur="Pays invalide."), 400
     if not fichier or fichier.filename == "":
-        flash("Aucune vidéo sélectionnée.")
-        return redirect(url_for("index"))
+        return jsonify(erreur="Aucune vidéo sélectionnée."), 400
 
     ext = safe_ext(fichier.filename)
     if ext not in ALLOWED_EXT:
-        flash(f"Format non supporté ({ext}). Formats acceptés : {', '.join(sorted(ALLOWED_EXT))}")
-        return redirect(url_for("index"))
+        return jsonify(erreur=f"Format non supporté ({ext}). Formats acceptés : "
+                               f"{', '.join(sorted(ALLOWED_EXT))}"), 400
 
     job_id = uuid.uuid4().hex[:10]
     src_path = UPLOAD_DIR / f"{job_id}{ext}"
     fichier.save(src_path)
 
-    resultats = []
-    erreurs = []
-    for i in range(count):
-        out_name = f"{job_id}_{mode}_{i+1:02d}{ext}"
-        out_path = OUTPUT_DIR / out_name
-        try:
-            build_variant(src_path, out_path, mode, locale)
-            resultats.append(out_name)
-        except Exception as exc:  # noqa: BLE001 - on veut afficher l'erreur à l'utilisateur
-            erreurs.append(str(exc))
+    with JOBS_LOCK:
+        JOBS[job_id] = {
+            "status": "traitement",
+            "total": count,
+            "done": 0,
+            "mode": mode,
+            "locale_label": LOCALES[locale]["label"] if locale else None,
+            "nom_original": fichier.filename,
+            "resultats": [],
+            "erreurs": [],
+        }
 
-    # on n'a plus besoin de l'original une fois les variantes générées
-    src_path.unlink(missing_ok=True)
+    threading.Thread(
+        target=_traiter_job,
+        args=(job_id, src_path, mode, locale, count, ext),
+        daemon=True,
+    ).start()
 
+    return jsonify(job_id=job_id, total=count)
+
+
+@app.route("/api/etat/<job_id>")
+def api_etat(job_id):
+    with JOBS_LOCK:
+        job = JOBS.get(job_id)
+        if not job:
+            return jsonify(erreur="job inconnu"), 404
+        return jsonify(status=job["status"], total=job["total"], done=job["done"])
+
+
+@app.route("/resultats/<job_id>")
+def resultats(job_id):
+    with JOBS_LOCK:
+        job = JOBS.get(job_id)
+    if not job:
+        abort(404)
     return render_template(
         "resultats.html",
-        mode=mode,
-        locale_label=LOCALES[locale]["label"] if locale else None,
-        resultats=resultats,
-        erreurs=erreurs,
-        nom_original=fichier.filename,
+        mode=job["mode"],
+        locale_label=job["locale_label"],
+        resultats=job["resultats"],
+        erreurs=job["erreurs"],
+        nom_original=job["nom_original"],
     )
 
 
@@ -115,4 +157,4 @@ def apercu(nom):
 
 if __name__ == "__main__":
     print("Vexa sur http://127.0.0.1:8766/")
-    app.run(host="127.0.0.1", port=8766, debug=False)
+    app.run(host="127.0.0.1", port=8766, debug=False, threaded=True)
