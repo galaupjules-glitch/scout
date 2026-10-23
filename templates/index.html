@@ -30,9 +30,9 @@
         <section class="carte colonne-reception">
           <h2>Réception</h2>
           <button type="button" class="zone-fichier" id="zone-reception">
-            <span id="texte-reception">Clique pour choisir où recevoir tes vidéos</span>
+            <span id="texte-reception">Optionnel : choisir un dossier de réception dédié</span>
           </button>
-          <p class="note-reception" id="note-reception" hidden>Ton navigateur ne permet pas de choisir un dossier dédié : les vidéos seront téléchargées automatiquement (.zip) à la fin.</p>
+          <p class="note-reception" id="note-reception">Par défaut, tes vidéos arrivent automatiquement dans "Téléchargements" à la fin — pas besoin de choisir un dossier.</p>
           <p class="placeholder" id="placeholder-reception">Les variantes générées apparaîtront ici au fur et à mesure.</p>
           <div class="grille-resultats" id="grille-resultats"></div>
           <button type="button" class="bouton-telecharger-tout" id="bouton-tout" hidden>
@@ -75,7 +75,7 @@
         </label>
 
         <button type="submit" id="bouton-envoyer" disabled>Générer</button>
-        <p class="note" id="note-verrou">Sélectionne une vidéo et un dossier de réception (les deux cases doivent passer au vert).</p>
+        <p class="note" id="note-verrou">Sélectionne une vidéo (la case doit passer au vert).</p>
       </section>
     </form>
 
@@ -114,45 +114,46 @@
     let fichierPret = false;
 
     // File System Access API : dispo sur Chrome/Edge desktop, pas sur
-    // Safari/Firefox — dans ce cas la case réception est automatiquement
-    // considérée prête (le zip automatique prend le relais à la fin).
+    // Safari/Firefox. Dans tous les cas, c'est OPTIONNEL : par défaut, le
+    // téléchargement classique (.zip) vers "Téléchargements" suffit et ne
+    // dépend d'aucune permission spéciale — c'est le chemin fiable et
+    // garanti. Choisir un dossier dédié est juste un bonus en plus.
     const supporteDossier = 'showDirectoryPicker' in window;
     const supporteEnregistrerSous = 'showSaveFilePicker' in window;
-    let dossierPret = !supporteDossier;
+
+    if (!supporteDossier) {
+      zoneReception.hidden = true;
+    }
 
     function majVerrouGenerer() {
-      bouton.disabled = !(fichierPret && dossierPret);
+      bouton.disabled = !fichierPret;
       noteVerrou.hidden = bouton.disabled ? false : true;
     }
 
-    if (supporteDossier) {
-      zoneReception.addEventListener('click', async () => {
-        try {
-          // "readwrite" est indispensable : par défaut le dossier n'est
-          // accordé qu'en lecture, et l'enregistrement échoue ensuite
-          // silencieusement (c'est le bug "erreur" rencontré avant ce fix).
-          const handle = await window.showDirectoryPicker({ mode: 'readwrite' });
-          const permission = await handle.requestPermission({ mode: 'readwrite' });
-          if (permission !== 'granted') {
-            throw new Error("Permission d'écriture refusée pour ce dossier.");
-          }
-          dossierHandle = handle;
-          texteReception.textContent = `📁 "${dossierHandle.name}" — clique pour changer de dossier`;
-          zoneReception.classList.add('pret');
-          dossierPret = true;
-          majVerrouGenerer();
-        } catch (err) {
-          if (err && err.name === 'AbortError') return; // annulé par l'utilisateur
-          console.error('Choix du dossier de réception :', err);
-          afficherErreur(`Impossible d'utiliser ce dossier (${err && (err.message || err.name) || 'erreur inconnue'}). Réessaie ou choisis-en un autre.`);
+    zoneReception.addEventListener('click', async () => {
+      try {
+        // "readwrite" est indispensable : par défaut le dossier n'est
+        // accordé qu'en lecture, et l'enregistrement échoue ensuite
+        // silencieusement.
+        const handle = await window.showDirectoryPicker({ mode: 'readwrite' });
+        const permission = await handle.requestPermission({ mode: 'readwrite' });
+        if (permission !== 'granted') {
+          throw new Error("Permission d'écriture refusée pour ce dossier.");
         }
-      });
-    } else {
-      zoneReception.disabled = true;
-      zoneReception.classList.add('pret');
-      texteReception.textContent = 'Réception automatique (zip) à la fin';
-      noteReception.hidden = false;
-    }
+        dossierHandle = handle;
+        texteReception.textContent = `📁 "${dossierHandle.name}" — clique pour changer de dossier`;
+        zoneReception.classList.add('pret');
+      } catch (err) {
+        if (err && err.name === 'AbortError') return; // annulé par l'utilisateur
+        console.error('Choix du dossier de réception :', err);
+        // non bloquant : le téléchargement classique vers "Téléchargements"
+        // reste garanti, donc on informe juste sans paniquer l'utilisateur
+        dossierHandle = null;
+        zoneReception.classList.remove('pret');
+        texteReception.textContent = 'Optionnel : choisir un dossier de réception dédié';
+        noteReception.textContent = `Ce dossier n'a pas pu être utilisé (${err && (err.message || err.name) || 'erreur inconnue'}). Pas grave : tes vidéos arriveront quand même dans "Téléchargements".`;
+      }
+    });
 
     async function enregistrerBlobDansDossier(nom, blob) {
       const fileHandle = await dossierHandle.getFileHandle(nom, { create: true });
@@ -251,7 +252,8 @@
       boutonTout.hidden = false;
       boutonTout.onclick = () => { window.location.href = `/telecharger-tout/${jobId}`; };
 
-      // dossier de réception choisi : on y enregistre direct, sans attendre
+      // dossier de réception choisi : tentative en bonus, jamais bloquante
+      // — le zip vers "Téléchargements" arrivera de toute façon à la fin
       if (dossierHandle) {
         const etatEl = document.getElementById(`etat-${nom}`);
         etatEl.textContent = '⏳ Enregistrement dans le dossier choisi...';
@@ -260,11 +262,10 @@
           if (!reponse.ok) throw new Error(`téléchargement du fichier échoué (HTTP ${reponse.status})`);
           const blob = await reponse.blob();
           await enregistrerBlobDansDossier(nom, blob);
-          etatEl.textContent = `✓ Enregistré dans "${dossierHandle.name}"`;
+          etatEl.textContent = `✓ Enregistré aussi dans "${dossierHandle.name}"`;
         } catch (err) {
           console.error('Enregistrement auto échoué pour', nom, err);
-          const detail = err && (err.message || err.name) || 'erreur inconnue';
-          etatEl.textContent = `⚠ Échec de l'enregistrement auto (${detail}) — utilise "Télécharger"`;
+          etatEl.textContent = 'ℹ Pas enregistrée dans le dossier choisi — arrivera dans "Téléchargements"';
         }
       }
     }
@@ -288,15 +289,14 @@
                 afficherErreur(etat.erreurs.join(' / '));
               }
 
-              if (dossierHandle) {
-                // déjà enregistrées une à une dans le dossier choisi
-                setProgress(100, `Terminé ! ${etat.resultats.length} variante(s) enregistrée(s) dans "${dossierHandle.name}".`, true);
-              } else if (!telechargementAuto && etat.resultats.length) {
-                // sinon, dès que la barre atteint 100%, on lance direct le téléchargement du zip
+              // le zip vers "Téléchargements" part TOUJOURS, qu'un dossier
+              // dédié ait été choisi ou non — c'est le chemin garanti
+              if (!telechargementAuto && etat.resultats.length) {
                 telechargementAuto = true;
+                const suffixe = dossierHandle ? ` (et dans "${dossierHandle.name}")` : '';
                 setProgress(100, `Terminé ! ${etat.resultats.length} variante(s) — téléchargement en cours...`, true);
                 window.location.href = `/telecharger-tout/${jobId}`;
-                setTimeout(() => setProgress(100, `Terminé ! ${etat.resultats.length} variante(s) téléchargée(s).`, true), 800);
+                setTimeout(() => setProgress(100, `Terminé ! ${etat.resultats.length} variante(s) dans "Téléchargements"${suffixe}.`, true), 800);
               }
             }
           })
@@ -306,7 +306,7 @@
 
     form.addEventListener('submit', (e) => {
       e.preventDefault();
-      if (!fichierPret || !dossierPret) return;
+      if (!fichierPret) return;
       alerteBox.hidden = true;
       bouton.disabled = true;
       bouton.textContent = 'Traitement en cours...';
