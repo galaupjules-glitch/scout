@@ -9,13 +9,16 @@ Lancement :
 """
 
 import io
+import json
+import secrets
 import threading
 import uuid
 import zipfile
+from datetime import timedelta
 from pathlib import Path
 
 from flask import (
-    Flask, render_template, request, jsonify,
+    Flask, render_template, request, jsonify, session, redirect, url_for,
     send_from_directory, send_file, abort,
 )
 
@@ -30,9 +33,60 @@ OUTPUT_DIR.mkdir(exist_ok=True)
 ALLOWED_EXT = {".mp4", ".mov", ".m4v", ".avi", ".mkv", ".webm"}
 MAX_COUNT = 20
 
+# Code d'accès + clé de session : générés une fois, stockés localement
+# (jamais commités), à réutiliser sur les autres PC qui doivent se connecter.
+SECRET_FILE = BASE_DIR / ".vexa_secret.json"
+
+
+def _charger_secrets():
+    data = json.loads(SECRET_FILE.read_text()) if SECRET_FILE.exists() else {}
+    changed = False
+    if "code" not in data:
+        data["code"] = secrets.token_hex(3).upper()  # ex: A1B2C3
+        changed = True
+    if "flask_secret" not in data:
+        data["flask_secret"] = secrets.token_hex(32)
+        changed = True
+    if changed:
+        SECRET_FILE.write_text(json.dumps(data, indent=2))
+        SECRET_FILE.chmod(0o600)
+    return data
+
+
+_secrets = _charger_secrets()
+CODE_ACCES = _secrets["code"]
+
 app = Flask(__name__)
-app.secret_key = "scout-video-spoofer-local"
+app.secret_key = _secrets["flask_secret"]
 app.config["MAX_CONTENT_LENGTH"] = 600 * 1024 * 1024  # 600 Mo
+app.config["PERMANENT_SESSION_LIFETIME"] = timedelta(days=30)
+
+ROUTES_LIBRES = {"connexion", "static"}
+
+
+@app.before_request
+def verifier_acces():
+    if request.endpoint in ROUTES_LIBRES or request.endpoint is None:
+        return
+    if session.get("autorise"):
+        return
+    if request.path.startswith("/api/"):
+        return jsonify(erreur="Non autorisé, connecte-toi d'abord."), 401
+    return redirect(url_for("connexion", suivant=request.path))
+
+
+@app.route("/connexion", methods=["GET", "POST"])
+def connexion():
+    erreur = None
+    suivant = request.values.get("suivant") or url_for("index")
+    if request.method == "POST":
+        code = (request.form.get("code") or "").strip().upper()
+        if code == CODE_ACCES:
+            session.permanent = True
+            session["autorise"] = True
+            return redirect(suivant)
+        erreur = "Code invalide."
+    return render_template("connexion.html", erreur=erreur, suivant=suivant)
 
 # Suivi des traitements en cours (local, en mémoire : usage mono-utilisateur)
 JOBS = {}
@@ -198,4 +252,5 @@ def apercu(nom):
 
 if __name__ == "__main__":
     print("Vexa sur http://127.0.0.1:8766/")
-    app.run(host="127.0.0.1", port=8766, debug=False, threaded=True)
+    print(f"Code d'accès (à utiliser sur chaque PC) : {CODE_ACCES}")
+    app.run(host="0.0.0.0", port=8766, debug=False, threaded=True)

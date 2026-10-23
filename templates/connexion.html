@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Vexa — connexion</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+  <main class="carte" style="max-width: 360px;">
+    <h1>Vexa</h1>
+    <p class="sous-titre">Entre le code d'accès partagé entre tes PC.</p>
+
+    {% if erreur %}
+      <div class="alerte"><p>{{ erreur }}</p></div>
+    {% endif %}
+
+    <form method="post" action="{{ url_for('connexion') }}">
+      <input type="hidden" name="suivant" value="{{ suivant }}">
+      <label class="champ-ligne" style="flex-direction: column; align-items: stretch; gap: 8px; border: none; padding: 0;">
+        <span>Code d'accès</span>
+        <input type="text" name="code" autocomplete="off" autocapitalize="characters"
+               placeholder="ex. A1B2C3" required
+               style="background: var(--bg); color: var(--texte); border: 1px solid var(--bordure); border-radius: 8px; padding: 12px; font-size: 1.1rem; letter-spacing: 0.1em; text-align: center; text-transform: uppercase;">
+      </label>
+      <button type="submit" style="margin-top: 16px;">Se connecter</button>
+    </form>
+  </main>
+</body>
+</html>
