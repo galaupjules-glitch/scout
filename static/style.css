@@ -64,6 +64,14 @@ h2 {
   grid-template-columns: 1fr 1fr;
   gap: 24px;
   align-items: start;
+  margin-bottom: 24px;
+}
+
+.reglages {
+  margin-bottom: 0;
+}
+.reglages fieldset {
+  margin-bottom: 20px;
 }
 
 @media (max-width: 760px) {
@@ -154,22 +162,26 @@ legend {
   font-size: 0.8rem;
 }
 
-.champ-nombre {
+.champ-ligne {
   display: flex;
   justify-content: space-between;
   align-items: center;
   font-size: 0.9rem;
   color: var(--sous-texte);
+  padding: 10px 2px;
+  border-bottom: 1px solid var(--bordure);
+  margin-bottom: 20px;
 }
-.champ-nombre select,
-.champ-nombre input[type="number"] {
+.champ-ligne select,
+.champ-ligne input[type="number"] {
   background: var(--bg);
   color: var(--texte);
   border: 1px solid var(--bordure);
   border-radius: 8px;
-  padding: 6px 10px;
-  width: 80px;
+  padding: 8px 12px;
+  width: 100px;
   text-align: right;
+  font-size: 0.95rem;
 }
 
 button[type="submit"] {
@@ -220,7 +232,10 @@ button[type="submit"]:disabled {
   height: 100%;
   width: 0%;
   background: linear-gradient(90deg, var(--accent), var(--accent-hover));
-  transition: width 0.25s ease;
+  transition: width 0.25s ease, background 0.3s ease;
+}
+.progression .remplissage.termine {
+  background: linear-gradient(90deg, #2ecc71, #27ae60);
 }
 .progression .etat-texte {
   margin: 8px 0 0;
@@ -255,6 +270,13 @@ button[type="submit"]:disabled {
   background: #000;
   display: block;
   margin-bottom: 10px;
+}
+
+.badge-meta {
+  margin: 0 0 10px;
+  font-size: 0.78rem;
+  color: var(--sous-texte);
+  text-align: center;
 }
 
 .bouton-telecharger {

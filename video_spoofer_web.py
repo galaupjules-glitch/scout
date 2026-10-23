@@ -101,6 +101,7 @@ def api_spoof():
             "total": count,
             "done": 0,
             "mode": mode,
+            "locale_code": locale,
             "locale_label": LOCALES[locale]["label"] if locale else None,
             "nom_original": fichier.filename,
             "resultats": [],
@@ -113,7 +114,12 @@ def api_spoof():
         daemon=True,
     ).start()
 
-    return jsonify(job_id=job_id, total=count)
+    return jsonify(
+        job_id=job_id,
+        total=count,
+        locale_code=locale,
+        locale_label=LOCALES[locale]["label"] if locale else None,
+    )
 
 
 @app.route("/api/etat/<job_id>")
@@ -128,6 +134,8 @@ def api_etat(job_id):
             done=job["done"],
             resultats=list(job["resultats"]),
             erreurs=list(job["erreurs"]),
+            locale_code=job["locale_code"],
+            locale_label=job["locale_label"],
         )
 
 

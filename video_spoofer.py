@@ -33,7 +33,7 @@ FFMPEG = get_ffmpeg_exe()
 # Chaque caractéristique a un plancher (floor) > 0 : elle est donc TOUJOURS
 # appliquée avec une amplitude perceptible, jamais à ~0. "signed" = la valeur
 # peut être positive ou négative (tirée au sort). Ça garantit qu'une variante
-# modifie toujours au moins ces 12 caractéristiques (bien plus que les 5
+# modifie toujours au moins ces 12 caractéristiques (bien plus que les 7
 # minimum demandées), et jamais de façon négligeable.
 PARAM_SPECS = {
     "leger": {
