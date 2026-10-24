@@ -90,6 +90,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKUIDelegate, WKNaviga
     var serveur: Process?
     var fichierChoisi: URL?
     var dossierReceptionChoisi: URL?
+    var pickerPartage: NSSharingServicePicker? // retenu tant que le panneau est ouvert
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         journaliser("--- Lancement de Vexa ---")
@@ -99,6 +100,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKUIDelegate, WKNaviga
         controleur.add(self, name: "deposerFichier")
         controleur.add(self, name: "demarrerTraitement")
         controleur.add(self, name: "choisirDossierReception")
+        controleur.add(self, name: "partagerFichier")
 
         let config = WKWebViewConfiguration()
         config.websiteDataStore = .default()
@@ -149,9 +151,58 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKUIDelegate, WKNaviga
             }
         case "choisirDossierReception":
             ouvrirSelecteurDossier()
+        case "partagerFichier":
+            if let champs = message.body as? [String: Any], let nom = champs["nom"] as? String {
+                partagerFichier(nom: nom, options: champs)
+            }
         default:
             break
         }
+    }
+
+    // Panneau de partage natif macOS (AirDrop, Messages, Mail...) sur une
+    // variante déjà générée : on la récupère depuis le serveur local puis
+    // on l'ouvre via NSSharingServicePicker, ancré près du bouton cliqué.
+    private func partagerFichier(nom: String, options: [String: Any]) {
+        journaliser("Partage demandé pour \(nom)")
+        guard let nomEncode = nom.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed),
+              let url = URL(string: "http://127.0.0.1:\(PORT)/apercu/\(nomEncode)") else {
+            appelerJS("window.__erreurNative", avec: ["Nom de fichier invalide pour le partage."])
+            return
+        }
+        let tache = URLSession.shared.downloadTask(with: url) { tempURL, reponseHTTP, erreur in
+            DispatchQueue.main.async {
+                guard let tempURL = tempURL, erreur == nil else {
+                    journaliser("Échec récupération pour partage : \(erreur?.localizedDescription ?? "réponse vide")")
+                    self.appelerJS("window.__erreurNative", avec: ["Impossible de préparer le partage."])
+                    return
+                }
+                let destination = FileManager.default.temporaryDirectory.appendingPathComponent(nom)
+                try? FileManager.default.removeItem(at: destination)
+                let fichierAPartager: URL
+                do {
+                    try FileManager.default.moveItem(at: tempURL, to: destination)
+                    fichierAPartager = destination
+                } catch {
+                    fichierAPartager = tempURL
+                }
+
+                let x = (options["x"] as? Double) ?? 0
+                let y = (options["y"] as? Double) ?? 0
+                let largeur = (options["width"] as? Double) ?? 0
+                let hauteur = (options["height"] as? Double) ?? 0
+                // Les coordonnées web ont leur origine en haut-à-gauche,
+                // celles d'AppKit en bas-à-gauche : on inverse l'axe Y.
+                let rectVue = NSRect(x: x, y: self.webView.bounds.height - y - hauteur,
+                                      width: largeur, height: hauteur)
+
+                let picker = NSSharingServicePicker(items: [fichierAPartager])
+                self.pickerPartage = picker
+                picker.show(relativeTo: rectVue, of: self.webView, preferredEdge: .minY)
+                journaliser("Panneau de partage natif affiché pour \(nom)")
+            }
+        }
+        tache.resume()
     }
 
     // Active l'app et met la fenêtre au premier plan avant de présenter un

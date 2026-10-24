@@ -194,7 +194,7 @@
     // Partage natif (AirDrop, Messages, Mail...) : dispo sur Safari/Chrome
     // macOS récents. On vérifie canShare avec un fichier factice au moment
     // du clic (pas ici), donc on détecte juste la présence de l'API.
-    const supportePartage = !estAppNative && !!(navigator.share && navigator.canShare);
+    const supportePartage = estAppNative || !!(navigator.share && navigator.canShare);
 
     if (!supporteDossier && !estAppNative) {
       zoneReception.hidden = true;
@@ -246,7 +246,17 @@
       await writable.close();
     }
 
-    async function partagerFichier(nom) {
+    async function partagerFichier(nom, boutonEl) {
+      if (estAppNative) {
+        // Panneau de partage natif macOS (AirDrop, Messages, Mail...) :
+        // on donne la position du bouton pour que le panneau s'ouvre juste
+        // à côté, comme un menu natif classique.
+        const r = boutonEl ? boutonEl.getBoundingClientRect() : { x: 0, y: 0, width: 0, height: 0 };
+        window.webkit.messageHandlers.partagerFichier.postMessage({
+          nom, x: r.x, y: r.y, width: r.width, height: r.height,
+        });
+        return;
+      }
       try {
         const reponse = await fetch(`/apercu/${nom}`);
         if (!reponse.ok) throw new Error(`téléchargement du fichier échoué (HTTP ${reponse.status})`);
@@ -419,7 +429,7 @@
 
       const boutonPartager = carte.querySelector('.bouton-partager');
       if (boutonPartager) {
-        boutonPartager.addEventListener('click', () => partagerFichier(nom));
+        boutonPartager.addEventListener('click', () => partagerFichier(nom, boutonPartager));
       }
 
       const boutonSous = carte.querySelector('.bouton-enregistrer-sous');
