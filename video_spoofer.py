@@ -30,9 +30,10 @@ import moviepy.video.fx as vfx
 import moviepy.audio.fx as afx
 from imageio_ffmpeg import get_ffmpeg_exe
 
-# ffmpeg encode en multi-thread + preset rapide : le gros du temps n'est pas
-# l'encodage mais le calcul de chaque image (voir build_variant plus bas).
-PRESET_ENCODAGE = "veryfast"
+# ffmpeg encode en multi-thread. Preset "slow" : nettement meilleure qualité
+# par bit que "veryfast" (le gros du temps de traitement reste de toute
+# façon le calcul de chaque image, voir build_variant plus bas).
+PRESET_ENCODAGE = "slow"
 THREADS_ENCODAGE = max(1, os.cpu_count() or 1)
 
 FFMPEG = get_ffmpeg_exe()
@@ -294,19 +295,32 @@ def build_variant(src_path: Path, out_path: Path, mode: str, locale: str = None,
         volume = 1.0 + params["volume_delta"]
         clip = clip.with_effects([afx.MultiplyVolume(volume)])
 
-    # un bitrate/fps légèrement différent à chaque export change aussi
-    # l'empreinte binaire du fichier
+    # un fps légèrement différent à chaque export change aussi l'empreinte
+    # binaire du fichier
     fps = clip.fps or 30
     fps = fps + random.choice([-1, 0, 1]) * 0.001
-    bitrate = f"{random.randint(3200, 5200)}k"
+
+    # Qualité : CRF (facteur de qualité constant) plutôt qu'un bitrate fixe
+    # — c'est ce qui donne la meilleure qualité possible par taille de
+    # fichier avec libx264 (16-18 = quasi sans perte à l'oeil). Varié
+    # légèrement par variante, comme le reste, pour l'empreinte binaire.
+    crf = random.randint(16, 18)
+    # +faststart : place l'index (moov atom) au début du fichier plutôt
+    # qu'à la fin — sans ça, certains lecteurs (dont la lecture intégrée
+    # dans l'app) n'arrivent pas à lire la vidéo en streaming et affichent
+    # une erreur, alors que le fichier reste valide (d'où le téléchargement
+    # et le partage qui, eux, fonctionnaient quand même).
+    ffmpeg_params = ["-crf", str(crf)]
+    if out_path.suffix.lower() in (".mp4", ".mov", ".m4v"):
+        ffmpeg_params += ["-movflags", "+faststart"]
 
     tmp_out = out_path.with_suffix(".tmp" + out_path.suffix)
     clip.write_videofile(
         str(tmp_out),
         fps=fps,
-        bitrate=bitrate,
         codec="libx264",
         preset=PRESET_ENCODAGE,
+        ffmpeg_params=ffmpeg_params,
         threads=threads_encodage or THREADS_ENCODAGE,
         audio_codec="aac" if clip.audio is not None else None,
         temp_audiofile=str(out_path.with_suffix(".tmp.m4a")),
@@ -347,6 +361,8 @@ def randomize_metadata(src: Path, dst: Path, locale: str = None):
             "-metadata:s:a:0", f"language={loc['language']}",
         ]
 
+    if dst.suffix.lower() in (".mp4", ".mov", ".m4v"):
+        cmd += ["-movflags", "+faststart"]
     cmd += ["-c", "copy", str(dst)]
 
     result = subprocess.run(cmd, capture_output=True, text=True)
