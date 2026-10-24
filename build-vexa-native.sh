@@ -12,13 +12,22 @@ PYINSTALLER="${PYINSTALLER:-$HOME/Library/Python/3.9/bin/pyinstaller}"
 echo "1/4 — Construction du serveur Python (PyInstaller)..."
 rm -rf build dist-serveur
 "$PYINSTALLER" --noconfirm --distpath dist-serveur --specpath build --name Vexa --onedir --console \
-  --add-data "templates:templates" --add-data "static:static" \
+  --add-data "$(pwd)/templates:templates" --add-data "$(pwd)/static:static" \
   vexa_app.py >/dev/null
 
-echo "2/4 — Compilation de la fenêtre native (Swift)..."
+# Le SDK installé ici cible la toute dernière version de macOS par défaut
+# (ex: macOS 26) : sans -target explicite, le binaire Swift refuse de se
+# lancer sur n'importe quel Mac qui n'a pas CETTE version précise. On force
+# donc une cible beaucoup plus ancienne (14.0 = la même limite que numpy,
+# le composant le plus exigeant du serveur Python embarqué — pas la peine
+# de viser plus bas, ça ne marcherait pas de toute façon).
+CIBLE_MIN="14.0"
+
+echo "2/4 — Compilation de la fenêtre native (Swift, cible macOS $CIBLE_MIN+)..."
 rm -rf "$APP"
 mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
-swiftc -O vexa-native/app/main.swift -o "$APP/Contents/MacOS/Vexa" -framework Cocoa -framework WebKit
+swiftc -O -target "arm64-apple-macos$CIBLE_MIN" \
+  vexa-native/app/main.swift -o "$APP/Contents/MacOS/Vexa" -framework Cocoa -framework WebKit
 
 echo "3/4 — Assemblage (serveur + icône + Info.plist)..."
 cp -R dist-serveur/Vexa "$APP/Contents/Resources/vexa_server"
@@ -35,7 +44,7 @@ cat > "$APP/Contents/Info.plist" <<PLIST
   <key>CFBundleIconFile</key><string>AppIcon</string>
   <key>CFBundlePackageType</key><string>APPL</string>
   <key>CFBundleShortVersionString</key><string>1.0.0</string>
-  <key>LSMinimumSystemVersion</key><string>12.0</string>
+  <key>LSMinimumSystemVersion</key><string>$CIBLE_MIN</string>
   <key>NSHighResolutionCapable</key><true/>
 </dict></plist>
 PLIST
