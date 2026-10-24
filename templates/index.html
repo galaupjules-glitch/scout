@@ -261,15 +261,22 @@
       majVerrouGenerer();
     }
 
-    // Application native (Mac) : le choix et l'envoi du fichier passent par
-    // le pont natif (window.webkit.messageHandlers) plutôt que par
-    // <input type="file"> / le glisser-déposer HTML — ceux-ci se sont
-    // révélés peu fiables dans la WKWebView nue de l'app. Le natif gère
-    // aussi le glisser-déposer lui-même (voir vexa-native/app/main.swift),
-    // donc la zone affiche juste l'état "survolé" ici, sans traiter le drop.
+    // Application native (Mac) : pour le CLIC, on passe par le pont natif
+    // (NSOpenPanel via window.webkit.messageHandlers) plutôt que par
+    // <input type="file"> — peu fiable dans la WKWebView nue de l'app.
+    // Pour le GLISSER-DÉPOSER en revanche, on garde le chemin web standard
+    // (dataTransfer.files) : c'est WebKit lui-même qui traduit un drop
+    // Finder en évènement DOM 'drop' sur la page, donc un override Swift
+    // bas niveau (NSDraggingDestination) n'est pas garanti de l'intercepter
+    // avant — le laisser filer vers le DOM puis l'ignorer fait disparaître
+    // le fichier silencieusement. On lit donc toujours dataTransfer.files,
+    // et seul l'envoi (XHR classique vs upload natif Swift) dépend de la
+    // façon dont le fichier a été choisi.
     const estAppNative = !!(window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.deposerFichier);
+    let utiliserPontNatif = false; // true seulement après un choix via NSOpenPanel (clic)
 
     window.__fichierNatifChoisi = function (nom) {
+      utiliserPontNatif = true;
       marquerFichierPret(nom);
     };
     window.__traitementDemarre = function (jobId, total) {
@@ -292,13 +299,16 @@
           marquerFichierPret(input.files[0].name);
         }
       });
-      zone.addEventListener('drop', e => {
-        if (e.dataTransfer.files.length) {
-          input.files = e.dataTransfer.files;
-          marquerFichierPret(e.dataTransfer.files[0].name);
-        }
-      });
     }
+
+    // Glisser-déposer : identique en mode navigateur et en app native.
+    zone.addEventListener('drop', e => {
+      if (e.dataTransfer.files.length) {
+        utiliserPontNatif = false;
+        input.files = e.dataTransfer.files;
+        marquerFichierPret(e.dataTransfer.files[0].name);
+      }
+    });
 
     ['dragover', 'dragenter'].forEach(ev =>
       zone.addEventListener(ev, e => { e.preventDefault(); zone.classList.add('survol'); })
@@ -437,9 +447,9 @@
       telechargementAuto = false;
       setProgress(0, 'Envoi : 0 %', false);
 
-      if (estAppNative) {
-        // l'upload est fait côté natif (le fichier choisi via NSOpenPanel ou
-        // glisser-déposer n'existe que côté Swift, pas dans le DOM)
+      if (estAppNative && utiliserPontNatif) {
+        // Fichier choisi via NSOpenPanel (clic) : seul ce chemin n'existe
+        // que côté Swift (pas de File/Blob DOM) ; l'upload est natif.
         setProgress(20, 'Envoi au serveur local...', false);
         window.webkit.messageHandlers.demarrerTraitement.postMessage({
           type_media: typeMediaActuel,

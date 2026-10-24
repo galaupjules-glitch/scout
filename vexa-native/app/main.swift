@@ -20,6 +20,30 @@ let PORT = 8766
 let URL_LOCALE = URL(string: "http://127.0.0.1:\(PORT)/")!
 let URL_API_SPOOF = URL(string: "http://127.0.0.1:\(PORT)/api/spoof")!
 
+// Journal persistant (~/Library/Logs/Vexa.log) : chaque étape clé du pont
+// JS <-> natif y écrit une ligne, pour pouvoir diagnostiquer après coup un
+// souci qu'on ne peut pas reproduire soi-même en testant à distance.
+func journaliser(_ message: String) {
+    let formateur = DateFormatter()
+    formateur.dateFormat = "HH:mm:ss.SSS"
+    let ligne = "[\(formateur.string(from: Date()))] \(message)\n"
+    print(ligne, terminator: "")
+    let dossierLogs = FileManager.default.urls(for: .libraryDirectory, in: .userDomainMask).first?
+        .appendingPathComponent("Logs")
+    guard let dossierLogs = dossierLogs else { return }
+    try? FileManager.default.createDirectory(at: dossierLogs, withIntermediateDirectories: true)
+    let fichierLog = dossierLogs.appendingPathComponent("Vexa.log")
+    if let donnees = ligne.data(using: .utf8) {
+        if let ecriture = try? FileHandle(forWritingTo: fichierLog) {
+            ecriture.seekToEndOfFile()
+            ecriture.write(donnees)
+            try? ecriture.close()
+        } else {
+            try? donnees.write(to: fichierLog)
+        }
+    }
+}
+
 // Sous-classe de WKWebView : permet d'intercepter le glisser-déposer de
 // fichiers depuis le Finder nativement (fiable), plutôt que de compter sur
 // la traduction interne de WebKit vers des évènements DOM (pas fiable ici).
@@ -50,9 +74,11 @@ final class VexaWebView: WKWebView {
 
     override func performDragOperation(_ sender: NSDraggingInfo) -> Bool {
         if let fichier = fichierDepuis(sender) {
+            journaliser("Glisser-déposer natif (NSDraggingDestination) reçu : \(fichier.path)")
             appDelegate?.fichierChoisiNativement(fichier)
             return true
         }
+        journaliser("performDragOperation natif : pas de fichier reconnu, on délègue à WebKit")
         return super.performDragOperation(sender)
     }
 }
@@ -65,6 +91,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKUIDelegate, WKNaviga
     var fichierChoisi: URL?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
+        journaliser("--- Lancement de Vexa ---")
         demarrerServeur()
 
         let controleur = WKUserContentController()
@@ -108,12 +135,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKUIDelegate, WKNaviga
     // MARK: - Pont JS -> natif
 
     func userContentController(_ userContentController: WKUserContentController, didReceive message: WKScriptMessage) {
+        journaliser("Message JS -> natif reçu : \(message.name) = \(message.body)")
         switch message.name {
         case "deposerFichier":
             ouvrirSelecteurFichier()
         case "demarrerTraitement":
             if let champs = message.body as? [String: Any] {
                 demarrerTraitement(champs: champs.mapValues { "\($0)" })
+            } else {
+                journaliser("demarrerTraitement : corps du message illisible (\(type(of: message.body)))")
             }
         default:
             break
@@ -121,11 +151,19 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKUIDelegate, WKNaviga
     }
 
     private func ouvrirSelecteurFichier() {
+        // Renforce la fiabilité d'affichage du panneau : s'assure que l'app
+        // et sa fenêtre sont au premier plan avant de le présenter (sinon,
+        // sur certains Mac, le panneau peut s'ouvrir masqué derrière une
+        // autre fenêtre et donner l'impression que "rien ne se passe").
+        NSApp.activate(ignoringOtherApps: true)
+        window.makeKeyAndOrderFront(nil)
+        journaliser("Ouverture du sélecteur de fichier (NSOpenPanel)...")
         let panel = NSOpenPanel()
         panel.allowsMultipleSelection = false
         panel.canChooseDirectories = false
         panel.canChooseFiles = true
         panel.begin { reponse in
+            journaliser("NSOpenPanel fermé, réponse = \(reponse == .OK ? "OK" : "annulé")")
             if reponse == .OK, let url = panel.urls.first {
                 self.fichierChoisiNativement(url)
             }
@@ -134,12 +172,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKUIDelegate, WKNaviga
 
     // Appelé au choix via NSOpenPanel OU au glisser-déposer
     func fichierChoisiNativement(_ url: URL) {
+        journaliser("Fichier choisi nativement : \(url.path)")
         fichierChoisi = url
         appelerJS("window.__fichierNatifChoisi", avec: [url.lastPathComponent])
     }
 
     private func demarrerTraitement(champs: [String: String]) {
+        journaliser("demarrerTraitement appelé avec champs = \(champs)")
         guard let fichier = fichierChoisi else {
+            journaliser("demarrerTraitement : aucun fichier natif en attente")
             appelerJS("window.__erreurNative", avec: ["Choisis d'abord un fichier."])
             return
         }
@@ -150,13 +191,18 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKUIDelegate, WKNaviga
             requete.httpMethod = "POST"
             requete.setValue("multipart/form-data; boundary=\(frontiere)", forHTTPHeaderField: "Content-Type")
 
-            let tache = URLSession.shared.uploadTask(with: requete, fromFile: corps) { donnees, _, erreur in
+            journaliser("Envoi natif vers \(URL_API_SPOOF.absoluteString) (\(fichier.lastPathComponent))")
+            let tache = URLSession.shared.uploadTask(with: requete, fromFile: corps) { donnees, reponseHTTP, erreur in
                 try? FileManager.default.removeItem(at: corps)
                 DispatchQueue.main.async {
                     if let erreur = erreur {
+                        journaliser("Échec upload natif : \(erreur.localizedDescription)")
                         self.appelerJS("window.__erreurNative", avec: ["Échec de l'envoi : \(erreur.localizedDescription)"])
                         return
                     }
+                    let code = (reponseHTTP as? HTTPURLResponse)?.statusCode ?? -1
+                    let corpsTexte = donnees.flatMap { String(data: $0, encoding: .utf8) } ?? ""
+                    journaliser("Réponse upload natif : HTTP \(code) — \(corpsTexte.prefix(300))")
                     guard let donnees = donnees,
                           let json = try? JSONSerialization.jsonObject(with: donnees) as? [String: Any] else {
                         self.appelerJS("window.__erreurNative", avec: ["Réponse du serveur illisible."])
@@ -174,6 +220,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKUIDelegate, WKNaviga
             }
             tache.resume()
         } catch {
+            journaliser("Impossible de lire le fichier choisi : \(error.localizedDescription)")
             appelerJS("window.__erreurNative", avec: ["Impossible de lire le fichier : \(error.localizedDescription)"])
         }
     }
