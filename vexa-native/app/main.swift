@@ -8,7 +8,7 @@ import WebKit
 let PORT = 8766
 let URL_LOCALE = URL(string: "http://127.0.0.1:\(PORT)/")!
 
-final class AppDelegate: NSObject, NSApplicationDelegate, WKUIDelegate {
+final class AppDelegate: NSObject, NSApplicationDelegate, WKUIDelegate, WKNavigationDelegate, WKDownloadDelegate {
     var window: NSWindow!
     var webView: WKWebView!
     var serveur: Process?
@@ -20,6 +20,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKUIDelegate {
         config.websiteDataStore = .default()
         webView = WKWebView(frame: .zero, configuration: config)
         webView.uiDelegate = self
+        webView.navigationDelegate = self
 
         let ecran = NSScreen.main?.visibleFrame ?? NSRect(x: 0, y: 0, width: 1200, height: 900)
         let largeur = min(1120, ecran.width - 80)
@@ -43,6 +44,68 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKUIDelegate {
 
     func applicationWillTerminate(_ notification: Notification) {
         serveur?.terminate()
+    }
+
+    // MARK: - Sélection de fichier (sans ceci, cliquer sur la case de dépôt
+    // ne fait RIEN dans une WKWebView nue : il faut ouvrir soi-même le
+    // panneau natif macOS et renvoyer le(s) fichier(s) choisi(s) à la page)
+    func webView(_ webView: WKWebView, runOpenPanelWith parameters: WKOpenPanelParameters,
+                 initiatedByFrame frame: WKFrameInfo,
+                 completionHandler: @escaping ([URL]?) -> Void) {
+        let panel = NSOpenPanel()
+        panel.allowsMultipleSelection = parameters.allowsMultipleSelection
+        panel.canChooseDirectories = false
+        panel.canChooseFiles = true
+        panel.begin { reponse in
+            completionHandler(reponse == .OK ? panel.urls : nil)
+        }
+    }
+
+    // MARK: - Téléchargements (même raison : une WKWebView nue ignore
+    // silencieusement un clic sur "Télécharger" ou un fichier .zip envoyé
+    // en Content-Disposition: attachment, tant qu'on n'intercepte pas la
+    // navigation pour la transformer explicitement en téléchargement natif)
+    func webView(_ webView: WKWebView, decidePolicyFor navigationResponse: WKNavigationResponse,
+                 decisionHandler: @escaping (WKNavigationResponsePolicy) -> Void) {
+        let chemin = navigationResponse.response.url?.path ?? ""
+        let estTelechargement = chemin.hasPrefix("/fichier/") || chemin.hasPrefix("/telecharger-tout/")
+        if estTelechargement || !navigationResponse.canShowMIMEType {
+            decisionHandler(.download)
+        } else {
+            decisionHandler(.allow)
+        }
+    }
+
+    func webView(_ webView: WKWebView, navigationAction: WKNavigationAction, didBecome download: WKDownload) {
+        download.delegate = self
+    }
+
+    func webView(_ webView: WKWebView, navigationResponse: WKNavigationResponse, didBecome download: WKDownload) {
+        download.delegate = self
+    }
+
+    func download(_ download: WKDownload, decideDestinationUsing response: URLResponse,
+                  suggestedFilename: String, completionHandler: @escaping (URL?) -> Void) {
+        let dossier = FileManager.default.urls(for: .downloadsDirectory, in: .userDomainMask).first
+            ?? FileManager.default.homeDirectoryForCurrentUser
+        var destination = dossier.appendingPathComponent(suggestedFilename)
+        var compteur = 1
+        let base = destination.deletingPathExtension().lastPathComponent
+        let ext = destination.pathExtension
+        while FileManager.default.fileExists(atPath: destination.path) {
+            let nom = ext.isEmpty ? "\(base) (\(compteur))" : "\(base) (\(compteur)).\(ext)"
+            destination = dossier.appendingPathComponent(nom)
+            compteur += 1
+        }
+        completionHandler(destination)
+    }
+
+    func downloadDidFinish(_ download: WKDownload) {
+        NSSound(named: "Glass")?.play()
+    }
+
+    func download(_ download: WKDownload, didFailWithError error: Error, resumeData: Data?) {
+        afficherErreur("Le téléchargement a échoué : \(error.localizedDescription)")
     }
 
     private func demarrerServeur() {
