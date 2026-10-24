@@ -6,6 +6,14 @@
   <title>Vexa</title>
   <link rel="icon" href="{{ url_for('static', filename='favicon.png') }}">
   <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+  <script>
+    // Appliqué avant le rendu pour éviter un flash du mauvais thème au
+    // chargement. Mode nuit par défaut (c'est le thème d'origine de Vexa).
+    try {
+      const theme = localStorage.getItem('vexa_theme') || 'dark';
+      if (theme === 'light') document.documentElement.setAttribute('data-theme', 'light');
+    } catch (e) {}
+  </script>
 </head>
 <body>
   <div class="page">
@@ -15,6 +23,7 @@
         <h1>Vexa</h1>
         <p class="sous-titre" id="sous-titre">Dépose ta vidéo à gauche, récupère tes variantes à droite — chacune modifie au moins 7 caractéristiques, et aucune ne ressemble à une autre.</p>
       </div>
+      <button type="button" class="bouton-theme" id="bouton-theme" title="Basculer mode jour / nuit">🌙</button>
     </header>
 
     <div class="alerte" id="alerte-js" hidden><p id="alerte-texte"></p></div>
@@ -336,6 +345,25 @@
     );
 
     majVerrouGenerer();
+
+    // Mode jour / nuit : nuit (bleu foncé) par défaut, jour (beige/blanc)
+    // au clic, mémorisé pour les prochaines ouvertures.
+    const boutonTheme = document.getElementById('bouton-theme');
+    function appliquerIconeTheme() {
+      const estJour = document.documentElement.getAttribute('data-theme') === 'light';
+      boutonTheme.textContent = estJour ? '☀️' : '🌙';
+    }
+    appliquerIconeTheme();
+    boutonTheme.addEventListener('click', () => {
+      const estJour = document.documentElement.getAttribute('data-theme') === 'light';
+      if (estJour) {
+        document.documentElement.removeAttribute('data-theme');
+      } else {
+        document.documentElement.setAttribute('data-theme', 'light');
+      }
+      appliquerIconeTheme();
+      try { localStorage.setItem('vexa_theme', estJour ? 'dark' : 'light'); } catch (e) {}
+    });
 
     function afficherErreur(msg) {
       alerteTexte.textContent = msg;

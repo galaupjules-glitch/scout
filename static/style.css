@@ -14,6 +14,23 @@
   --erreur: #ff6b6b;
   --succes: #34c77b;
   --ombre: 0 12px 32px rgba(0, 0, 0, 0.35);
+  --transition-theme: background 0.25s ease, color 0.25s ease, border-color 0.25s ease, box-shadow 0.25s ease;
+}
+
+/* Mode jour : fond beige/blanc chaud, mêmes accents de marque */
+:root[data-theme="light"] {
+  --bg: #f3efe6;
+  --bg-glow: radial-gradient(1200px 600px at 50% -10%, rgba(63, 143, 196, 0.08), transparent 60%);
+  --carte: #fdfbf6;
+  --carte-haut: #ffffff;
+  --texte: #2a2620;
+  --sous-texte: #83796a;
+  --accent-soft: rgba(63, 143, 196, 0.1);
+  --bordure: #e3dbc9;
+  --bordure-vive: #d4c9b0;
+  --erreur: #c7453f;
+  --succes: #2a9a5c;
+  --ombre: 0 12px 28px rgba(60, 50, 30, 0.1);
 }
 
 * { box-sizing: border-box; }
@@ -28,7 +45,32 @@ body {
   color: var(--texte);
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
   -webkit-font-smoothing: antialiased;
+  transition: var(--transition-theme);
 }
+
+.carte, .zone-fichier, .type-media, .radio, .variante, .alerte,
+.champ-ligne select, .champ-ligne input[type="number"],
+.progression .barre, .bouton-enregistrer-sous, .bouton-partager {
+  transition: var(--transition-theme), border-color 0.18s, background 0.18s, color 0.18s, transform 0.18s;
+}
+
+.bouton-theme {
+  flex-shrink: 0;
+  margin-left: auto;
+  width: 40px;
+  height: 40px;
+  border: 1px solid var(--bordure);
+  border-radius: 50%;
+  background: var(--carte-haut);
+  color: var(--texte);
+  font-size: 1.1rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: var(--transition-theme);
+}
+.bouton-theme:hover { border-color: var(--accent); background: var(--accent-soft); }
 
 .page {
   width: 100%;
