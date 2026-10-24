@@ -12,6 +12,7 @@ import io
 import json
 import os
 import secrets
+import sys
 import threading
 import traceback
 import uuid
@@ -27,14 +28,27 @@ from flask import (
 
 from video_spoofer import build_variant, batch_params, PARAM_SPECS, LOCALES
 
+# Mode application locale (vexa_app.py, ou .app empaquetée) : pas de code
+# d'accès, 127.0.0.1 uniquement — à détecter avant tout le reste, car ça
+# change où les fichiers sont stockés (voir BASE_DIR plus bas).
+MODE_APP_LOCALE = os.environ.get("VEXA_APP_LOCAL") == "1"
+EST_EMPAQUETE = getattr(sys, "frozen", False)  # True une fois packagé avec PyInstaller
+
 # une variante = tout un coeur CPU occupé (ffmpeg + calcul image par image) ;
 # on en lance plusieurs en parallèle (processus séparés) pour un lot de
 # plusieurs variantes, en gardant un coeur libre pour le serveur web.
 WORKERS_PARALLELES = max(1, (os.cpu_count() or 2) - 1)
 
-BASE_DIR = Path(__file__).resolve().parent
+if MODE_APP_LOCALE or EST_EMPAQUETE:
+    # dans une .app empaquetée, le dossier de l'exécutable est en lecture
+    # seule : les fichiers générés vont dans le dossier Documents de la
+    # personne à la place.
+    BASE_DIR = Path.home() / "Documents" / "Vexa"
+else:
+    BASE_DIR = Path(__file__).resolve().parent
 UPLOAD_DIR = BASE_DIR / "spoofer_uploads"
 OUTPUT_DIR = BASE_DIR / "spoofer_sorties"
+BASE_DIR.mkdir(parents=True, exist_ok=True)
 UPLOAD_DIR.mkdir(exist_ok=True)
 OUTPUT_DIR.mkdir(exist_ok=True)
 
@@ -44,31 +58,35 @@ ALLOWED_EXT = {
 }
 MAX_COUNT = 20
 
-# Code d'accès + clé de session : générés une fois, stockés localement
-# (jamais commités), à réutiliser sur les autres PC qui doivent se connecter.
-SECRET_FILE = BASE_DIR / ".vexa_secret.json"
+# Code d'accès + clé de session : seulement pour le mode "serveur partagé"
+# (video_spoofer_web.py lancé tel quel + tunnel). En mode application locale,
+# rien n'est partagé sur le réseau donc pas besoin de code ni de fichier.
+if MODE_APP_LOCALE:
+    CODE_ACCES = None
+    flask_secret = secrets.token_hex(32)
+else:
+    SECRET_FILE = BASE_DIR / ".vexa_secret.json"
 
+    def _charger_secrets():
+        data = json.loads(SECRET_FILE.read_text()) if SECRET_FILE.exists() else {}
+        changed = False
+        if "code" not in data:
+            data["code"] = secrets.token_hex(3).upper()  # ex: A1B2C3
+            changed = True
+        if "flask_secret" not in data:
+            data["flask_secret"] = secrets.token_hex(32)
+            changed = True
+        if changed:
+            SECRET_FILE.write_text(json.dumps(data, indent=2))
+            SECRET_FILE.chmod(0o600)
+        return data
 
-def _charger_secrets():
-    data = json.loads(SECRET_FILE.read_text()) if SECRET_FILE.exists() else {}
-    changed = False
-    if "code" not in data:
-        data["code"] = secrets.token_hex(3).upper()  # ex: A1B2C3
-        changed = True
-    if "flask_secret" not in data:
-        data["flask_secret"] = secrets.token_hex(32)
-        changed = True
-    if changed:
-        SECRET_FILE.write_text(json.dumps(data, indent=2))
-        SECRET_FILE.chmod(0o600)
-    return data
-
-
-_secrets = _charger_secrets()
-CODE_ACCES = _secrets["code"]
+    _secrets = _charger_secrets()
+    CODE_ACCES = _secrets["code"]
+    flask_secret = _secrets["flask_secret"]
 
 app = Flask(__name__)
-app.secret_key = _secrets["flask_secret"]
+app.secret_key = flask_secret
 app.config["MAX_CONTENT_LENGTH"] = 600 * 1024 * 1024  # 600 Mo
 app.config["PERMANENT_SESSION_LIFETIME"] = timedelta(days=30)
 
@@ -77,6 +95,8 @@ ROUTES_LIBRES = {"connexion", "static"}
 
 @app.before_request
 def verifier_acces():
+    if MODE_APP_LOCALE:
+        return
     if request.endpoint in ROUTES_LIBRES or request.endpoint is None:
         return
     if session.get("autorise"):
