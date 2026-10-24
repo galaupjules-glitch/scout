@@ -27,6 +27,9 @@ from flask import (
 )
 
 from video_spoofer import build_variant, batch_params, PARAM_SPECS, LOCALES
+from image_spoofer import (
+    build_image_variant, batch_params as batch_params_photo, PARAM_SPECS as PARAM_SPECS_PHOTO,
+)
 
 # Mode application locale (vexa_app.py, ou .app empaquetée) : pas de code
 # d'accès, 127.0.0.1 uniquement — à détecter avant tout le reste, car ça
@@ -52,10 +55,11 @@ BASE_DIR.mkdir(parents=True, exist_ok=True)
 UPLOAD_DIR.mkdir(exist_ok=True)
 OUTPUT_DIR.mkdir(exist_ok=True)
 
-ALLOWED_EXT = {
+ALLOWED_EXT_VIDEO = {
     ".mp4", ".mov", ".m4v", ".avi", ".mkv", ".webm",
     ".3gp", ".3g2", ".wmv", ".flv", ".mpeg", ".mpg", ".ts", ".m2ts",
 }
+ALLOWED_EXT_PHOTO = {".jpg", ".jpeg", ".png", ".webp", ".bmp", ".tif", ".tiff"}
 MAX_COUNT = 20
 
 # Code d'accès + clé de session : seulement pour le mode "serveur partagé"
@@ -142,8 +146,24 @@ def _generer_une_variante(out_path: Path, src_path: Path, mode: str, locale: str
     return out_path.name
 
 
-def _traiter_job(job_id: str, src_path: Path, mode: str, locale: str, count: int, ext: str, miroir: bool):
-    lot = batch_params(mode, count)
+def _generer_une_variante_photo(out_path: Path, src_path: Path, mode: str, locale: str, params: dict,
+                                 miroir: bool) -> str:
+    try:
+        build_image_variant(src_path, out_path, mode, locale, params, miroir=miroir)
+    except Exception:
+        print(f"--- échec génération {out_path.name} (source : {src_path.name}) ---")
+        traceback.print_exc()
+        raise
+    return out_path.name
+
+
+def _traiter_job(job_id: str, src_path: Path, mode: str, locale: str, count: int, ext: str,
+                  miroir: bool, type_media: str):
+    if type_media == "photo":
+        lot = batch_params_photo(mode, count)
+    else:
+        lot = batch_params(mode, count)
+
     taches = []
     for i, params in enumerate(lot):
         out_name = f"{job_id}_{mode}_{i+1:02d}{ext}"
@@ -156,25 +176,43 @@ def _traiter_job(job_id: str, src_path: Path, mode: str, locale: str, count: int
     # par une : le gain est quasi proportionnel au nombre de coeurs dispo,
     # sans rien changer aux paramètres générés
     nb_workers = min(len(taches), WORKERS_PARALLELES)
-    # chaque ffmpeg ne doit pas réclamer tous les coeurs quand plusieurs
-    # tournent déjà en parallèle, sinon elles se marchent dessus au lieu
-    # d'aller plus vite
-    threads_par_tache = max(1, (os.cpu_count() or 2) // nb_workers)
-    with ThreadPoolExecutor(max_workers=nb_workers) as executor:
-        futures = {
-            executor.submit(_generer_une_variante, out_path, src_path, mode, locale, params, threads_par_tache, miroir): out_path
-            for out_path, params in zip(taches, lot)
-        }
-        for future in as_completed(futures):
-            try:
-                nom = future.result()
+
+    if type_media == "photo":
+        with ThreadPoolExecutor(max_workers=nb_workers) as executor:
+            futures = {
+                executor.submit(_generer_une_variante_photo, out_path, src_path, mode, locale, params, miroir): out_path
+                for out_path, params in zip(taches, lot)
+            }
+            for future in as_completed(futures):
+                try:
+                    nom = future.result()
+                    with JOBS_LOCK:
+                        JOBS[job_id]["resultats"].append(nom)
+                except Exception as exc:  # noqa: BLE001 - affichée à l'utilisateur
+                    with JOBS_LOCK:
+                        JOBS[job_id]["erreurs"].append(f"{type(exc).__name__}: {exc}")
                 with JOBS_LOCK:
-                    JOBS[job_id]["resultats"].append(nom)
-            except Exception as exc:  # noqa: BLE001 - affichée à l'utilisateur
+                    JOBS[job_id]["done"] += 1
+    else:
+        # chaque ffmpeg ne doit pas réclamer tous les coeurs quand plusieurs
+        # tournent déjà en parallèle, sinon elles se marchent dessus au lieu
+        # d'aller plus vite
+        threads_par_tache = max(1, (os.cpu_count() or 2) // nb_workers)
+        with ThreadPoolExecutor(max_workers=nb_workers) as executor:
+            futures = {
+                executor.submit(_generer_une_variante, out_path, src_path, mode, locale, params, threads_par_tache, miroir): out_path
+                for out_path, params in zip(taches, lot)
+            }
+            for future in as_completed(futures):
+                try:
+                    nom = future.result()
+                    with JOBS_LOCK:
+                        JOBS[job_id]["resultats"].append(nom)
+                except Exception as exc:  # noqa: BLE001 - affichée à l'utilisateur
+                    with JOBS_LOCK:
+                        JOBS[job_id]["erreurs"].append(f"{type(exc).__name__}: {exc}")
                 with JOBS_LOCK:
-                    JOBS[job_id]["erreurs"].append(f"{type(exc).__name__}: {exc}")
-            with JOBS_LOCK:
-                JOBS[job_id]["done"] += 1
+                    JOBS[job_id]["done"] += 1
 
     src_path.unlink(missing_ok=True)
     with JOBS_LOCK:
@@ -188,6 +226,10 @@ def index():
 
 @app.route("/api/spoof", methods=["POST"])
 def api_spoof():
+    type_media = request.form.get("type_media", "video")
+    if type_media not in ("video", "photo"):
+        type_media = "video"
+
     fichier = request.files.get("video")
     mode = request.form.get("mode", "leger")
     locale = request.form.get("locale") or None
@@ -198,26 +240,32 @@ def api_spoof():
         count = 1
     count = max(1, min(MAX_COUNT, count))
 
-    if mode not in PARAM_SPECS:
+    specs = PARAM_SPECS_PHOTO if type_media == "photo" else PARAM_SPECS
+    extensions_acceptees = ALLOWED_EXT_PHOTO if type_media == "photo" else ALLOWED_EXT_VIDEO
+
+    if mode not in specs:
         print(f"[400] mode invalide reçu : {mode!r}")
         return jsonify(erreur="Mode invalide."), 400
     if locale is not None and locale not in LOCALES:
         print(f"[400] locale invalide reçue : {locale!r}")
         return jsonify(erreur="Pays invalide."), 400
     if not fichier or fichier.filename == "":
-        print(f"[400] aucune vidéo dans la requête (champs reçus : {list(request.form.keys())}, "
-              f"fichiers reçus : {list(request.files.keys())})")
-        return jsonify(erreur="Aucune vidéo sélectionnée."), 400
+        print(f"[400] aucun fichier dans la requête (type={type_media}, champs reçus : "
+              f"{list(request.form.keys())}, fichiers reçus : {list(request.files.keys())})")
+        return jsonify(erreur="Aucun fichier sélectionné."), 400
 
     ext = safe_ext(fichier.filename)
-    if ext not in ALLOWED_EXT:
-        print(f"[400] format non supporté : nom={fichier.filename!r} ext={ext!r}")
+    if ext not in extensions_acceptees:
+        print(f"[400] format non supporté : nom={fichier.filename!r} ext={ext!r} type={type_media}")
         return jsonify(erreur=f"Format non supporté ({ext}). Formats acceptés : "
-                               f"{', '.join(sorted(ALLOWED_EXT))}"), 400
+                               f"{', '.join(sorted(extensions_acceptees))}"), 400
 
     job_id = uuid.uuid4().hex[:10]
     src_path = UPLOAD_DIR / f"{job_id}{ext}"
     fichier.save(src_path)
+
+    # pour une photo, le format de sortie est toujours .jpg (métadonnées EXIF)
+    ext_sortie = ".jpg" if type_media == "photo" else ext
 
     with JOBS_LOCK:
         JOBS[job_id] = {
@@ -225,6 +273,7 @@ def api_spoof():
             "total": count,
             "done": 0,
             "mode": mode,
+            "type_media": type_media,
             "locale_code": locale,
             "locale_label": LOCALES[locale]["label"] if locale else None,
             "nom_original": fichier.filename,
@@ -234,13 +283,14 @@ def api_spoof():
 
     threading.Thread(
         target=_traiter_job,
-        args=(job_id, src_path, mode, locale, count, ext, miroir),
+        args=(job_id, src_path, mode, locale, count, ext_sortie, miroir, type_media),
         daemon=True,
     ).start()
 
     return jsonify(
         job_id=job_id,
         total=count,
+        type_media=type_media,
         locale_code=locale,
         locale_label=LOCALES[locale]["label"] if locale else None,
     )
@@ -258,6 +308,7 @@ def api_etat(job_id):
             done=job["done"],
             resultats=list(job["resultats"]),
             erreurs=list(job["erreurs"]),
+            type_media=job.get("type_media", "video"),
             locale_code=job["locale_code"],
             locale_label=job["locale_label"],
         )

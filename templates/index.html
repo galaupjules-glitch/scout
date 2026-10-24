@@ -10,8 +10,11 @@
 <body>
   <div class="page">
     <header class="entete">
-      <h1>Vexa</h1>
-      <p class="sous-titre">Dépose ta vidéo à gauche, récupère tes variantes à droite — chacune modifie au moins 7 caractéristiques, et aucune ne ressemble à une autre.</p>
+      <img class="logo" src="{{ url_for('static', filename='logo.png') }}" alt="Vexa">
+      <div class="entete-texte">
+        <h1>Vexa</h1>
+        <p class="sous-titre" id="sous-titre">Dépose ta vidéo à gauche, récupère tes variantes à droite — chacune modifie au moins 7 caractéristiques, et aucune ne ressemble à une autre.</p>
+      </div>
     </header>
 
     <div class="alerte" id="alerte-js" hidden><p id="alerte-texte"></p></div>
@@ -21,6 +24,13 @@
         <!-- Dépôt (gauche) -->
         <section class="carte colonne-depot">
           <h2>Dépôt</h2>
+
+          <div class="type-media" id="type-media">
+            <button type="button" class="actif" data-type="video"><span class="pastille">🎬</span> Vidéo</button>
+            <button type="button" data-type="photo"><span class="pastille">🖼️</span> Photo</button>
+          </div>
+          <input type="hidden" name="type_media" id="input-type-media" value="video">
+
           <label class="zone-fichier" id="zone-drop">
             <input type="file" name="video" id="input-video" accept="video/*,.mp4,.mov,.m4v,.avi,.mkv,.webm,.3gp,.3g2,.wmv,.flv,.mpeg,.mpg,.ts,.m2ts" required>
             <span id="texte-fichier">Clique ou dépose ta vidéo ici</span>
@@ -33,7 +43,7 @@
           <button type="button" class="zone-fichier" id="zone-reception">
             <span id="texte-reception">Optionnel : choisir un dossier de réception dédié</span>
           </button>
-          <p class="note-reception" id="note-reception">Par défaut, tes vidéos arrivent automatiquement dans "Téléchargements" à la fin — pas besoin de choisir un dossier.</p>
+          <p class="note-reception" id="note-reception">Par défaut, tes fichiers arrivent automatiquement dans "Téléchargements" à la fin — pas besoin de choisir un dossier.</p>
           <p class="placeholder" id="placeholder-reception">Les variantes générées apparaîtront ici au fur et à mesure.</p>
           <div class="grille-resultats" id="grille-resultats"></div>
           <button type="button" class="bouton-telecharger-tout" id="bouton-tout" hidden>
@@ -56,7 +66,7 @@
           <label class="radio">
             <input type="radio" name="mode" value="agressif">
             <span>Agressif</span>
-            <small>Variations plus marquées (cadrage, couleurs, vitesse)</small>
+            <small>Variations plus marquées (cadrage, couleurs, grain)</small>
           </label>
         </fieldset>
 
@@ -76,7 +86,7 @@
         </label>
 
         <label class="champ-ligne">
-          <span>Inverser la vidéo (miroir)</span>
+          <span>Inverser (miroir)</span>
           <input type="checkbox" name="miroir" id="input-miroir" value="on">
         </label>
         <p class="note" style="margin-top: -14px;">Désactivé par défaut : la couleur/intensité change mais le texte à l'écran reste lisible. À activer seulement si tu veux explicitement une version inversée.</p>
@@ -97,6 +107,41 @@
     const zone = document.getElementById('zone-drop');
     const input = document.getElementById('input-video');
     const texte = document.getElementById('texte-fichier');
+    const typeMediaBoutons = document.querySelectorAll('#type-media button');
+    const inputTypeMedia = document.getElementById('input-type-media');
+    const sousTitre = document.getElementById('sous-titre');
+
+    const ACCEPT_VIDEO = 'video/*,.mp4,.mov,.m4v,.avi,.mkv,.webm,.3gp,.3g2,.wmv,.flv,.mpeg,.mpg,.ts,.m2ts';
+    const ACCEPT_PHOTO = 'image/*,.jpg,.jpeg,.png,.webp,.bmp,.tif,.tiff';
+    const TEXTES_SOUS_TITRE = {
+      video: "Dépose ta vidéo à gauche, récupère tes variantes à droite — chacune modifie au moins 7 caractéristiques, et aucune ne ressemble à une autre.",
+      photo: "Dépose ta photo à gauche, récupère tes variantes à droite — chacune modifie au moins 7 caractéristiques (couleurs, cadrage, métadonnées EXIF...), et aucune ne ressemble à une autre.",
+    };
+
+    let typeMediaActuel = 'video';
+
+    typeMediaBoutons.forEach(btn => {
+      btn.addEventListener('click', () => {
+        typeMediaActuel = btn.dataset.type;
+        inputTypeMedia.value = typeMediaActuel;
+        typeMediaBoutons.forEach(b => b.classList.toggle('actif', b === btn));
+
+        if (typeMediaActuel === 'photo') {
+          input.accept = ACCEPT_PHOTO;
+          texte.textContent = 'Clique ou dépose ta photo ici';
+        } else {
+          input.accept = ACCEPT_VIDEO;
+          texte.textContent = 'Clique ou dépose ta vidéo ici';
+        }
+        sousTitre.textContent = TEXTES_SOUS_TITRE[typeMediaActuel];
+
+        // on réinitialise la sélection de fichier, l'ancien type ne colle plus
+        input.value = '';
+        zone.classList.remove('pret');
+        fichierPret = false;
+        majVerrouGenerer();
+      });
+    });
     const form = document.getElementById('form-spoof');
     const bouton = document.getElementById('bouton-envoyer');
     const progression = document.getElementById('progression');
@@ -158,7 +203,7 @@
         dossierHandle = null;
         zoneReception.classList.remove('pret');
         texteReception.textContent = 'Optionnel : choisir un dossier de réception dédié';
-        noteReception.textContent = `Ce dossier n'a pas pu être utilisé (${err && (err.message || err.name) || 'erreur inconnue'}). Pas grave : tes vidéos arriveront quand même dans "Téléchargements".`;
+        noteReception.textContent = `Ce dossier n'a pas pu être utilisé (${err && (err.message || err.name) || 'erreur inconnue'}). Pas grave : tes fichiers arriveront quand même dans "Téléchargements".`;
       }
     });
 
@@ -171,10 +216,11 @@
 
     async function enregistrerSous(nom) {
       try {
-        const handle = await window.showSaveFilePicker({
-          suggestedName: nom,
-          types: [{ description: 'Vidéo', accept: { 'video/mp4': ['.mp4', '.mov', '.webm', '.mkv', '.avi', '.m4v'] } }],
-        });
+        const estPhoto = /\.(jpe?g|png|webp|bmp|tiff?)$/i.test(nom);
+        const types = estPhoto
+          ? [{ description: 'Photo', accept: { 'image/*': ['.jpg', '.jpeg', '.png', '.webp', '.bmp', '.tif', '.tiff'] } }]
+          : [{ description: 'Vidéo', accept: { 'video/*': ['.mp4', '.mov', '.webm', '.mkv', '.avi', '.m4v'] } }];
+        const handle = await window.showSaveFilePicker({ suggestedName: nom, types });
         const reponse = await fetch(`/fichier/${nom}`);
         const blob = await reponse.blob();
         const writable = await handle.createWritable();
@@ -228,7 +274,7 @@
       etatTexte.textContent = texte;
     }
 
-    async function ajouterVariante(jobId, nom, localeCode, localeLabel) {
+    async function ajouterVariante(jobId, nom, localeCode, localeLabel, typeMedia) {
       if (dejaAffiches.has(nom)) return;
       dejaAffiches.add(nom);
       placeholder.hidden = true;
@@ -237,11 +283,15 @@
         ? `${DRAPEAUX[localeCode] || '🌐'} Métadonnées : ${localeLabel}`
         : '🌐 Métadonnées : aléatoires';
 
+      const apercuTag = typeMedia === 'photo'
+        ? `<img src="/apercu/${nom}" alt="${nom}" loading="lazy">`
+        : `<video controls preload="metadata" src="/apercu/${nom}"></video>`;
+
       const carte = document.createElement('div');
       carte.className = 'variante';
       carte.innerHTML = `
         <button type="button" class="bouton-supprimer" title="Supprimer cette variante">✕</button>
-        <video controls preload="metadata" src="/apercu/${nom}"></video>
+        ${apercuTag}
         <p class="badge-meta">${badge}</p>
         <p class="etat-enregistrement" id="etat-${nom}"></p>
         <div class="actions-variante">
@@ -294,7 +344,7 @@
         fetch(`/api/etat/${jobId}`)
           .then(r => r.json())
           .then(etat => {
-            (etat.resultats || []).forEach(nom => ajouterVariante(jobId, nom, etat.locale_code, etat.locale_label));
+            (etat.resultats || []).forEach(nom => ajouterVariante(jobId, nom, etat.locale_code, etat.locale_label, etat.type_media));
 
             if (etat.status === 'traitement') {
               const fraction = etat.total ? etat.done / etat.total : 0;

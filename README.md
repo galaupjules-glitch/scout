@@ -51,19 +51,23 @@ Tout est en haut de `scout.py` (fourchette abonnés, ratio, mots-clés bio black
 - Les likes masqués par certains comptes → le profil passe quand même (marqué "likes masqués"), à toi de juger au swipe.
 - Le jugement du physique reste humain (au swipe) — c'est voulu : c'est gratuit et c'est toi qui juges le mieux.
 
-## Vexa — spoofer vidéo
+## Vexa — spoofer vidéo & photo
 
-Petite appli web locale pour générer des variantes d'une vidéo (recadrage, couleurs, vitesse, bruit, métadonnées...) en mode léger ou agressif, avec localisation des métadonnées par pays.
+Petite appli (web ou .app locale) pour générer des variantes d'une vidéo ou d'une photo (recadrage, couleurs, grain, métadonnées...) en mode léger ou agressif, avec localisation des métadonnées par pays.
 
 ```bash
-python3 -m pip install --user flask moviepy numpy pillow
+python3 -m pip install --user flask moviepy numpy pillow opencv-python-headless imageio-ffmpeg piexif
 python3 video_spoofer_web.py
 ```
 
-Ou double-clique `lancer-spoofer.command`. Ouvre http://127.0.0.1:8766/, dépose ta vidéo, choisis un mode, le nombre de variantes et le pays, télécharge le résultat.
+Ou double-clique `lancer-spoofer.command` (serveur web + tunnel) ou l'app `Vexa.app` empaquetée (`vexa_app.py` + `Vexa.spec`, voir plus bas) pour une utilisation 100% locale sans réseau. Ouvre http://127.0.0.1:8766/, choisis Vidéo ou Photo, dépose ton fichier, choisis un mode, le nombre de variantes et le pays, télécharge le résultat.
 
-**Pays (métadonnées)** : France, États-Unis, Canada, Australie. Ça fixe la langue, la position (ISO 6709) et le fuseau horaire du fichier sur une grande ville du pays choisi, au lieu du lieu réel de tournage.
+**Pays (métadonnées)** : France, États-Unis, Canada, Australie. Pour une vidéo : langue, position (ISO 6709) et fuseau horaire sur une grande ville du pays choisi. Pour une photo : GPS EXIF, date/heure, fabricant/logiciel randomisés.
 
-Ligne de commande directe : `python3 video_spoofer.py ma_video.mp4 --mode leger --locale us`.
+**Inverser (miroir)** : désactivé par défaut (décoché) pour ne jamais inverser un texte présent dans le média ; à activer explicitement si besoin.
+
+Ligne de commande directe : `python3 video_spoofer.py ma_video.mp4 --mode leger --locale us` ou `python3 image_spoofer.py ma_photo.jpg --mode agressif --locale fr`.
+
+**Application locale** : `python3 -m pip install --user pyinstaller && python3 -m PyInstaller --noconfirm Vexa.spec`, puis ouvre `dist/Vexa.app` (clic droit → Ouvrir la première fois, l'app n'étant pas signée). Chaque personne qui l'installe a sa propre vitesse, sans dépendre du réseau de qui que ce soit d'autre.
 
 Limite à garder en tête : ça change l'empreinte technique du fichier (hash, métadonnées, bitrate...), mais Instagram utilise aussi du hachage perceptuel sur l'image/le son — aucune garantie que le mode léger suffise à éviter une détection de contenu dupliqué.
