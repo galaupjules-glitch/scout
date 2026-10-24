@@ -11,7 +11,7 @@ PYINSTALLER="${PYINSTALLER:-$HOME/Library/Python/3.9/bin/pyinstaller}"
 
 echo "1/4 — Construction du serveur Python (PyInstaller)..."
 rm -rf build dist-serveur
-"$PYINSTALLER" --noconfirm --distpath dist-serveur --name Vexa --onedir --console \
+"$PYINSTALLER" --noconfirm --distpath dist-serveur --specpath build --name Vexa --onedir --console \
   --add-data "templates:templates" --add-data "static:static" \
   vexa_app.py >/dev/null
 
