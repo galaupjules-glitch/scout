@@ -45,7 +45,7 @@ coll = COLLECT(
 app = BUNDLE(
     coll,
     name='Vexa.app',
-    icon=None,
+    icon='vexa_icon.icns',
     bundle_identifier='com.ryva.vexa',
     info_plist={
         'CFBundleName': 'Vexa',
