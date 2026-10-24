@@ -32,7 +32,7 @@
           <input type="hidden" name="type_media" id="input-type-media" value="video">
 
           <label class="zone-fichier" id="zone-drop">
-            <input type="file" name="video" id="input-video" accept="video/*,.mp4,.mov,.m4v,.avi,.mkv,.webm,.3gp,.3g2,.wmv,.flv,.mpeg,.mpg,.ts,.m2ts" required>
+            <input type="file" name="video" id="input-video" accept="video/*,.mp4,.mov,.m4v,.avi,.mkv,.webm,.3gp,.3g2,.wmv,.flv,.mpeg,.mpg,.ts,.m2ts">
             <span id="texte-fichier">Clique ou dépose ta vidéo ici</span>
           </label>
         </section>
@@ -261,11 +261,44 @@
       majVerrouGenerer();
     }
 
-    input.addEventListener('change', () => {
-      if (input.files.length) {
-        marquerFichierPret(input.files[0].name);
-      }
-    });
+    // Application native (Mac) : le choix et l'envoi du fichier passent par
+    // le pont natif (window.webkit.messageHandlers) plutôt que par
+    // <input type="file"> / le glisser-déposer HTML — ceux-ci se sont
+    // révélés peu fiables dans la WKWebView nue de l'app. Le natif gère
+    // aussi le glisser-déposer lui-même (voir vexa-native/app/main.swift),
+    // donc la zone affiche juste l'état "survolé" ici, sans traiter le drop.
+    const estAppNative = !!(window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.deposerFichier);
+
+    window.__fichierNatifChoisi = function (nom) {
+      marquerFichierPret(nom);
+    };
+    window.__traitementDemarre = function (jobId, total) {
+      setProgress(45, `Traitement : 0 / ${total} variante(s)`);
+      suivreJob(jobId, total);
+    };
+    window.__erreurNative = function (message) {
+      afficherErreur(message);
+      progression.hidden = true;
+    };
+
+    if (estAppNative) {
+      zone.addEventListener('click', e => {
+        e.preventDefault();
+        window.webkit.messageHandlers.deposerFichier.postMessage({ type: typeMediaActuel });
+      });
+    } else {
+      input.addEventListener('change', () => {
+        if (input.files.length) {
+          marquerFichierPret(input.files[0].name);
+        }
+      });
+      zone.addEventListener('drop', e => {
+        if (e.dataTransfer.files.length) {
+          input.files = e.dataTransfer.files;
+          marquerFichierPret(e.dataTransfer.files[0].name);
+        }
+      });
+    }
 
     ['dragover', 'dragenter'].forEach(ev =>
       zone.addEventListener(ev, e => { e.preventDefault(); zone.classList.add('survol'); })
@@ -273,12 +306,6 @@
     ['dragleave', 'drop'].forEach(ev =>
       zone.addEventListener(ev, e => { e.preventDefault(); zone.classList.remove('survol'); })
     );
-    zone.addEventListener('drop', e => {
-      if (e.dataTransfer.files.length) {
-        input.files = e.dataTransfer.files;
-        marquerFichierPret(e.dataTransfer.files[0].name);
-      }
-    });
 
     majVerrouGenerer();
 
@@ -409,6 +436,20 @@
       progression.hidden = false;
       telechargementAuto = false;
       setProgress(0, 'Envoi : 0 %', false);
+
+      if (estAppNative) {
+        // l'upload est fait côté natif (le fichier choisi via NSOpenPanel ou
+        // glisser-déposer n'existe que côté Swift, pas dans le DOM)
+        setProgress(20, 'Envoi au serveur local...', false);
+        window.webkit.messageHandlers.demarrerTraitement.postMessage({
+          type_media: typeMediaActuel,
+          mode: form.querySelector('input[name="mode"]:checked').value,
+          count: String(document.getElementById('input-count').value || '1'),
+          locale: document.getElementById('input-locale').value || '',
+          miroir: document.getElementById('input-miroir').checked ? 'on' : '',
+        });
+        return;
+      }
 
       const xhr = new XMLHttpRequest();
       xhr.open('POST', '/api/spoof');

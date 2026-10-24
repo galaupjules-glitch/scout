@@ -1,26 +1,85 @@
 // Vexa — fenêtre Mac native (WKWebView) qui démarre son propre serveur local
 // (empaqueté dans Resources/vexa_server/) et affiche son interface, sans
-// jamais ouvrir Safari/Chrome ni dépendre d'internet : tout reste sur
-// 127.0.0.1, sur cet ordinateur.
+// jamais ouvrir Safari/Chrome ni dépendre d'internet.
+//
+// Le choix et l'envoi du fichier (vidéo/photo) sont gérés CÔTÉ NATIF plutôt
+// que via les mécanismes internes de WKWebView (<input type="file">,
+// glisser-déposer HTML) : ceux-ci se sont révélés peu fiables dans une
+// WKWebView nue. Le pont JS <-> natif (voir templates/index.html,
+// window.webkit.messageHandlers) est donc la source de vérité :
+//   - clic sur la case de dépôt -> NSOpenPanel natif
+//   - glisser un fichier depuis le Finder sur la fenêtre -> capté nativement
+//   - "Générer" -> l'upload multipart est fait en natif (URLSession),
+//     directement vers /api/spoof, puis on relaie le job_id à la page pour
+//     qu'elle affiche la progression comme d'habitude.
 import Cocoa
 import WebKit
+import UniformTypeIdentifiers
 
 let PORT = 8766
 let URL_LOCALE = URL(string: "http://127.0.0.1:\(PORT)/")!
+let URL_API_SPOOF = URL(string: "http://127.0.0.1:\(PORT)/api/spoof")!
 
-final class AppDelegate: NSObject, NSApplicationDelegate, WKUIDelegate, WKNavigationDelegate, WKDownloadDelegate {
+// Sous-classe de WKWebView : permet d'intercepter le glisser-déposer de
+// fichiers depuis le Finder nativement (fiable), plutôt que de compter sur
+// la traduction interne de WebKit vers des évènements DOM (pas fiable ici).
+final class VexaWebView: WKWebView {
+    weak var appDelegate: AppDelegate?
+
+    func activerGlisserDeposer() {
+        registerForDraggedTypes([.fileURL])
+    }
+
+    private func fichierDepuis(_ sender: NSDraggingInfo) -> URL? {
+        let options: [NSPasteboard.ReadingOptionKey: Any] = [.urlReadingFileURLsOnly: true]
+        guard let urls = sender.draggingPasteboard.readObjects(forClasses: [NSURL.self], options: options) as? [URL] else {
+            return nil
+        }
+        return urls.first
+    }
+
+    override func draggingEntered(_ sender: NSDraggingInfo) -> NSDragOperation {
+        if fichierDepuis(sender) != nil { return .copy }
+        return super.draggingEntered(sender)
+    }
+
+    override func draggingUpdated(_ sender: NSDraggingInfo) -> NSDragOperation {
+        if fichierDepuis(sender) != nil { return .copy }
+        return super.draggingUpdated(sender)
+    }
+
+    override func performDragOperation(_ sender: NSDraggingInfo) -> Bool {
+        if let fichier = fichierDepuis(sender) {
+            appDelegate?.fichierChoisiNativement(fichier)
+            return true
+        }
+        return super.performDragOperation(sender)
+    }
+}
+
+final class AppDelegate: NSObject, NSApplicationDelegate, WKUIDelegate, WKNavigationDelegate,
+                          WKDownloadDelegate, WKScriptMessageHandler {
     var window: NSWindow!
-    var webView: WKWebView!
+    var webView: VexaWebView!
     var serveur: Process?
+    var fichierChoisi: URL?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         demarrerServeur()
 
+        let controleur = WKUserContentController()
+        controleur.add(self, name: "deposerFichier")
+        controleur.add(self, name: "demarrerTraitement")
+
         let config = WKWebViewConfiguration()
         config.websiteDataStore = .default()
-        webView = WKWebView(frame: .zero, configuration: config)
+        config.userContentController = controleur
+
+        webView = VexaWebView(frame: .zero, configuration: config)
+        webView.appDelegate = self
         webView.uiDelegate = self
         webView.navigationDelegate = self
+        webView.activerGlisserDeposer()
 
         let ecran = NSScreen.main?.visibleFrame ?? NSRect(x: 0, y: 0, width: 1200, height: 900)
         let largeur = min(1120, ecran.width - 80)
@@ -46,25 +105,120 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKUIDelegate, WKNaviga
         serveur?.terminate()
     }
 
-    // MARK: - Sélection de fichier (sans ceci, cliquer sur la case de dépôt
-    // ne fait RIEN dans une WKWebView nue : il faut ouvrir soi-même le
-    // panneau natif macOS et renvoyer le(s) fichier(s) choisi(s) à la page)
-    func webView(_ webView: WKWebView, runOpenPanelWith parameters: WKOpenPanelParameters,
-                 initiatedByFrame frame: WKFrameInfo,
-                 completionHandler: @escaping ([URL]?) -> Void) {
-        let panel = NSOpenPanel()
-        panel.allowsMultipleSelection = parameters.allowsMultipleSelection
-        panel.canChooseDirectories = false
-        panel.canChooseFiles = true
-        panel.begin { reponse in
-            completionHandler(reponse == .OK ? panel.urls : nil)
+    // MARK: - Pont JS -> natif
+
+    func userContentController(_ userContentController: WKUserContentController, didReceive message: WKScriptMessage) {
+        switch message.name {
+        case "deposerFichier":
+            ouvrirSelecteurFichier()
+        case "demarrerTraitement":
+            if let champs = message.body as? [String: Any] {
+                demarrerTraitement(champs: champs.mapValues { "\($0)" })
+            }
+        default:
+            break
         }
     }
 
-    // MARK: - Téléchargements (même raison : une WKWebView nue ignore
-    // silencieusement un clic sur "Télécharger" ou un fichier .zip envoyé
-    // en Content-Disposition: attachment, tant qu'on n'intercepte pas la
-    // navigation pour la transformer explicitement en téléchargement natif)
+    private func ouvrirSelecteurFichier() {
+        let panel = NSOpenPanel()
+        panel.allowsMultipleSelection = false
+        panel.canChooseDirectories = false
+        panel.canChooseFiles = true
+        panel.begin { reponse in
+            if reponse == .OK, let url = panel.urls.first {
+                self.fichierChoisiNativement(url)
+            }
+        }
+    }
+
+    // Appelé au choix via NSOpenPanel OU au glisser-déposer
+    func fichierChoisiNativement(_ url: URL) {
+        fichierChoisi = url
+        appelerJS("window.__fichierNatifChoisi", avec: [url.lastPathComponent])
+    }
+
+    private func demarrerTraitement(champs: [String: String]) {
+        guard let fichier = fichierChoisi else {
+            appelerJS("window.__erreurNative", avec: ["Choisis d'abord un fichier."])
+            return
+        }
+        let frontiere = "VexaBoundary\(UUID().uuidString)"
+        do {
+            let corps = try construireCorpsMultipart(frontiere: frontiere, champs: champs, fichier: fichier)
+            var requete = URLRequest(url: URL_API_SPOOF)
+            requete.httpMethod = "POST"
+            requete.setValue("multipart/form-data; boundary=\(frontiere)", forHTTPHeaderField: "Content-Type")
+
+            let tache = URLSession.shared.uploadTask(with: requete, fromFile: corps) { donnees, _, erreur in
+                try? FileManager.default.removeItem(at: corps)
+                DispatchQueue.main.async {
+                    if let erreur = erreur {
+                        self.appelerJS("window.__erreurNative", avec: ["Échec de l'envoi : \(erreur.localizedDescription)"])
+                        return
+                    }
+                    guard let donnees = donnees,
+                          let json = try? JSONSerialization.jsonObject(with: donnees) as? [String: Any] else {
+                        self.appelerJS("window.__erreurNative", avec: ["Réponse du serveur illisible."])
+                        return
+                    }
+                    if let jobId = json["job_id"] as? String {
+                        let total = (json["total"] as? Int) ?? 1
+                        self.webView.evaluateJavaScript("window.__traitementDemarre && window.__traitementDemarre('\(jobId)', \(total))")
+                    } else if let erreurMsg = json["erreur"] as? String {
+                        self.appelerJS("window.__erreurNative", avec: [erreurMsg])
+                    } else {
+                        self.appelerJS("window.__erreurNative", avec: ["Réponse du serveur inattendue."])
+                    }
+                }
+            }
+            tache.resume()
+        } catch {
+            appelerJS("window.__erreurNative", avec: ["Impossible de lire le fichier : \(error.localizedDescription)"])
+        }
+    }
+
+    private func construireCorpsMultipart(frontiere: String, champs: [String: String], fichier: URL) throws -> URL {
+        let tmp = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        FileManager.default.createFile(atPath: tmp.path, contents: nil)
+        let ecriture = try FileHandle(forWritingTo: tmp)
+        defer { try? ecriture.close() }
+
+        func ecrire(_ s: String) { ecriture.write(s.data(using: .utf8)!) }
+
+        for (cle, valeur) in champs {
+            ecrire("--\(frontiere)\r\n")
+            ecrire("Content-Disposition: form-data; name=\"\(cle)\"\r\n\r\n")
+            ecrire("\(valeur)\r\n")
+        }
+
+        let nomFichier = fichier.lastPathComponent
+        let mime = UTType(filenameExtension: fichier.pathExtension)?.preferredMIMEType ?? "application/octet-stream"
+        ecrire("--\(frontiere)\r\n")
+        ecrire("Content-Disposition: form-data; name=\"video\"; filename=\"\(nomFichier)\"\r\n")
+        ecrire("Content-Type: \(mime)\r\n\r\n")
+
+        let lecture = try FileHandle(forReadingFrom: fichier)
+        while true {
+            let morceau = lecture.readData(ofLength: 1_048_576)
+            if morceau.isEmpty { break }
+            ecriture.write(morceau)
+        }
+        try lecture.close()
+
+        ecrire("\r\n--\(frontiere)--\r\n")
+        return tmp
+    }
+
+    private func appelerJS(_ fonction: String, avec arguments: [String]) {
+        guard let donnees = try? JSONSerialization.data(withJSONObject: arguments),
+              let json = String(data: donnees, encoding: .utf8) else { return }
+        webView.evaluateJavaScript("\(fonction) && \(fonction).apply(null, \(json))")
+    }
+
+    // MARK: - Téléchargements (Content-Disposition: attachment -> dossier
+    // Téléchargements de la personne, avec gestion des doublons de nom)
+
     func webView(_ webView: WKWebView, decidePolicyFor navigationResponse: WKNavigationResponse,
                  decisionHandler: @escaping (WKNavigationResponsePolicy) -> Void) {
         let chemin = navigationResponse.response.url?.path ?? ""
@@ -100,13 +254,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKUIDelegate, WKNaviga
         completionHandler(destination)
     }
 
-    func downloadDidFinish(_ download: WKDownload) {
-        NSSound(named: "Glass")?.play()
+    func download(_ download: WKDownload, didFailWithError error: Error, resumeData: Data?) {
+        appelerJS("window.__erreurNative", avec: ["Le téléchargement a échoué : \(error.localizedDescription)"])
     }
 
-    func download(_ download: WKDownload, didFailWithError error: Error, resumeData: Data?) {
-        afficherErreur("Le téléchargement a échoué : \(error.localizedDescription)")
-    }
+    // MARK: - Démarrage du serveur local
 
     private func demarrerServeur() {
         guard let exe = Bundle.main.path(forResource: "vexa_server/Vexa", ofType: nil) else {
