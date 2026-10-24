@@ -38,7 +38,10 @@ OUTPUT_DIR = BASE_DIR / "spoofer_sorties"
 UPLOAD_DIR.mkdir(exist_ok=True)
 OUTPUT_DIR.mkdir(exist_ok=True)
 
-ALLOWED_EXT = {".mp4", ".mov", ".m4v", ".avi", ".mkv", ".webm"}
+ALLOWED_EXT = {
+    ".mp4", ".mov", ".m4v", ".avi", ".mkv", ".webm",
+    ".3gp", ".3g2", ".wmv", ".flv", ".mpeg", ".mpg", ".ts", ".m2ts",
+}
 MAX_COUNT = 20
 
 # Code d'accès + clé de session : générés une fois, stockés localement
@@ -176,14 +179,19 @@ def api_spoof():
     count = max(1, min(MAX_COUNT, count))
 
     if mode not in PARAM_SPECS:
+        print(f"[400] mode invalide reçu : {mode!r}")
         return jsonify(erreur="Mode invalide."), 400
     if locale is not None and locale not in LOCALES:
+        print(f"[400] locale invalide reçue : {locale!r}")
         return jsonify(erreur="Pays invalide."), 400
     if not fichier or fichier.filename == "":
+        print(f"[400] aucune vidéo dans la requête (champs reçus : {list(request.form.keys())}, "
+              f"fichiers reçus : {list(request.files.keys())})")
         return jsonify(erreur="Aucune vidéo sélectionnée."), 400
 
     ext = safe_ext(fichier.filename)
     if ext not in ALLOWED_EXT:
+        print(f"[400] format non supporté : nom={fichier.filename!r} ext={ext!r}")
         return jsonify(erreur=f"Format non supporté ({ext}). Formats acceptés : "
                                f"{', '.join(sorted(ALLOWED_EXT))}"), 400
 
