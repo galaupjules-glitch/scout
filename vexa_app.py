@@ -22,6 +22,11 @@ from video_spoofer_web import app  # noqa: E402
 
 PORT = 8766
 
+# Quand Vexa est lancée dans la fenêtre native (vexa-native/app/main.swift),
+# c'est cette fenêtre qui affiche la page elle-même : pas besoin (et pas
+# question) d'ouvrir en plus un onglet dans Safari/Chrome.
+OUVRIR_NAVIGATEUR = os.environ.get("VEXA_NO_BROWSER") != "1"
+
 
 def _ouvrir_navigateur():
     time.sleep(1.2)
@@ -29,6 +34,7 @@ def _ouvrir_navigateur():
 
 
 if __name__ == "__main__":
-    threading.Thread(target=_ouvrir_navigateur, daemon=True).start()
+    if OUVRIR_NAVIGATEUR:
+        threading.Thread(target=_ouvrir_navigateur, daemon=True).start()
     print(f"Vexa sur http://127.0.0.1:{PORT}/ (application locale, rien n'est partagé sur le réseau)")
     app.run(host="127.0.0.1", port=PORT, debug=False, threaded=True)

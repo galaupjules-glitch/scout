@@ -60,7 +60,7 @@ python3 -m pip install --user flask moviepy numpy pillow opencv-python-headless 
 python3 video_spoofer_web.py
 ```
 
-Ou double-clique `lancer-spoofer.command` (serveur web + tunnel) ou l'app `Vexa.app` empaquetée (`vexa_app.py` + `Vexa.spec`, voir plus bas) pour une utilisation 100% locale sans réseau. Ouvre http://127.0.0.1:8766/, choisis Vidéo ou Photo, dépose ton fichier, choisis un mode, le nombre de variantes et le pays, télécharge le résultat.
+Ou double-clique `lancer-spoofer.command` (serveur web + tunnel) ou l'app native `Vexa.app` (voir plus bas) pour une utilisation 100% locale, sans navigateur ni réseau. Ouvre http://127.0.0.1:8766/, choisis Vidéo ou Photo, dépose ton fichier, choisis un mode, le nombre de variantes et le pays, télécharge le résultat.
 
 **Pays (métadonnées)** : France, États-Unis, Canada, Australie. Pour une vidéo : langue, position (ISO 6709) et fuseau horaire sur une grande ville du pays choisi. Pour une photo : GPS EXIF, date/heure, fabricant/logiciel randomisés.
 
@@ -68,6 +68,6 @@ Ou double-clique `lancer-spoofer.command` (serveur web + tunnel) ou l'app `Vexa.
 
 Ligne de commande directe : `python3 video_spoofer.py ma_video.mp4 --mode leger --locale us` ou `python3 image_spoofer.py ma_photo.jpg --mode agressif --locale fr`.
 
-**Application locale** : `python3 -m pip install --user pyinstaller && python3 -m PyInstaller --noconfirm Vexa.spec`, puis ouvre `dist/Vexa.app` (clic droit → Ouvrir la première fois, l'app n'étant pas signée). Chaque personne qui l'installe a sa propre vitesse, sans dépendre du réseau de qui que ce soit d'autre.
+**Application native** (recommandé) : `./build-vexa-native.sh`, puis ouvre `dist/Vexa.app` (clic droit → Ouvrir la première fois, l'app n'étant pas signée). C'est une vraie fenêtre Mac (Swift + WKWebView, `vexa-native/app/main.swift`) qui démarre et affiche son propre serveur local empaqueté — jamais d'onglet de navigateur, jamais de dépendance à internet. Chaque personne qui l'installe a sa propre vitesse, sans dépendre du réseau de qui que ce soit d'autre.
 
 Limite à garder en tête : ça change l'empreinte technique du fichier (hash, métadonnées, bitrate...), mais Instagram utilise aussi du hachage perceptuel sur l'image/le son — aucune garantie que le mode léger suffise à éviter une détection de contenu dupliqué.
