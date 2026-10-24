@@ -172,6 +172,10 @@
     // garanti. Choisir un dossier dédié est juste un bonus en plus.
     const supporteDossier = 'showDirectoryPicker' in window;
     const supporteEnregistrerSous = 'showSaveFilePicker' in window;
+    // Partage natif (AirDrop, Messages, Mail...) : dispo sur Safari/Chrome
+    // macOS récents. On vérifie canShare avec un fichier factice au moment
+    // du clic (pas ici), donc on détecte juste la présence de l'API.
+    const supportePartage = !!(navigator.share && navigator.canShare);
 
     if (!supporteDossier) {
       zoneReception.hidden = true;
@@ -212,6 +216,23 @@
       const writable = await fileHandle.createWritable();
       await writable.write(blob);
       await writable.close();
+    }
+
+    async function partagerFichier(nom) {
+      try {
+        const reponse = await fetch(`/apercu/${nom}`);
+        if (!reponse.ok) throw new Error(`téléchargement du fichier échoué (HTTP ${reponse.status})`);
+        const blob = await reponse.blob();
+        const file = new File([blob], nom, { type: blob.type });
+        if (!navigator.canShare({ files: [file] })) {
+          throw new Error("Ce type de fichier ne peut pas être partagé ainsi sur ce navigateur.");
+        }
+        await navigator.share({ files: [file], title: nom });
+      } catch (err) {
+        if (err && err.name === 'AbortError') return; // annulé par l'utilisateur
+        console.error('Partage échoué pour', nom, err);
+        afficherErreur('Partage impossible ici — utilise "Télécharger" puis AirDrop depuis le Finder.');
+      }
     }
 
     async function enregistrerSous(nom) {
@@ -296,6 +317,7 @@
         <p class="etat-enregistrement" id="etat-${nom}"></p>
         <div class="actions-variante">
           <a class="bouton-telecharger" href="/fichier/${nom}" download>Télécharger</a>
+          ${supportePartage ? `<button type="button" class="bouton-partager" data-nom="${nom}">⇪ Partager</button>` : ''}
           ${supporteEnregistrerSous ? `<button type="button" class="bouton-enregistrer-sous" data-nom="${nom}">Enregistrer sous...</button>` : ''}
         </div>
       `;
@@ -311,6 +333,11 @@
         }
         fetch(`/supprimer/${nom}`, { method: 'POST' }).catch(() => {});
       });
+
+      const boutonPartager = carte.querySelector('.bouton-partager');
+      if (boutonPartager) {
+        boutonPartager.addEventListener('click', () => partagerFichier(nom));
+      }
 
       const boutonSous = carte.querySelector('.bouton-enregistrer-sous');
       if (boutonSous) {

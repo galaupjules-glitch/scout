@@ -432,7 +432,12 @@ button[type="submit"]:disabled {
 
 .actions-variante {
   display: flex;
+  flex-wrap: wrap;
   gap: 8px;
+}
+.actions-variante > * {
+  flex: 1 1 calc(50% - 4px);
+  min-width: 100px;
 }
 
 .bouton-telecharger {
@@ -450,8 +455,8 @@ button[type="submit"]:disabled {
 }
 .bouton-telecharger:hover { filter: brightness(1.12); }
 
-.bouton-enregistrer-sous {
-  flex: 1;
+.bouton-enregistrer-sous,
+.bouton-partager {
   padding: 10px;
   border-radius: 9px;
   border: 1px solid var(--bordure);
@@ -462,7 +467,8 @@ button[type="submit"]:disabled {
   cursor: pointer;
   transition: border-color 0.15s, background 0.15s;
 }
-.bouton-enregistrer-sous:hover {
+.bouton-enregistrer-sous:hover,
+.bouton-partager:hover {
   border-color: var(--accent);
   background: var(--accent-soft);
 }
