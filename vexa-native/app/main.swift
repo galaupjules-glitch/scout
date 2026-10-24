@@ -89,6 +89,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKUIDelegate, WKNaviga
     var webView: VexaWebView!
     var serveur: Process?
     var fichierChoisi: URL?
+    var dossierReceptionChoisi: URL?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         journaliser("--- Lancement de Vexa ---")
@@ -97,6 +98,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKUIDelegate, WKNaviga
         let controleur = WKUserContentController()
         controleur.add(self, name: "deposerFichier")
         controleur.add(self, name: "demarrerTraitement")
+        controleur.add(self, name: "choisirDossierReception")
 
         let config = WKWebViewConfiguration()
         config.websiteDataStore = .default()
@@ -145,27 +147,52 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKUIDelegate, WKNaviga
             } else {
                 journaliser("demarrerTraitement : corps du message illisible (\(type(of: message.body)))")
             }
+        case "choisirDossierReception":
+            ouvrirSelecteurDossier()
         default:
             break
         }
     }
 
-    private func ouvrirSelecteurFichier() {
-        // Renforce la fiabilité d'affichage du panneau : s'assure que l'app
-        // et sa fenêtre sont au premier plan avant de le présenter (sinon,
-        // sur certains Mac, le panneau peut s'ouvrir masqué derrière une
-        // autre fenêtre et donner l'impression que "rien ne se passe").
+    // Active l'app et met la fenêtre au premier plan avant de présenter un
+    // panneau système : sinon, sur certains Mac, le panneau peut s'ouvrir
+    // masqué derrière une autre fenêtre et donner l'impression que "rien
+    // ne se passe" au clic.
+    private func preparerPresentationPanneau() {
         NSApp.activate(ignoringOtherApps: true)
         window.makeKeyAndOrderFront(nil)
+    }
+
+    private func ouvrirSelecteurFichier() {
+        preparerPresentationPanneau()
         journaliser("Ouverture du sélecteur de fichier (NSOpenPanel)...")
         let panel = NSOpenPanel()
         panel.allowsMultipleSelection = false
         panel.canChooseDirectories = false
         panel.canChooseFiles = true
         panel.begin { reponse in
-            journaliser("NSOpenPanel fermé, réponse = \(reponse == .OK ? "OK" : "annulé")")
+            journaliser("NSOpenPanel (fichier) fermé, réponse = \(reponse == .OK ? "OK" : "annulé")")
             if reponse == .OK, let url = panel.urls.first {
                 self.fichierChoisiNativement(url)
+            }
+        }
+    }
+
+    private func ouvrirSelecteurDossier() {
+        preparerPresentationPanneau()
+        journaliser("Ouverture du sélecteur de dossier de réception (NSOpenPanel)...")
+        let panel = NSOpenPanel()
+        panel.allowsMultipleSelection = false
+        panel.canChooseDirectories = true
+        panel.canChooseFiles = false
+        panel.canCreateDirectories = true
+        panel.prompt = "Choisir"
+        panel.begin { reponse in
+            journaliser("NSOpenPanel (dossier) fermé, réponse = \(reponse == .OK ? "OK" : "annulé")")
+            if reponse == .OK, let url = panel.urls.first {
+                self.dossierReceptionChoisi = url
+                journaliser("Dossier de réception choisi : \(url.path)")
+                self.appelerJS("window.__dossierReceptionChoisi", avec: [url.lastPathComponent])
             }
         }
     }
@@ -287,7 +314,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKUIDelegate, WKNaviga
 
     func download(_ download: WKDownload, decideDestinationUsing response: URLResponse,
                   suggestedFilename: String, completionHandler: @escaping (URL?) -> Void) {
-        let dossier = FileManager.default.urls(for: .downloadsDirectory, in: .userDomainMask).first
+        let dossier = dossierReceptionChoisi
+            ?? FileManager.default.urls(for: .downloadsDirectory, in: .userDomainMask).first
             ?? FileManager.default.homeDirectoryForCurrentUser
         var destination = dossier.appendingPathComponent(suggestedFilename)
         var compteur = 1

@@ -101,6 +101,10 @@
       <div class="barre"><div class="remplissage" id="barre-remplissage"></div></div>
       <p class="etat-texte" id="etat-texte">Envoi : 0 %</p>
     </div>
+
+    {% if infos_build %}
+    <p style="text-align:center; opacity:0.35; font-size:11px; margin-top:18px;">Build {{ infos_build }}</p>
+    {% endif %}
   </div>
 
   <script>
@@ -165,19 +169,25 @@
     let dossierHandle = null;
     let fichierPret = false;
 
-    // File System Access API : dispo sur Chrome/Edge desktop, pas sur
-    // Safari/Firefox. Dans tous les cas, c'est OPTIONNEL : par défaut, le
-    // téléchargement classique (.zip) vers "Téléchargements" suffit et ne
-    // dépend d'aucune permission spéciale — c'est le chemin fiable et
-    // garanti. Choisir un dossier dédié est juste un bonus en plus.
-    const supporteDossier = 'showDirectoryPicker' in window;
-    const supporteEnregistrerSous = 'showSaveFilePicker' in window;
+    // Pont JS <-> natif (app Mac uniquement) : défini ici (avant tout le
+    // reste) car utilisé à la fois pour le choix du fichier à spoofer et
+    // pour le choix du dossier de réception.
+    const estAppNative = !!(window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.deposerFichier);
+
+    // File System Access API (showDirectoryPicker) : dispo sur Chrome/Edge
+    // desktop, PAS dans la WKWebView de l'app (ni sur Safari/Firefox) —
+    // dans l'app, le choix d'un dossier de réception passe par le pont
+    // natif (NSOpenPanel) à la place, voir plus bas. Dans tous les cas
+    // c'est OPTIONNEL : le téléchargement classique (.zip) vers
+    // "Téléchargements" reste le chemin fiable et garanti par défaut.
+    const supporteDossier = !estAppNative && 'showDirectoryPicker' in window;
+    const supporteEnregistrerSous = !estAppNative && 'showSaveFilePicker' in window;
     // Partage natif (AirDrop, Messages, Mail...) : dispo sur Safari/Chrome
     // macOS récents. On vérifie canShare avec un fichier factice au moment
     // du clic (pas ici), donc on détecte juste la présence de l'API.
-    const supportePartage = !!(navigator.share && navigator.canShare);
+    const supportePartage = !estAppNative && !!(navigator.share && navigator.canShare);
 
-    if (!supporteDossier) {
+    if (!supporteDossier && !estAppNative) {
       zoneReception.hidden = true;
     }
 
@@ -186,7 +196,16 @@
       noteVerrou.hidden = bouton.disabled ? false : true;
     }
 
+    window.__dossierReceptionChoisi = function (nom) {
+      texteReception.textContent = `📁 "${nom}" — clique pour changer de dossier`;
+      zoneReception.classList.add('pret');
+    };
+
     zoneReception.addEventListener('click', async () => {
+      if (estAppNative) {
+        window.webkit.messageHandlers.choisirDossierReception.postMessage({});
+        return;
+      }
       try {
         // "readwrite" est indispensable : par défaut le dossier n'est
         // accordé qu'en lecture, et l'enregistrement échoue ensuite
@@ -272,7 +291,6 @@
     // le fichier silencieusement. On lit donc toujours dataTransfer.files,
     // et seul l'envoi (XHR classique vs upload natif Swift) dépend de la
     // façon dont le fichier a été choisi.
-    const estAppNative = !!(window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.deposerFichier);
     let utiliserPontNatif = false; // true seulement après un choix via NSOpenPanel (clic)
 
     window.__fichierNatifChoisi = function (nom) {

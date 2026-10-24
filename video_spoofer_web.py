@@ -36,6 +36,15 @@ from image_spoofer import (
 # change où les fichiers sont stockés (voir BASE_DIR plus bas).
 MODE_APP_LOCALE = os.environ.get("VEXA_APP_LOCAL") == "1"
 EST_EMPAQUETE = getattr(sys, "frozen", False)  # True une fois packagé avec PyInstaller
+# Identifiant de build (date/heure de compilation, écrit par
+# build-vexa-native.sh dans Resources/build_info.txt) : affiché en petit
+# dans l'interface pour vérifier à coup sûr qu'on teste la bonne version,
+# plutôt qu'une ancienne copie de l'app restée sur la machine.
+INFOS_BUILD = ""
+if EST_EMPAQUETE:
+    _chemin_build_info = Path(sys.executable).resolve().parent.parent / "build_info.txt"
+    if _chemin_build_info.exists():
+        INFOS_BUILD = _chemin_build_info.read_text(encoding="utf-8").strip()
 
 # une variante = tout un coeur CPU occupé (ffmpeg + calcul image par image) ;
 # on en lance plusieurs en parallèle (processus séparés) pour un lot de
@@ -221,7 +230,7 @@ def _traiter_job(job_id: str, src_path: Path, mode: str, locale: str, count: int
 
 @app.route("/", methods=["GET"])
 def index():
-    return render_template("index.html", locales=LOCALES, max_count=MAX_COUNT)
+    return render_template("index.html", locales=LOCALES, max_count=MAX_COUNT, infos_build=INFOS_BUILD)
 
 
 @app.route("/api/spoof", methods=["POST"])

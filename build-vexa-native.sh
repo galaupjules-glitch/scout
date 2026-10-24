@@ -33,6 +33,11 @@ echo "3/4 — Assemblage (serveur + icône + Info.plist)..."
 cp -R dist-serveur/Vexa "$APP/Contents/Resources/vexa_server"
 cp vexa_icon.icns "$APP/Contents/Resources/AppIcon.icns"
 
+# Identifiant de build affiché en petit dans l'interface : permet de
+# vérifier à coup sûr, en testant, qu'on a bien la dernière version et pas
+# une ancienne copie restée sur la machine.
+date "+%d/%m %H:%M" > "$APP/Contents/Resources/build_info.txt"
+
 cat > "$APP/Contents/Info.plist" <<PLIST
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
