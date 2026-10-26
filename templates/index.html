@@ -21,7 +21,7 @@
       <img class="logo" src="{{ url_for('static', filename='logo.png') }}" alt="Vexa">
       <div class="entete-texte">
         <h1>Vexa</h1>
-        <p class="sous-titre" id="sous-titre">Dépose ta vidéo à gauche, récupère tes variantes à droite — chacune modifie au moins 7 caractéristiques, et aucune ne ressemble à une autre.</p>
+        <p class="sous-titre" id="sous-titre">Dépose une ou plusieurs vidéos à gauche (traitement par lots), récupère tes variantes à droite — chacune modifie au moins 7 caractéristiques, et aucune ne ressemble à une autre.</p>
       </div>
       <button type="button" class="bouton-theme" id="bouton-theme" title="Basculer mode jour / nuit">🌙</button>
     </header>
@@ -41,8 +41,8 @@
           <input type="hidden" name="type_media" id="input-type-media" value="video">
 
           <label class="zone-fichier" id="zone-drop">
-            <input type="file" name="video" id="input-video" accept="video/*,.mp4,.mov,.m4v,.avi,.mkv,.webm,.3gp,.3g2,.wmv,.flv,.mpeg,.mpg,.ts,.m2ts">
-            <span id="texte-fichier">Clique ou dépose ta vidéo ici</span>
+            <input type="file" name="video" id="input-video" multiple accept="video/*,.mp4,.mov,.m4v,.avi,.mkv,.webm,.3gp,.3g2,.wmv,.flv,.mpeg,.mpg,.ts,.m2ts">
+            <span id="texte-fichier">Clique ou dépose ta vidéo ici (plusieurs fichiers possibles)</span>
           </label>
         </section>
 
@@ -127,8 +127,8 @@
     const ACCEPT_VIDEO = 'video/*,.mp4,.mov,.m4v,.avi,.mkv,.webm,.3gp,.3g2,.wmv,.flv,.mpeg,.mpg,.ts,.m2ts';
     const ACCEPT_PHOTO = 'image/*,.jpg,.jpeg,.png,.webp,.bmp,.tif,.tiff';
     const TEXTES_SOUS_TITRE = {
-      video: "Dépose ta vidéo à gauche, récupère tes variantes à droite — chacune modifie au moins 7 caractéristiques, et aucune ne ressemble à une autre.",
-      photo: "Dépose ta photo à gauche, récupère tes variantes à droite — chacune modifie au moins 7 caractéristiques (couleurs, cadrage, métadonnées EXIF...), et aucune ne ressemble à une autre.",
+      video: "Dépose une ou plusieurs vidéos à gauche (traitement par lots), récupère tes variantes à droite — chacune modifie au moins 7 caractéristiques, et aucune ne ressemble à une autre.",
+      photo: "Dépose une ou plusieurs photos à gauche (traitement par lots), récupère tes variantes à droite — chacune modifie au moins 7 caractéristiques (couleurs, cadrage, métadonnées EXIF...), et aucune ne ressemble à une autre.",
     };
 
     let typeMediaActuel = 'video';
@@ -141,10 +141,10 @@
 
         if (typeMediaActuel === 'photo') {
           input.accept = ACCEPT_PHOTO;
-          texte.textContent = 'Clique ou dépose ta photo ici';
+          texte.textContent = 'Clique ou dépose tes photos ici (plusieurs fichiers possibles)';
         } else {
           input.accept = ACCEPT_VIDEO;
-          texte.textContent = 'Clique ou dépose ta vidéo ici';
+          texte.textContent = 'Clique ou dépose ta vidéo ici (plusieurs fichiers possibles)';
         }
         sousTitre.textContent = TEXTES_SOUS_TITRE[typeMediaActuel];
 
@@ -171,7 +171,10 @@
     const noteReception = document.getElementById('note-reception');
     const noteVerrou = document.getElementById('note-verrou');
 
-    const DRAPEAUX = { fr: '🇫🇷', us: '🇺🇸', ca: '🇨🇦', au: '🇦🇺' };
+    const DRAPEAUX = {
+      fr: '🇫🇷', us: '🇺🇸', ca: '🇨🇦', au: '🇦🇺',
+      gb: '🇬🇧', de: '🇩🇪', es: '🇪🇸', it: '🇮🇹', br: '🇧🇷', mx: '🇲🇽', jp: '🇯🇵',
+    };
 
     const dejaAffiches = new Set();
     let telechargementAuto = false;
@@ -292,8 +295,12 @@
       }
     }
 
-    function marquerFichierPret(nomFichier) {
-      texte.textContent = nomFichier;
+    function marquerFichierPret(nomFichierOuListe) {
+      if (Array.isArray(nomFichierOuListe) && nomFichierOuListe.length > 1) {
+        texte.textContent = `${nomFichierOuListe.length} fichiers sélectionnés (lot)`;
+      } else {
+        texte.textContent = Array.isArray(nomFichierOuListe) ? nomFichierOuListe[0] : nomFichierOuListe;
+      }
       zone.classList.add('pret');
       fichierPret = true;
       majVerrouGenerer();
@@ -333,17 +340,19 @@
     } else {
       input.addEventListener('change', () => {
         if (input.files.length) {
-          marquerFichierPret(input.files[0].name);
+          marquerFichierPret(Array.from(input.files).map(f => f.name));
         }
       });
     }
 
     // Glisser-déposer : identique en mode navigateur et en app native.
+    // Déposer plusieurs fichiers à la fois déclenche un traitement par lots
+    // (un job indépendant par fichier, voir suivreLot plus bas).
     zone.addEventListener('drop', e => {
       if (e.dataTransfer.files.length) {
         utiliserPontNatif = false;
         input.files = e.dataTransfer.files;
-        marquerFichierPret(e.dataTransfer.files[0].name);
+        marquerFichierPret(Array.from(e.dataTransfer.files).map(f => f.name));
       }
     });
 
@@ -439,7 +448,13 @@
 
       nbPretes.textContent = dejaAffiches.size;
       boutonTout.hidden = false;
-      boutonTout.onclick = () => { window.location.href = `/telecharger-tout/${jobId}`; };
+      boutonTout.onclick = () => {
+        if (jobsActifsLot.length > 1) {
+          window.location.href = `/telecharger-lot?jobs=${jobsActifsLot.join(',')}`;
+        } else {
+          window.location.href = `/telecharger-tout/${jobId}`;
+        }
+      };
 
       // dossier de réception choisi : tentative en bonus, jamais bloquante
       // — le zip vers "Téléchargements" arrivera de toute façon à la fin
@@ -457,6 +472,56 @@
           etatEl.textContent = 'ℹ Pas enregistrée dans le dossier choisi — arrivera dans "Téléchargements"';
         }
       }
+    }
+
+    // Traitement par lots : plusieurs fichiers envoyés d'un coup = plusieurs
+    // jobs indépendants côté serveur, suivis ensemble ici (progression
+    // cumulée, téléchargement combiné à la fin).
+    let jobsActifsLot = [];
+
+    function suivreLot(jobs) {
+      jobsActifsLot = jobs.map(j => j.job_id);
+      const etatParJob = {};
+      jobs.forEach(j => { etatParJob[j.job_id] = { done: 0, total: j.total, termine: false }; });
+
+      const intervalle = setInterval(() => {
+        Promise.all(jobs.map(j =>
+          fetch(`/api/etat/${j.job_id}`).then(r => r.json()).then(etat => ({ j, etat })).catch(() => null)
+        )).then(resultats => {
+          let doneTotal = 0, totalTotal = 0, tousTermines = true, toutesErreurs = [], nbResultats = 0;
+
+          resultats.forEach(entree => {
+            if (!entree) { tousTermines = false; return; }
+            const { j, etat } = entree;
+            (etat.resultats || []).forEach(nom => ajouterVariante(j.job_id, nom, etat.locale_code, etat.locale_label, etat.type_media));
+            doneTotal += etat.done || 0;
+            totalTotal += etat.total || 0;
+            nbResultats += (etat.resultats || []).length;
+            if (etat.erreurs && etat.erreurs.length) toutesErreurs.push(...etat.erreurs);
+            if (etat.status !== 'termine') tousTermines = false;
+          });
+
+          if (!tousTermines) {
+            const fraction = totalTotal ? doneTotal / totalTotal : 0;
+            const suffixeLot = jobs.length > 1 ? ` (lot de ${jobs.length} fichiers)` : '';
+            setProgress(45 + Math.round(fraction * 55), `Traitement : ${doneTotal} / ${totalTotal} variante(s)${suffixeLot}`);
+          } else {
+            clearInterval(intervalle);
+            bouton.textContent = 'Générer';
+            majVerrouGenerer();
+
+            if (toutesErreurs.length) afficherErreur(toutesErreurs.join(' / '));
+
+            if (!telechargementAuto && nbResultats) {
+              telechargementAuto = true;
+              const suffixe = dossierHandle ? ` (et dans "${dossierHandle.name}")` : '';
+              setProgress(100, `Terminé ! ${nbResultats} variante(s) — téléchargement en cours...`, true);
+              window.location.href = `/telecharger-lot?jobs=${jobsActifsLot.join(',')}`;
+              setTimeout(() => setProgress(100, `Terminé ! ${nbResultats} variante(s) dans "Téléchargements"${suffixe}.`, true), 800);
+            }
+          }
+        });
+      }, 700);
     }
 
     function suivreJob(jobId, total) {
@@ -501,6 +566,7 @@
       bouton.textContent = 'Traitement en cours...';
       progression.hidden = false;
       telechargementAuto = false;
+      jobsActifsLot = [];
       setProgress(0, 'Envoi : 0 %', false);
 
       if (estAppNative && utiliserPontNatif) {
@@ -537,8 +603,11 @@
           return;
         }
 
-        setProgress(45, `Traitement : 0 / ${reponse.total} variante(s)`);
-        suivreJob(reponse.job_id, reponse.total);
+        const jobs = reponse.jobs || [{ job_id: reponse.job_id, total: reponse.total, locale_code: reponse.locale_code, locale_label: reponse.locale_label, type_media: reponse.type_media }];
+        const totalVariantes = jobs.reduce((s, j) => s + j.total, 0);
+        const suffixeLot = jobs.length > 1 ? ` (lot de ${jobs.length} fichiers)` : '';
+        setProgress(45, `Traitement : 0 / ${totalVariantes} variante(s)${suffixeLot}`);
+        suivreLot(jobs);
       });
 
       xhr.addEventListener('error', () => {

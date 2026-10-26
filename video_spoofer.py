@@ -51,10 +51,16 @@ PARAM_SPECS = {
         "contrast":     {"floor": 0.020, "ceil": 0.050, "signed": True},   # contraste
         "saturation":   {"floor": 0.020, "ceil": 0.060, "signed": True},   # saturation (≈ opacité des couleurs)
         "hue_deg":      {"floor": 1.0,   "ceil": 3.0,   "signed": True},   # teinte
+        "gamma":        {"floor": 0.01,  "ceil": 0.04,  "signed": True},   # gamma (courbe tonale)
+        "vignette":     {"floor": 0.03,  "ceil": 0.10,  "signed": False},  # assombrissement des coins
+        "sharpen":      {"floor": 0.10,  "ceil": 0.35,  "signed": True},   # <0 flou léger, >0 netteté
         "speed_delta":  {"floor": 0.008, "ceil": 0.020, "signed": True},   # vitesse (1 + valeur)
         "rotate_deg":   {"floor": 0.3,   "ceil": 0.8,   "signed": True},   # rotation
         "noise_std":    {"floor": 0.8,   "ceil": 2.0,   "signed": False},  # grain/bruit
         "volume_delta": {"floor": 0.01,  "ceil": 0.030, "signed": True},   # volume audio (1 + valeur)
+        "eq_bass":      {"floor": 0.02,  "ceil": 0.06,  "signed": True},   # égalisation graves
+        "eq_treble":    {"floor": 0.02,  "ceil": 0.06,  "signed": True},   # égalisation aigus
+        "fade_s":       {"floor": 0.03,  "ceil": 0.12,  "signed": False},  # fondu audio entrée/sortie (s)
         "trim_start":   {"floor": 0.03,  "ceil": 0.15,  "signed": False},  # coupe au début (s)
         "trim_end":     {"floor": 0.03,  "ceil": 0.15,  "signed": False},  # coupe à la fin (s)
     },
@@ -65,10 +71,16 @@ PARAM_SPECS = {
         "contrast":     {"floor": 0.06, "ceil": 0.15, "signed": True},
         "saturation":   {"floor": 0.07, "ceil": 0.18, "signed": True},
         "hue_deg":      {"floor": 5.0,  "ceil": 15.0, "signed": True},
+        "gamma":        {"floor": 0.05, "ceil": 0.12, "signed": True},
+        "vignette":     {"floor": 0.10, "ceil": 0.22, "signed": False},
+        "sharpen":      {"floor": 0.30, "ceil": 0.70, "signed": True},
         "speed_delta":  {"floor": 0.04, "ceil": 0.10, "signed": True},
         "rotate_deg":   {"floor": 1.0,  "ceil": 2.5,  "signed": True},
         "noise_std":    {"floor": 3.0,  "ceil": 9.0,  "signed": False},
         "volume_delta": {"floor": 0.05, "ceil": 0.15, "signed": True},
+        "eq_bass":      {"floor": 0.06, "ceil": 0.15, "signed": True},
+        "eq_treble":    {"floor": 0.06, "ceil": 0.15, "signed": True},
+        "fade_s":       {"floor": 0.1,  "ceil": 0.3,  "signed": False},
         "trim_start":   {"floor": 0.1,  "ceil": 0.5,  "signed": False},
         "trim_end":     {"floor": 0.1,  "ceil": 0.5,  "signed": False},
     },
@@ -142,26 +154,84 @@ LOCALES = {
         "language": "fra",
         "location": "+48.8566+002.3522/",
         "tz": "+01:00",
+        "appareils": ["iPhone 15 Pro", "iPhone 14", "Samsung Galaxy S23"],
     },
     "us": {
         "label": "États-Unis",
         "language": "eng",
         "location": "+40.7128-074.0060/",
         "tz": "-05:00",
+        "appareils": ["iPhone 15 Pro Max", "iPhone 13", "Google Pixel 8"],
     },
     "ca": {
         "label": "Canada",
         "language": "eng",
         "location": "+45.5017-073.5673/",
         "tz": "-05:00",
+        "appareils": ["iPhone 14 Pro", "Samsung Galaxy S22"],
     },
     "au": {
         "label": "Australie",
         "language": "eng",
         "location": "-33.8688+151.2093/",
         "tz": "+11:00",
+        "appareils": ["iPhone 13 Pro", "Google Pixel 7"],
+    },
+    "gb": {
+        "label": "Royaume-Uni",
+        "language": "eng",
+        "location": "+51.5074-000.1278/",
+        "tz": "+00:00",
+        "appareils": ["iPhone 15", "Samsung Galaxy S21"],
+    },
+    "de": {
+        "label": "Allemagne",
+        "language": "deu",
+        "location": "+52.5200+013.4050/",
+        "tz": "+01:00",
+        "appareils": ["iPhone 14 Pro Max", "Samsung Galaxy S23 Ultra"],
+    },
+    "es": {
+        "label": "Espagne",
+        "language": "spa",
+        "location": "+40.4168-003.7038/",
+        "tz": "+01:00",
+        "appareils": ["iPhone 13", "Xiaomi 13"],
+    },
+    "it": {
+        "label": "Italie",
+        "language": "ita",
+        "location": "+41.9028+012.4964/",
+        "tz": "+01:00",
+        "appareils": ["iPhone 15", "Samsung Galaxy A54"],
+    },
+    "br": {
+        "label": "Brésil",
+        "language": "por",
+        "location": "-23.5505-046.6333/",
+        "tz": "-03:00",
+        "appareils": ["Samsung Galaxy S23", "iPhone 12"],
+    },
+    "mx": {
+        "label": "Mexique",
+        "language": "spa",
+        "location": "+19.4326-099.1332/",
+        "tz": "-06:00",
+        "appareils": ["iPhone 14", "Motorola Edge 40"],
+    },
+    "jp": {
+        "label": "Japon",
+        "language": "jpn",
+        "location": "+35.6762+139.6503/",
+        "tz": "+09:00",
+        "appareils": ["iPhone 15 Pro", "Sony Xperia 1 V"],
     },
 }
+
+# logiciels de montage réalistes ajoutés aux métadonnées, en plus de
+# l'encodeur ffmpeg/Lavf — rend l'empreinte du fichier plus plausible (un
+# vrai smartphone ne mentionne jamais "ffmpeg" dans ses métadonnées).
+LOGICIELS_PLAUSIBLES = ["CapCut", "InShot", "VN Editor", "Adobe Premiere Rush", "iMovie"]
 
 
 def creation_time_for(tz_offset: str) -> str:
@@ -261,6 +331,28 @@ def build_variant(src_path: Path, out_path: Path, mode: str, locale: str = None,
     noise_std = params["noise_std"]
     bruit_buffer = np.empty((h, w, 3), dtype=np.int16)
 
+    # gamma (courbe tonale) : LUT précalculée une seule fois, appliquée par
+    # cv2.LUT (table de correspondance, le plus rapide pour ce genre de
+    # transformation non-linéaire sur 8 bits).
+    gamma = max(0.3, 1.0 + params["gamma"])
+    inv_gamma = 1.0 / gamma
+    lut_gamma = np.array([((i / 255.0) ** inv_gamma) * 255 for i in range(256)], dtype=np.uint8)
+
+    # vignette (assombrissement progressif des coins) : masque radial
+    # précalculé une seule fois à la taille de l'image, appliqué par simple
+    # multiplication par image.
+    vignette_force = params["vignette"]
+    vignette_mask = None
+    if vignette_force > 0:
+        yy, xx = np.mgrid[0:h, 0:w]
+        rayon = np.sqrt(((xx - w / 2) / (w / 2)) ** 2 + ((yy - h / 2) / (h / 2)) ** 2)
+        vignette_mask = np.clip(1.0 - vignette_force * (rayon ** 2), 1.0 - vignette_force, 1.0)
+        vignette_mask = vignette_mask[:, :, None].astype(np.float32)
+
+    # netteté / flou : valeur positive = renforcement de netteté (unsharp
+    # mask), négative = flou léger (gaussien) — jamais les deux à la fois.
+    sharpen_val = params["sharpen"]
+
     def _frame_func(get_frame, t):
         frame = get_frame(t)
 
@@ -274,6 +366,17 @@ def build_variant(src_path: Path, out_path: Path, mode: str, locale: str = None,
             frame = frame[:, ::-1]
 
         frame = cv2.transform(frame, matrice_couleur)
+        frame = cv2.LUT(frame, lut_gamma)
+
+        if sharpen_val > 0:
+            flou = cv2.GaussianBlur(frame, (0, 0), 1.0)
+            frame = cv2.addWeighted(frame, 1 + sharpen_val, flou, -sharpen_val, 0)
+        elif sharpen_val < 0:
+            frame = cv2.GaussianBlur(frame, (0, 0), min(2.5, -sharpen_val * 2))
+
+        if vignette_mask is not None:
+            frame = (frame.astype(np.float32) * vignette_mask).astype(np.uint8)
+
         if noise_std > 0:
             # cv2.randn + cv2.add saturant : nettement plus rapide qu'un
             # produit matriciel numpy + clip manuel, surtout en haute
@@ -290,10 +393,17 @@ def build_variant(src_path: Path, out_path: Path, mode: str, locale: str = None,
     if abs(speed - 1.0) > 1e-3:
         clip = clip.with_effects([vfx.MultiplySpeed(speed)])
 
-    # 6) volume audio
+    # 6) volume audio + fondu d'entrée/sortie (l'égalisation graves/aigus
+    # est appliquée plus loin, directement en sortie ffmpeg — voir
+    # ffmpeg_params ci-dessous)
     if clip.audio is not None:
         volume = 1.0 + params["volume_delta"]
-        clip = clip.with_effects([afx.MultiplyVolume(volume)])
+        fade_s = min(params["fade_s"], max(0.01, clip.duration / 4))
+        clip = clip.with_effects([
+            afx.MultiplyVolume(volume),
+            afx.AudioFadeIn(fade_s),
+            afx.AudioFadeOut(fade_s),
+        ])
 
     # un fps légèrement différent à chaque export change aussi l'empreinte
     # binaire du fichier
@@ -314,6 +424,20 @@ def build_variant(src_path: Path, out_path: Path, mode: str, locale: str = None,
     if out_path.suffix.lower() in (".mp4", ".mov", ".m4v"):
         ffmpeg_params += ["-movflags", "+faststart"]
 
+    # égalisation graves/aigus : filtre ffmpeg — ne peut pas être appliqué
+    # ici (moviepy réencode déjà l'audio en amont puis fait un "-acodec copy"
+    # au mux final, incompatible avec un filtre). Appliqué à la place dans
+    # randomize_metadata(), qui fait de toute façon une seconde passe ffmpeg
+    # sur le fichier entier.
+    filtre_audio = None
+    if clip.audio is not None:
+        gain_graves = params["eq_bass"] * 30.0
+        gain_aigus = params["eq_treble"] * 30.0
+        filtre_audio = (
+            f"equalizer=f=100:t=o:w=2:g={gain_graves:.2f},"
+            f"equalizer=f=8000:t=o:w=2:g={gain_aigus:.2f}"
+        )
+
     tmp_out = out_path.with_suffix(".tmp" + out_path.suffix)
     clip.write_videofile(
         str(tmp_out),
@@ -329,14 +453,15 @@ def build_variant(src_path: Path, out_path: Path, mode: str, locale: str = None,
     )
     clip.close()
 
-    randomize_metadata(tmp_out, out_path, locale)
+    randomize_metadata(tmp_out, out_path, locale, filtre_audio=filtre_audio)
     tmp_out.unlink(missing_ok=True)
 
 
-def randomize_metadata(src: Path, dst: Path, locale: str = None):
-    """Réécrit les métadonnées (titre, auteur, horodatage, encodeur, id
-    unique) pour que le conteneur ne porte plus l'empreinte d'origine, et
-    les localise sur le pays demandé (langue, position, fuseau horaire)."""
+def randomize_metadata(src: Path, dst: Path, locale: str = None, filtre_audio: str = None):
+    """Réécrit les métadonnées (titre, auteur, horodatage, encodeur, appareil,
+    logiciel de montage, id unique) pour que le conteneur ne porte plus
+    l'empreinte d'origine, et les localise sur le pays demandé (langue,
+    position GPS + altitude, fuseau horaire, modèle d'appareil plausible)."""
     unique_id = uuid.uuid4().hex[:12]
     fake_encoders = ["Lavf60.16.100", "Lavf61.1.100", "HandBrake 1.7.3", "Lavf59.27.100"]
 
@@ -344,26 +469,41 @@ def randomize_metadata(src: Path, dst: Path, locale: str = None):
 
     loc = LOCALES.get(locale)
     creation_time = creation_time_for(loc["tz"]) if loc else "now"
+    logiciel = random.choice(LOGICIELS_PLAUSIBLES)
 
     cmd += [
         "-metadata", f"title=clip_{unique_id}",
         "-metadata", f"comment={unique_id}",
         "-metadata", f"encoder={random.choice(fake_encoders)}",
         "-metadata", f"creation_time={creation_time}",
+        "-metadata", f"com.apple.quicktime.software={logiciel}",
     ]
 
     if loc:
+        altitude = random.randint(5, 180)
         cmd += [
-            "-metadata", f"location={loc['location']}",
-            "-metadata", f"location-eng={loc['location']}",
-            "-metadata", f"com.apple.quicktime.location.ISO6709={loc['location']}",
+            "-metadata", f"location={loc['location']}{altitude}/",
+            "-metadata", f"location-eng={loc['location']}{altitude}/",
+            "-metadata", f"com.apple.quicktime.location.ISO6709={loc['location']}{altitude}/",
             "-metadata:s:v:0", f"language={loc['language']}",
             "-metadata:s:a:0", f"language={loc['language']}",
         ]
+        if loc.get("appareils"):
+            appareil = random.choice(loc["appareils"])
+            cmd += [
+                "-metadata", f"com.apple.quicktime.model={appareil}",
+                "-metadata", f"com.apple.quicktime.make={appareil.split()[0]}",
+            ]
 
     if dst.suffix.lower() in (".mp4", ".mov", ".m4v"):
         cmd += ["-movflags", "+faststart"]
-    cmd += ["-c", "copy", str(dst)]
+
+    if filtre_audio:
+        # vidéo toujours en copie (rapide, aucune perte) ; seul l'audio est
+        # réencodé, pour pouvoir y appliquer l'égalisation graves/aigus.
+        cmd += ["-c:v", "copy", "-af", filtre_audio, "-c:a", "aac", str(dst)]
+    else:
+        cmd += ["-c", "copy", str(dst)]
 
     result = subprocess.run(cmd, capture_output=True, text=True)
     if result.returncode != 0:

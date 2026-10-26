@@ -36,6 +36,9 @@ PARAM_SPECS = {
         "contrast":   {"floor": 0.020, "ceil": 0.050, "signed": True},
         "saturation": {"floor": 0.030, "ceil": 0.070, "signed": True},
         "hue_deg":    {"floor": 1.5,   "ceil": 4.0,   "signed": True},
+        "gamma":      {"floor": 0.01,  "ceil": 0.04,  "signed": True},
+        "vignette":   {"floor": 0.03,  "ceil": 0.10,  "signed": False},
+        "sharpen":    {"floor": 0.10,  "ceil": 0.35,  "signed": True},
         "rotate_deg": {"floor": 0.3,   "ceil": 1.0,   "signed": True},
         "noise_std":  {"floor": 1.0,   "ceil": 2.5,   "signed": False},
     },
@@ -46,6 +49,9 @@ PARAM_SPECS = {
         "contrast":   {"floor": 0.07, "ceil": 0.16, "signed": True},
         "saturation": {"floor": 0.08, "ceil": 0.20, "signed": True},
         "hue_deg":    {"floor": 6.0,  "ceil": 18.0, "signed": True},
+        "gamma":      {"floor": 0.05, "ceil": 0.12, "signed": True},
+        "vignette":   {"floor": 0.10, "ceil": 0.22, "signed": False},
+        "sharpen":    {"floor": 0.30, "ceil": 0.70, "signed": True},
         "rotate_deg": {"floor": 1.2,  "ceil": 3.0,  "signed": True},
         "noise_std":  {"floor": 3.0,  "ceil": 8.0,  "signed": False},
     },
@@ -154,6 +160,28 @@ def build_image_variant(src_path: Path, out_path: Path, mode: str, locale: str =
     )
     frame = cv2.transform(frame, matrice_couleur)
 
+    # 2bis) gamma (courbe tonale)
+    gamma = max(0.3, 1.0 + params["gamma"])
+    inv_gamma = 1.0 / gamma
+    lut_gamma = np.array([((i / 255.0) ** inv_gamma) * 255 for i in range(256)], dtype=np.uint8)
+    frame = cv2.LUT(frame, lut_gamma)
+
+    # 2ter) netteté / flou (>0 renforce la netteté, <0 flou léger)
+    sharpen_val = params["sharpen"]
+    if sharpen_val > 0:
+        flou = cv2.GaussianBlur(frame, (0, 0), 1.0)
+        frame = cv2.addWeighted(frame, 1 + sharpen_val, flou, -sharpen_val, 0)
+    elif sharpen_val < 0:
+        frame = cv2.GaussianBlur(frame, (0, 0), min(2.5, -sharpen_val * 2))
+
+    # 2quater) vignette (assombrissement progressif des coins)
+    vignette_force = params["vignette"]
+    if vignette_force > 0:
+        yy, xx = np.mgrid[0:h, 0:w]
+        rayon = np.sqrt(((xx - w / 2) / (w / 2)) ** 2 + ((yy - h / 2) / (h / 2)) ** 2)
+        vignette_mask = np.clip(1.0 - vignette_force * (rayon ** 2), 1.0 - vignette_force, 1.0)
+        frame = (frame.astype(np.float32) * vignette_mask[:, :, None]).astype(np.uint8)
+
     # 3) grain
     noise_std = params["noise_std"]
     if noise_std > 0:
@@ -170,8 +198,11 @@ def _enregistrer_avec_exif(img: Image.Image, out_path: Path, locale: str, qualit
     unique_id = uuid.uuid4().hex[:12]
     loc = LOCALES.get(locale)
 
+    appareil = random.choice(loc["appareils"]) if loc and loc.get("appareils") else None
+
     zeroth = {
-        piexif.ImageIFD.Make: random.choice(FAKE_MAKES).encode(),
+        piexif.ImageIFD.Make: (appareil.split()[0] if appareil else random.choice(FAKE_MAKES)).encode(),
+        piexif.ImageIFD.Model: appareil.encode() if appareil else b"",
         piexif.ImageIFD.Software: random.choice(FAKE_SOFTWARES).encode(),
     }
     exif_ifd = {
@@ -181,6 +212,7 @@ def _enregistrer_avec_exif(img: Image.Image, out_path: Path, locale: str, qualit
 
     if loc:
         lat, lon = _parse_iso6709(loc["location"])
+        altitude = random.uniform(5, 180)
         creation = creation_time_for(loc["tz"])
         dt = creation[:19].replace("T", " ")
         exif_ifd[piexif.ExifIFD.DateTimeOriginal] = dt.encode()
@@ -189,6 +221,8 @@ def _enregistrer_avec_exif(img: Image.Image, out_path: Path, locale: str, qualit
             piexif.GPSIFD.GPSLatitude: _deg_vers_dms(lat),
             piexif.GPSIFD.GPSLongitudeRef: "E" if lon >= 0 else "W",
             piexif.GPSIFD.GPSLongitude: _deg_vers_dms(lon),
+            piexif.GPSIFD.GPSAltitudeRef: 0,
+            piexif.GPSIFD.GPSAltitude: (int(altitude * 100), 100),
         }
 
     exif_dict = {"0th": zeroth, "Exif": exif_ifd, "GPS": gps_ifd, "1st": {}, "thumbnail": None}

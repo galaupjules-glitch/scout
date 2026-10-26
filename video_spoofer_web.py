@@ -70,6 +70,9 @@ ALLOWED_EXT_VIDEO = {
 }
 ALLOWED_EXT_PHOTO = {".jpg", ".jpeg", ".png", ".webp", ".bmp", ".tif", ".tiff"}
 MAX_COUNT = 20
+# traitement par lots : plusieurs fichiers source d'un coup (chacun généra
+# son propre lot de `count` variantes, indépendamment des autres)
+MAX_FICHIERS_LOT = 10
 
 # Code d'accès + clé de session : seulement pour le mode "serveur partagé"
 # (video_spoofer_web.py lancé tel quel + tunnel). En mode application locale,
@@ -239,7 +242,10 @@ def api_spoof():
     if type_media not in ("video", "photo"):
         type_media = "video"
 
-    fichier = request.files.get("video")
+    # traitement par lots : "video" peut contenir plusieurs fichiers d'un
+    # coup (sélection multiple ou glisser-déposer groupé) — chacun devient
+    # son propre job indépendant, avec les mêmes réglages (mode/locale/...).
+    fichiers = request.files.getlist("video")
     mode = request.form.get("mode", "leger")
     locale = request.form.get("locale") or None
     miroir = (request.form.get("miroir") or "").lower() in ("1", "true", "on", "oui")
@@ -258,51 +264,67 @@ def api_spoof():
     if locale is not None and locale not in LOCALES:
         print(f"[400] locale invalide reçue : {locale!r}")
         return jsonify(erreur="Pays invalide."), 400
-    if not fichier or fichier.filename == "":
+
+    fichiers = [f for f in fichiers if f and f.filename]
+    if not fichiers:
         print(f"[400] aucun fichier dans la requête (type={type_media}, champs reçus : "
               f"{list(request.form.keys())}, fichiers reçus : {list(request.files.keys())})")
         return jsonify(erreur="Aucun fichier sélectionné."), 400
+    if len(fichiers) > MAX_FICHIERS_LOT:
+        return jsonify(erreur=f"Trop de fichiers à la fois (max {MAX_FICHIERS_LOT})."), 400
 
-    ext = safe_ext(fichier.filename)
-    if ext not in extensions_acceptees:
-        print(f"[400] format non supporté : nom={fichier.filename!r} ext={ext!r} type={type_media}")
-        return jsonify(erreur=f"Format non supporté ({ext}). Formats acceptés : "
-                               f"{', '.join(sorted(extensions_acceptees))}"), 400
+    for fichier in fichiers:
+        ext = safe_ext(fichier.filename)
+        if ext not in extensions_acceptees:
+            print(f"[400] format non supporté : nom={fichier.filename!r} ext={ext!r} type={type_media}")
+            return jsonify(erreur=f"Format non supporté ({fichier.filename} : {ext}). Formats acceptés : "
+                                   f"{', '.join(sorted(extensions_acceptees))}"), 400
 
-    job_id = uuid.uuid4().hex[:10]
-    src_path = UPLOAD_DIR / f"{job_id}{ext}"
-    fichier.save(src_path)
+    jobs_crees = []
+    for fichier in fichiers:
+        ext = safe_ext(fichier.filename)
+        job_id = uuid.uuid4().hex[:10]
+        src_path = UPLOAD_DIR / f"{job_id}{ext}"
+        fichier.save(src_path)
 
-    # pour une photo, le format de sortie est toujours .jpg (métadonnées EXIF)
-    ext_sortie = ".jpg" if type_media == "photo" else ext
+        # pour une photo, le format de sortie est toujours .jpg (métadonnées EXIF)
+        ext_sortie = ".jpg" if type_media == "photo" else ext
 
-    with JOBS_LOCK:
-        JOBS[job_id] = {
-            "status": "traitement",
+        with JOBS_LOCK:
+            JOBS[job_id] = {
+                "status": "traitement",
+                "total": count,
+                "done": 0,
+                "mode": mode,
+                "type_media": type_media,
+                "locale_code": locale,
+                "locale_label": LOCALES[locale]["label"] if locale else None,
+                "nom_original": fichier.filename,
+                "resultats": [],
+                "erreurs": [],
+            }
+
+        threading.Thread(
+            target=_traiter_job,
+            args=(job_id, src_path, mode, locale, count, ext_sortie, miroir, type_media),
+            daemon=True,
+        ).start()
+
+        jobs_crees.append({
+            "job_id": job_id,
             "total": count,
-            "done": 0,
-            "mode": mode,
             "type_media": type_media,
             "locale_code": locale,
             "locale_label": LOCALES[locale]["label"] if locale else None,
             "nom_original": fichier.filename,
-            "resultats": [],
-            "erreurs": [],
-        }
+        })
 
-    threading.Thread(
-        target=_traiter_job,
-        args=(job_id, src_path, mode, locale, count, ext_sortie, miroir, type_media),
-        daemon=True,
-    ).start()
-
-    return jsonify(
-        job_id=job_id,
-        total=count,
-        type_media=type_media,
-        locale_code=locale,
-        locale_label=LOCALES[locale]["label"] if locale else None,
-    )
+    # compat : les champs job_id/total au premier niveau restent présents
+    # pour un envoi à un seul fichier (ancien format, toujours utilisé par
+    # le pont natif Mac qui envoie un fichier à la fois)
+    reponse = {"jobs": jobs_crees}
+    reponse.update(jobs_crees[0])
+    return jsonify(**reponse)
 
 
 @app.route("/api/etat/<job_id>")
@@ -361,6 +383,35 @@ def telecharger_tout(job_id):
         mimetype="application/zip",
         as_attachment=True,
         download_name=f"vexa_{job_id}.zip",
+    )
+
+
+@app.route("/telecharger-lot")
+def telecharger_lot():
+    job_ids = [j for j in (request.args.get("jobs") or "").split(",") if j]
+    resultats = []
+    with JOBS_LOCK:
+        for job_id in job_ids:
+            job = JOBS.get(job_id)
+            if job:
+                resultats.extend(job["resultats"])
+
+    if not resultats:
+        abort(404)
+
+    buffer = io.BytesIO()
+    with zipfile.ZipFile(buffer, "w", zipfile.ZIP_DEFLATED) as zf:
+        for nom in resultats:
+            chemin = OUTPUT_DIR / nom
+            if chemin.exists():
+                zf.write(chemin, arcname=nom)
+    buffer.seek(0)
+
+    return send_file(
+        buffer,
+        mimetype="application/zip",
+        as_attachment=True,
+        download_name=f"vexa_lot_{uuid.uuid4().hex[:8]}.zip",
     )
 
 
