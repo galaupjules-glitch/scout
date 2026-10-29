@@ -48,8 +48,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKUIDelegate {
         let saved = UserDefaults.standard.double(forKey: "zoom")
         webView.pageZoom = saved > 0 ? saved : min(1, (screen.width / 2000 * 100).rounded() / 100)
 
-        if let url = Bundle.main.url(forResource: "index", withExtension: "html") {
-            webView.loadFileURL(url, allowingReadAccessTo: url.deletingLastPathComponent())
+        // Vide le cache de page (disque + mémoire) à chaque lancement pour éviter d'afficher une ancienne
+        // version d'index.html ; on garde le reste (localStorage) pour les photos/noms des modèles.
+        let cacheTypes: Set<String> = [WKWebsiteDataTypeDiskCache, WKWebsiteDataTypeMemoryCache]
+        config.websiteDataStore.removeData(ofTypes: cacheTypes, modifiedSince: .distantPast) { [weak self] in
+            if let url = Bundle.main.url(forResource: "index", withExtension: "html") {
+                self?.webView.loadFileURL(url, allowingReadAccessTo: url.deletingLastPathComponent())
+            }
         }
         buildMenu()
         NSApp.activate(ignoringOtherApps: true)
@@ -62,6 +67,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKUIDelegate {
         let main = NSMenu()
         let appItem = NSMenuItem(); main.addItem(appItem)
         let appMenu = NSMenu()
+        appMenu.addItem(withTitle: "Changer l'icône de l'app…", action: #selector(changeAppIcon), keyEquivalent: "")
+        appMenu.addItem(.separator())
         appMenu.addItem(withTitle: "Masquer \(name)", action: #selector(NSApplication.hide(_:)), keyEquivalent: "h")
         appMenu.addItem(.separator())
         appMenu.addItem(withTitle: "Quitter \(name)", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")
@@ -88,6 +95,18 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKUIDelegate {
 
     @objc func reload() { webView.reload() }
 
+    // Choisit une photo et l'applique tout de suite comme icône de l'app (Dock, Finder, Launchpad),
+    // sans avoir besoin de reconstruire l'app.
+    @objc func changeAppIcon() {
+        let panel = NSOpenPanel()
+        panel.allowsMultipleSelection = false
+        panel.beginSheetModal(for: window) { response in
+            guard response == .OK, let url = panel.urls.first, let image = NSImage(contentsOf: url) else { return }
+            NSWorkspace.shared.setIcon(image, forFile: Bundle.main.bundlePath, options: [])
+            NSApp.applicationIconImage = image
+        }
+    }
+
     private func setZoom(_ z: Double) {
         webView.pageZoom = max(0.4, min(1.5, (z * 100).rounded() / 100))
         UserDefaults.standard.set(webView.pageZoom, forKey: "zoom")
@@ -104,7 +123,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKUIDelegate {
     func webView(_ webView: WKWebView, runOpenPanelWith parameters: WKOpenPanelParameters,
                  initiatedByFrame frame: WKFrameInfo, completionHandler: @escaping ([URL]?) -> Void) {
         let panel = NSOpenPanel()
-        panel.allowedContentTypes = [.image]
         panel.allowsMultipleSelection = false
         panel.beginSheetModal(for: window) { completionHandler($0 == .OK ? panel.urls : nil) }
     }

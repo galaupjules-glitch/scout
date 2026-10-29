@@ -4,25 +4,32 @@
 set -euo pipefail
 cd "$(dirname "$0")"
 
-NAME="${1:-Creator Hub}"
-ID="local.$(echo "$NAME" | tr -cd '[:alnum:]' | tr '[:upper:]' '[:lower:]')"
-APP="build/$NAME.app"
+NAME="${1:-Infloww}"
+# L'utilisateur garde la vraie app Infloww sous le nom "Infloww 2" : notre clone peut donc
+# s'appeler "Infloww" tout court, fichier et nom affiché identiques.
+FOLDER="${2:-Infloww}"
+ID="local.$(echo "$FOLDER" | tr -cd '[:alnum:]' | tr '[:upper:]' '[:lower:]')"
+APP="build/$FOLDER.app"
 TMP="build/tmp"
 
 rm -rf "$APP" "$TMP"
 mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources" "$TMP/icon.iconset"
 
 swiftc -O app/main.swift -o "$APP/Contents/MacOS/app" -framework Cocoa -framework WebKit
-cp index.html "$APP/Contents/Resources/"
+cp index.html chart.umd.min.js "$APP/Contents/Resources/"
 
-# Icône
-swiftc app/icon.swift -o "$TMP/icon" -framework Cocoa
-"$TMP/icon" "$TMP/icon.png"
-for s in 16 32 128 256 512; do
-  sips -z $s $s "$TMP/icon.png" --out "$TMP/icon.iconset/icon_${s}x${s}.png" >/dev/null
-  sips -z $((s*2)) $((s*2)) "$TMP/icon.png" --out "$TMP/icon.iconset/icon_${s}x${s}@2x.png" >/dev/null
-done
-iconutil -c icns "$TMP/icon.iconset" -o "$APP/Contents/Resources/AppIcon.icns"
+# Icône : si app/AppIcon.icns existe (icône choisie), on la reprend telle quelle ; sinon on en dessine une
+if [ -f app/AppIcon.icns ]; then
+  cp app/AppIcon.icns "$APP/Contents/Resources/AppIcon.icns"
+else
+  swiftc app/icon.swift -o "$TMP/icon" -framework Cocoa
+  "$TMP/icon" "$TMP/icon.png"
+  for s in 16 32 128 256 512; do
+    sips -z $s $s "$TMP/icon.png" --out "$TMP/icon.iconset/icon_${s}x${s}.png" >/dev/null
+    sips -z $((s*2)) $((s*2)) "$TMP/icon.png" --out "$TMP/icon.iconset/icon_${s}x${s}@2x.png" >/dev/null
+  done
+  iconutil -c icns "$TMP/icon.iconset" -o "$APP/Contents/Resources/AppIcon.icns"
+fi
 
 cat > "$APP/Contents/Info.plist" <<PLIST
 <?xml version="1.0" encoding="UTF-8"?>
@@ -43,6 +50,7 @@ PLIST
 codesign --force --deep -s - "$APP"
 rm -rf "$TMP"
 
-rm -rf "/Applications/$NAME.app"
+rm -rf "/Applications/$FOLDER.app"
 cp -R "$APP" "/Applications/"
-echo "Installée : /Applications/$NAME.app"
+rm -rf "$APP"
+echo "Installée : /Applications/$FOLDER.app (affichée comme « $NAME »)"

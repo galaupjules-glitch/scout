@@ -47,6 +47,25 @@ MAX_FOLLOWING_RATIO = 1.6
 
 # Engagement minimum : likes sur le post le plus recent. En dessous = followers fantomes.
 MIN_POSTS = 6  # au moins 6 publications sur le profil
+
+# bio qui renvoie vers ses highlights ou vers le bas (lien, contenu) : gardee direct (< 25K abonnes)
+TEASER_RE = re.compile(
+    r"in my highlights|it'?s in my highlights|check (out )?my highlights|see my highlights|highlights? ?[⬇↓👇🔽⤵⇩🔻⏬]"
+    r"|[⬇↓👇🔽⤵⇩🔻⏬]", re.I)
+
+
+def is_teaser(bio):
+    return bool(TEASER_RE.search((bio or "").replace("’", "'"))) and not is_promo(bio)
+
+
+# bio de promo / code de reduction ("10% off ... Code- LEAH", "use code", "discount") : ecartee
+PROMO_RE = re.compile(
+    r"\d+\s*%\s*off|\b(use|with|my|code)\s*code\b|\bcode\s*[:\-–—]|\bcode\s+[A-Z0-9]{4,}\b"
+    r"|\bsave\s+\d+\s*%", re.I)  # pas "discount" seul : "discount on my link" peut etre une reduc sur son lien
+
+
+def is_promo(bio):
+    return bool(PROMO_RE.search(bio or ""))
 MAX_MENTIONS_BIO = 2  # au-dessus de 2 @ dans la bio : profil ecarte
 
 # regles apprises de ton tri dans Vivier (apprentissage.py), rechargees a chaque recherche
@@ -73,7 +92,7 @@ MAX_DAYS_SINCE_POST = 183
 
 # Rythme : pause au hasard entre deux profils, et une grande pause tous les 8 a 14 profils
 PAUSE_ENTRE_PROFILS = (6, 13)   # secondes (un peu plus rapide qu avant : 8-18)
-GRANDE_PAUSE = (45, 110)        # secondes (avant : 60-150)
+GRANDE_PAUSE = (15, 30)         # secondes (raccourcie a la demande ; avant : 45-110)
 
 # Bio qui laisse penser a une mineure -> toujours exclue (18 ans minimum)
 MINOR_PATTERNS = [
@@ -255,7 +274,7 @@ def _sur_profil(user):
 
 def open_profile(session, user):
     if _sur_profil(user):  # deja dessus (clic depuis le feed) : pas de rechargement
-        pause(1, 2.5)
+        pause(0.4, 1)
         return
     run(["browser", session, "open", f"https://www.instagram.com/{user}/"], timeout=40)
     pause(2.5, 5)
@@ -329,13 +348,22 @@ const dejaLike=a=>!!a.querySelector('svg[aria-label="Unlike"],svg[aria-label="Je
 const num=t=>{const m=t.trim().match(/^(\d[\d\s.,\u202f\u00a0]*)\s*([kKmM])?$/);if(!m)return null;
  let v=parseFloat(m[1].replace(/[\s\u202f\u00a0]/g,'').replace(',','.'));if(m[2])v*=/m/i.test(m[2])?1e6:1e3;
  else v=parseFloat(m[1].replace(/[\s.,\u202f\u00a0]/g,''));return v};
+let nbArt=0,bloque=0;
+// "You're all caught up ... Keep going to discover more posts suggested for you. View older posts" :
+// il faut descendre tout en bas (sans cliquer) pour qu'Instagram enclenche les posts suggeres
+const aJour=()=>/You.re all caught up|You.ve seen all new posts|Vous êtes à jour/i.test((document.querySelector('main')||document.body).innerText);
+const toutEnBas=async()=>{for(let k=0;k<4;k++){window.scrollTo(0,document.body.scrollHeight);await wait(1500+Math.random()*1000)}};
 for(let i=0;i<%d;i++){
  if(i%%5===0)await forYou();  // on reverifie regulierement qu'on est bien sur "For you"
+ const n=document.querySelectorAll('article').length;bloque=n===nbArt?bloque+1:0;nbArt=n;
+ if(bloque>=2||(aJour()&&bloque>=1)){await toutEnBas();bloque=0}
  document.querySelectorAll("article").forEach(a=>{
   const l=a.querySelector('header a[href^="/"], a[role=link][href^="/"]');if(!l)return;
   const m=l.getAttribute("href").match(/^\/([A-Za-z0-9_.]+)\/$/);if(!m)return;const h=m[1];
   const pid=h+'|'+((a.querySelector('a[href*="/p/"],a[href*="/reel/"]')||{}).getAttribute?.('href')||a.innerText.slice(0,40));
   if(window.__sv.has(pid))return;window.__sv.add(pid);  // post deja passe lors d'un tour precedent
+  // reel (video) dans le feed : on ne s'y arrete jamais (photos uniquement)
+  if(a.querySelector('video')||a.querySelector('a[href*="/reel/"]'))return;
   // deja like ou deja connu (profil type / favori) : reference seulement -> on passe, sans rien toucher
   if(AIMES.has(h.toLowerCase())||dejaLike(a)){skip.add(h);return}
   const lines=a.innerText.split("\n").slice(1,12);
@@ -393,7 +421,7 @@ return 'NON'})()"""
 RETOUR_FEED_JS = r"""(async()=>{const w=ms=>new Promise(r=>setTimeout(r,ms));
 for(let k=0;k<4&&location.pathname!=='/';k++){history.back();for(let i=0;i<30&&location.pathname!=='/';i++)await w(200)}
 for(let i=0;i<40;i++){if(location.pathname==='/'&&document.querySelector('article'))return 'OK';await w(250)}
-return 'NON'})()"""
+return location.pathname==='/'?'OK':'NON'})()"""  # sur l'accueil meme si lent a s'afficher : on ne recharge pas
 
 FEED_ETAT = {"ouvert": False, "vides": 0}
 
@@ -403,9 +431,12 @@ def feed_prochaine(exclus):
     clic sur le nom -> on est sur son profil. Renvoie [pseudo] (ou [] si rien de neuf ce coup-ci)."""
     o = navigateur.onglet()
     if FEED_ETAT["ouvert"]:
+        # retour du profil vers le feed (des que le feed est la, on repart : ca suit la connexion)
         if (o.js(RETOUR_FEED_JS, timeout=30) or "NON") != "OK":
-            FEED_ETAT["ouvert"] = False  # feed perdu : on le rouvre
-    if not FEED_ETAT["ouvert"] or FEED_ETAT["vides"] >= 4:
+            FEED_ETAT["ouvert"] = False  # feed vraiment perdu : seul cas ou on le rouvre
+    # JAMAIS de reactualisation du feed en pleine session (ca renvoie en haut et ca bloque) :
+    # on ne l'ouvre qu'au demarrage, ou s'il est vraiment perdu
+    if not FEED_ETAT["ouvert"]:
         try:  # feed neuf : memoire Instagram videe (sans deconnexion)
             o.cmd("Storage.clearDataForOrigin", {"origin": "https://www.instagram.com",
                   "storageTypes": "local_storage,indexeddb,cache_storage,service_workers"})
@@ -414,11 +445,13 @@ def feed_prochaine(exclus):
         o.ouvrir("https://www.instagram.com/")
         pause(4, 7)
         FEED_ETAT.update(ouvert=True, vides=0)
-    js = (FEED_NEXT_JS % (6, MAX_FEED_LIKES)).replace("__FR_WORDS__", json.dumps(FR_WORDS)) \
+    # rien trouve au passage precedent : on descend plus loin cette fois (jusqu'a 20 defilements)
+    tours = min(6 + 4 * FEED_ETAT["vides"], 20)
+    js = (FEED_NEXT_JS % (tours, MAX_FEED_LIKES)).replace("__FR_WORDS__", json.dumps(FR_WORDS)) \
         .replace("__AIMES__", json.dumps(sorted(AIMES_FEED))) \
         .replace("__DEJA__", json.dumps(sorted(h.lower() for h in exclus)))
     try:
-        out = o.js(js, timeout=6 * 8 + 60) or ""
+        out = o.js(js, timeout=tours * 10 + 60) or ""
     except Exception:
         FEED_ETAT["ouvert"] = False
         return []
@@ -628,10 +661,19 @@ OUVRIR_POST_JS = r"""(async()=>{const w=ms=>new Promise(r=>setTimeout(r,ms));
 const a=document.querySelector('main a[href=%s]');if(!a)return 'NON';a.click();
 for(let i=0;i<40;i++){await w(250);const d=document.querySelector('div[role="dialog"]')||(/\/(p|reel)\//.test(location.pathname)?document.querySelector('main'):null);
  if(d&&/\d/.test(d.innerText)&&d.querySelector('time[datetime]')){
-  const t=d.innerText;const m=t.match(/([\d.,]+\s*[KkMm]?)\s+likes?\b/);
+  const t=d.innerText;
+  // tous les "N likes" de la fenetre (post + commentaires) : celui du post est le plus grand
+  const tous=[...t.matchAll(/([\d.,]+\s*[KkMm]?)\s+likes?\b/g)].map(x=>x[1].replace(/\s/g,''));
+  const autres=t.match(/and ([\d.,]+[KkMm]?) others/);if(autres)tous.push(autres[1]);
   const tm=d.querySelector('time[datetime]');
-  return 'LIKES:'+(m?m[1].replace(/\s/g,''):'')+' DATE:'+Math.floor(Date.parse(tm.getAttribute('datetime'))/1000)}}
+  return 'LIKES:'+tous.join(';')+' DATE:'+Math.floor(Date.parse(tm.getAttribute('datetime'))/1000)}}
 return 'NON'})()"""
+
+# like du post ouvert (fenetre du post) ; jamais si deja like
+LIKE_DIALOG_JS = r"""(()=>{const d=document.querySelector('div[role="dialog"]')||document.querySelector('main');if(!d)return 'NON';
+if(d.querySelector('svg[aria-label="Unlike"],svg[aria-label="Je n’aime plus"]'))return 'DEJA';
+const s=[...d.querySelectorAll('svg[aria-label="Like"],svg[aria-label="J’aime"]')].find(x=>x.getBoundingClientRect().height>=20);
+const b=s&&(s.closest('[role=button],button')||s);if(!b)return 'NON';b.click();return 'OK'})()"""
 
 RETOUR_JS = r"""(async()=>{const w=ms=>new Promise(r=>setTimeout(r,ms));const avant=location.pathname;history.back();
 for(let i=0;i<40;i++){await w(250);if(location.pathname!==avant)return 'OK'}return 'NON'})()"""
@@ -661,7 +703,12 @@ def recent_likes_clic(user, n=3):
             continue
         m = re.search(r"LIKES:(\S*)", r)
         d = re.search(r"DATE:(\d{10})", r)
-        vus.append((int(d.group(1)) if d else 0, _nombre_likes(m.group(1)) if m and m.group(1) else None))
+        nbs = [x for x in (_nombre_likes(v) for v in (m.group(1).split(";") if m and m.group(1) else [])) if x]
+        vus.append((int(d.group(1)) if d else 0, max(nbs) if nbs else None))  # le plus grand = celui du post
+        # 2 premiers posts bons (>= 600 likes chacun) -> on like le 3e
+        if len(vus) == 3 and all((l or 0) >= MIN_LIKES_PER_POST for _, l in vus[:2]):
+            if (o.js(LIKE_DIALOG_JS, timeout=15) or "") == "OK":
+                print(f"        ♥ like sur le 3e post de @{user} (2 premiers posts bons)")
         pause(1.5, 3.5)  # regarde le post
         o.js(RETOUR_JS, timeout=20)  # ferme le post : retour au profil
         pause(0.8, 1.8)
@@ -814,6 +861,8 @@ def passes(info, of_exception=False):
             return False, f"compte business ({cat})"
     if is_french(info.get("bio", ""), places=True):
         return False, "contenu francais"
+    if is_promo(info.get("bio", "")):
+        return False, "bio promo / code de reduction"
     mentions = re.findall(r"@[A-Za-z0-9_.]+", info.get("bio", ""))
     if len(mentions) > MAX_MENTIONS_BIO:  # trop de @ en bio (marques, ecole, agences...)
         return False, f"trop de @ en bio ({len(mentions)})"
@@ -1038,6 +1087,7 @@ def main():
     done = set(known) | rejected  # connus + deja qualifies : recoltes mais jamais re-exportes
     done |= set(types)  # profils types = deja contactes (suivis par jeannechartre) : graines seulement
     done |= deja_vivier  # deja dans Vivier : jamais la meme fille deux fois
+    done_avant = set(done)  # deja vus avant cette recherche (la regle "bio highlights" ne les reprend pas)
     dry = 0            # rejets consecutifs (detection de tarissement/throttle)
     # tes profils types / favoris : deja vus et aimes -> reference seulement ; croises dans le feed,
     # ils sont ignores (ni like, ni visite)
@@ -1112,8 +1162,10 @@ def main():
             # 2) qualifie ce profil (on est deja dessus apres similar_accounts)
             open_profile(session, user)
             info = parse_header(header_of(session))
-            if info is None:  # chargement lent -> un retry
-                time.sleep(2)
+            for _ in range(3):  # chargement lent -> on reessaie vite (au lieu d'attendre 2 s d'un coup)
+                if info is not None:
+                    break
+                time.sleep(0.7)
                 info = parse_header(header_of(session))
             examined += 1
             # exception : 25K-60K abonnes avec un lien OnlyFans direct -> on la garde quand meme
@@ -1126,7 +1178,15 @@ def main():
             if ok and of_exc:
                 why = f"ok (exception : {info['followers']} abonnes mais lien OF direct)"
             likes = posted = None
-            if ok:  # ne verifie l'engagement que si les stats passent (economie)
+            # bio "in my highlights" / fleches vers le bas + moins de 25K abonnes : gardee direct
+            teaser = bool(info) and is_teaser(info.get("bio", "")) \
+                and 0 < (info.get("followers") or 0) <= FOLLOWERS_MAX \
+                and not (info.get("followed_by_account") or info.get("followed_by_you")) \
+                and not any(re.search(p, info.get("bio", "").lower()) for p in MINOR_PATTERNS) \
+                and user.lower() not in done_avant
+            if teaser:
+                ok, why, rapide = True, "ok (bio highlights / fleches : gardee direct)", False
+            elif ok:  # ne verifie l'engagement que si les stats passent (economie)
                 likes_posts, posted = recent_likes(session, user)
                 age_j = int((time.time() - posted) / 86400) if posted else None
                 if age_j is not None and age_j > MAX_DAYS_SINCE_POST:
@@ -1148,8 +1208,10 @@ def main():
                 kept.append({
                     "lien_type": lien_type,  # 'of' = OnlyFans direct (priorite max), 'autre' = linktree/link.me...
                     "lien": lien,
-                    "priorite": PRIORITE_LIEN.get(lien_type, 1) + (1 if info.get("creatorsinc") else 0),
+                    "priorite": PRIORITE_LIEN.get(lien_type, 1) + (1 if info.get("creatorsinc") else 0)
+                                + (3 if teaser else 0),  # bio highlights / fleches : tout en haut
                     "creatorsinc": bool(info.get("creatorsinc")),
+                    "teaser": teaser,  # liste "Highlights" dans Vivier
                     "dernier_post": time.strftime("%Y-%m-%d", time.localtime(posted)) if posted else None,
                     "handle": user,
                     "followers": info["followers"],

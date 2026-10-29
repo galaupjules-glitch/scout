@@ -140,7 +140,7 @@ def lancer_chrome(url="https://www.instagram.com/"):
     subprocess.Popen(
         [CHROME, f"--remote-debugging-port={PORT}", f"--user-data-dir={PROFIL}",
          "--no-first-run", "--no-default-browser-check", "--window-size=1280,900",
-         "--lang=en-US", "-AppleLanguages", "(en-US)", url],
+         "--lang=en-US", url],  # (l'anglais est force par onglet ; "-AppleLanguages" ouvrait un onglet parasite)
         stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, start_new_session=True)
     for _ in range(40):
         time.sleep(0.5)

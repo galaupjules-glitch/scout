@@ -76,6 +76,12 @@ button:focus-visible,a:focus-visible{outline:2px solid var(--accent);outline-off
 @media (max-width:420px){.lb{top:68px;left:calc(50% - 50px)}}
 .chip.of{background:var(--accent);color:var(--accent-ink)}
 .tag.ci{border:0;background:var(--ring-c);color:#fff}
+.tag.hl{border:0;background:var(--ring-a);color:#1f1a1d}
+.liste{display:grid;gap:8px;background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:12px 14px}
+.liste-tete{display:flex;align-items:center;justify-content:space-between;gap:10px}
+.liste-tete b{font-family:var(--display);font-size:1rem}
+.liste-copier{font:inherit;font-weight:700;font-size:.85rem;border-radius:999px;border:1px solid var(--accent);background:var(--accent);color:var(--accent-ink);padding:6px 14px;cursor:pointer}
+.liste textarea{width:100%;font:500 .88rem/1.5 ui-monospace,Menlo,monospace;color:var(--fg);background:var(--bg);border:1px solid var(--line);border-radius:10px;padding:8px 10px;resize:vertical}
 .chip a{color:inherit}
 /* Bandeau compact : lancer + quota + historique replié, sur une seule ligne */
 .tool{display:flex;flex-wrap:wrap;align-items:center;gap:10px 16px;margin-top:-6px}
@@ -159,9 +165,16 @@ button:focus-visible,a:focus-visible{outline:2px solid var(--accent);outline-off
   <div class="tabs" role="group" aria-label="Filtre">
     <button id="t-new" data-f="new" aria-pressed="true">Nouveaux</button>
     <button id="t-fav" data-f="fav" aria-pressed="false">♥ Gardées <span id="n-fav"></span></button>
+    <button id="t-hl" data-f="hl" aria-pressed="false">🔥 Highlights <span id="n-hl"></span></button>
     <button id="t-vu" data-f="vu" aria-pressed="false">Déjà vus</button>
     <button id="t-all" data-f="all" aria-pressed="false">Tous</button>
     <button id="t-jete" data-f="jete" aria-pressed="false">Jetés</button>
+  </div>
+
+  <div class="liste" id="liste" hidden>
+    <div class="liste-tete"><b id="liste-titre"></b>
+      <button type="button" class="liste-copier" id="liste-copier">Copier</button></div>
+    <textarea id="liste-txt" readonly rows="4" aria-label="Liste des @"></textarea>
   </div>
 
   <div class="grid" id="grid">
@@ -197,20 +210,29 @@ const $=id=>document.getElementById(id);
 const fmt=n=>n==null?'?':n>=1e6?(n/1e6).toLocaleString('fr-FR',{maximumFractionDigits:1})+' M':n>=1e4?Math.round(n/1e3)+' k':n>=1e3?(n/1e3).toLocaleString('fr-FR',{maximumFractionDigits:1})+' k':String(n);
 function hue(s){let h=0;for(const c of s)h=(h*31+c.charCodeAt(0))%360;return h}
 const etat=r=>r.etat||'new';
-const TABS={new:r=>etat(r)==='new',fav:r=>!!r.favori&&etat(r)!=='jete',vu:r=>etat(r)==='vu',all:r=>etat(r)!=='jete',jete:r=>etat(r)==='jete'};
+const TABS={new:r=>etat(r)==='new',fav:r=>!!r.favori&&etat(r)!=='jete',hl:r=>!!r.teaser&&etat(r)!=='jete',vu:r=>etat(r)==='vu',all:r=>etat(r)!=='jete',jete:r=>etat(r)==='jete'};
 
 function render(){
   document.querySelectorAll('.tabs button').forEach(b=>b.setAttribute('aria-pressed',b.dataset.f===filter));
   const c={new:0,vu:0,jete:0};rows.forEach(r=>c[etat(r)]++);
   $('n-new').textContent=c.new;$('n-vu').textContent=c.vu;$('n-jete').textContent=c.jete;
   const nf=rows.filter(TABS.fav).length;$('n-fav').textContent=nf?'('+nf+')':'';
+  const nh=rows.filter(TABS.hl).length;$('n-hl').textContent=nh?'('+nh+')':'';
   const g=$('grid');g.innerHTML='';
   const list=rows.filter(TABS[filter]);
+  // liste @ (Gardees / Highlights) : se remet a jour toute seule
+  const avecListe=filter==='fav'||filter==='hl';
+  $('liste').hidden=!avecListe||!list.length;
+  if(avecListe&&list.length){
+    $('liste-titre').textContent=(filter==='fav'?'♥ Gardées':'🔥 Highlights')+' — '+list.length+' @';
+    $('liste-txt').value=list.map(r=>'@'+r.handle).join('\n');
+  }
   if(!list.length){
     const msg=rows.length
       ?{new:['Tout est vu','Tous les profils ont été ouverts. Les prochains arriveront au prochain passage de Scout.'],
         vu:['Aucun profil ouvert','Touche une bulle dans « Nouveaux » pour ouvrir son Instagram.'],
         fav:['Aucun profil gardé','Ouvre un profil et touche « ♡ Garder » pour le retrouver ici plus tard.'],
+        hl:['Aucun profil « highlights »','Les filles avec « in my highlights » ou des flèches ⬇️ dans la bio arrivent ici directement.'],
         jete:['Aucun profil jeté','Le petit × sur une bulle la range ici.'],all:['Rien ici','']}[filter]
       :['Aucun profil pour l\'instant','Quand Scout aura trouvé des profils, Claude les enverra ici et ils apparaîtront en bulles.'];
     g.innerHTML=`<div class="empty"><b></b><span></span></div>`;
@@ -237,6 +259,8 @@ function render(){
     if(r.creatorsinc){const t=document.createElement('span');t.className='tag ci';t.textContent='creatorsinc';
       t.title='Suivie par creatorsinc : bon signal';el.appendChild(t)}
     if(r.ex){const t=document.createElement('span');t.className='tag';t.textContent='exemple';el.appendChild(t)}
+    if(r.teaser){const t=document.createElement('span');t.className='tag hl';t.textContent='🔥 highlights';
+      t.title='Bio « in my highlights » / flèches : gardée direct';el.appendChild(t)}
     if(r.favori){const f=document.createElement('span');f.className='favb';f.textContent='♥';f.title='Gardée pour plus tard';el.appendChild(f)}
     const x=el.querySelector('.x');
     if(x){
@@ -273,6 +297,10 @@ function renderStats(s){
     h.appendChild(li);
   }
 }
+$('liste-copier').onclick=async()=>{const t=$('liste-txt'),b=$('liste-copier');
+  try{await navigator.clipboard.writeText(t.value);b.textContent='Copié ✓'}
+  catch(e){t.focus();t.select();b.textContent='Sélectionné : ⌘C'}
+  setTimeout(()=>{b.textContent='Copier'},2000)};
 const isImg=s=>typeof s==='string'&&s.startsWith('data:image/');
 const full=n=>n==null?'?':n.toLocaleString('fr-FR');
 function fillAvatar(inner,r){
@@ -304,7 +332,8 @@ function openProfile(r){
 async function setFav(r,v){
   r.favori=v;syncFav();render();
   if(!db||!canWrite)return;
-  try{await db.collection('profils').doc(r.id).update({favori:v})}
+  // on note le jour du coeur (pour retrouver "les profils que j'ai likes aujourd'hui")
+  try{await db.collection('profils').doc(r.id).update({favori:v,favori_le:v?new Date().toISOString():null})}
   catch(e){if(e&&e.code==='invalid_argument'){canWrite=false;render()}}
 }
 $('p-fav').onclick=()=>{if(current)setFav(current,!current.favori)};

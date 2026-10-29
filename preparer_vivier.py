@@ -47,6 +47,7 @@ def build_doc(d):
         "lien": d.get("lien") or "",
         "priorite": d.get("priorite") or 1,
         "creatorsinc": bool(d.get("creatorsinc")),
+        "teaser": bool(d.get("teaser")),
         "dernier_post": d.get("dernier_post"),
         "posts": d.get("posts"),
         "likes": d.get("likes"),

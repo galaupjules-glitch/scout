@@ -3,10 +3,10 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Creator Hub</title>
+<title>Infloww</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Roboto:wght@300;400;500;700&display=swap" rel="stylesheet">
-<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<script src="chart.umd.min.js"></script>
 <style>
 :root{
   --bg:#000; --shell:#151515; --panel:#232323; --panel2:#2a2a2a; --line:#363636;
@@ -31,11 +31,13 @@ svg.i{width:20px;height:20px;stroke:currentColor;fill:none;stroke-width:1.8;stro
 .sfw i{width:30px;height:18px;border-radius:9px;background:#1c1c1c;position:relative}
 .sfw i:after{content:"";position:absolute;left:4px;top:4px;width:10px;height:10px;border-radius:50%;background:#fff}
 .badge{background:#ff4f8b;color:#fff;border-radius:12px;font-size:15px;padding:3px 9px;font-weight:600}
-.avatar{width:42px;height:42px;border-radius:50%;background:#eef6ff;color:#1aa3e8;display:grid;place-items:center;font-weight:500;font-size:22px;margin-left:10px}
+.msgbadge{display:flex;align-items:center;gap:4px;border-radius:999px;padding:4px 9px;position:absolute;top:14px;right:18px;font-size:13px}
+.msgbadge svg{width:13px;height:13px}
+.avatar{width:42px;height:42px;border-radius:50%;background:#eef6ff;color:#1aa3e8;display:grid;place-items:center;font-weight:500;font-size:22px;margin-left:10px;cursor:pointer}
 
 .app{display:flex;height:calc(100vh - 77px)}
 .rail{width:84px;display:flex;flex-direction:column;align-items:center;gap:10px;padding:16px 0 64px;position:relative}
-.rail .logo{width:64px;height:64px;border-radius:14px;background:#1c1c1c;display:grid;place-items:center;margin-bottom:22px;position:relative}
+.rail .logo{width:64px;height:64px;border-radius:14px;background:#1c1c1c;display:grid;place-items:center;margin-bottom:22px;position:relative;cursor:pointer}
 .rail .logo:after{content:"";position:absolute;right:6px;top:4px;width:12px;height:12px;border-radius:50%;background:#ff4f8b}
 .rail button{width:50px;height:50px;border-radius:12px;display:grid;place-items:center;color:#bdbdbd}
 .rail button svg.i{stroke-width:1.75}
@@ -51,6 +53,19 @@ svg.i{width:20px;height:20px;stroke:currentColor;fill:none;stroke-width:1.8;stro
 .flyout button{display:flex;align-items:center;gap:12px;width:100%;padding:14px 12px;border-radius:8px;font-size:21px;text-align:left;color:#ececec}
 .flyout button:hover{background:#1a1a1a}
 .flyout button.on{background:#262626}
+
+/* Panneau d'édition des chiffres clés */
+.editbg{position:fixed;inset:0;background:#000a;z-index:90;display:flex;align-items:center;justify-content:center}
+.editcard{background:#19191b;border:1px solid #2a2a2d;border-radius:16px;width:560px;max-width:92vw;max-height:88vh;overflow-y:auto;padding:26px 28px}
+.editcard h2{margin:0 0 18px;font-size:22px}
+.editcard h3{margin:22px 0 10px;font-size:16px;color:#9a9a9a;text-transform:uppercase;letter-spacing:.5px}
+.editrow{display:flex;align-items:center;justify-content:space-between;gap:14px;padding:9px 0}
+.editrow label{font-size:16px;color:#dcdcdc}
+.editrow input{background:#242426;border:1px solid #333;border-radius:8px;color:#fff;font-size:16px;padding:9px 12px;width:200px;text-align:right}
+.editfoot{display:flex;justify-content:flex-end;gap:10px;margin-top:24px}
+.editfoot button{padding:11px 20px;border-radius:8px;font-size:16px}
+.editfoot .cancel{background:#2a2a2d;color:#ddd}
+.editfoot .save{background:#2f7cf6;color:#fff;font-weight:600}
 
 /* Accueil : mesures calées sur la capture (écran de 2000 px de large) */
 .home{padding:23px 35px 23px 23px;display:grid;grid-template-columns:326px 1fr;gap:23px 21px}
@@ -84,7 +99,7 @@ svg.i{width:20px;height:20px;stroke:currentColor;fill:none;stroke-width:1.8;stro
 .total-v small{font-size:32px;margin-right:2px}
 /* Petit espace après le « 1 » pour qu'il soit moins collé au chiffre suivant */
 .total-v .one{margin-right:.08em}
-.brand{width:60px;height:60px;border-radius:50%;background:#3b82f6}
+.brand{width:60px;height:60px;border-radius:50%;background:#3b82f6;cursor:pointer}
 .box{padding:28px 33px}
 .box h4{margin:0 0 10px;font-size:20px;font-weight:500;color:#fff;display:flex;align-items:center;gap:12px}
 .empty{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:22px;color:#bdbdc2;font-size:19px;padding:6px 0}
@@ -107,6 +122,7 @@ svg.i{width:20px;height:20px;stroke:currentColor;fill:none;stroke-width:1.8;stro
 .search{flex:1;display:flex;align-items:center;justify-content:space-between;height:54px;border:1px solid #444;border-radius:5px;padding:0 18px 0 15px;color:#9a9a9a;font-size:18px}
 .sq{width:48px;height:54px;border:1px solid #444;border-radius:5px;display:grid;place-items:center;color:#cfcfcf}
 .allc{color:#4c8dff;font-size:19px;height:77px;padding:11px 8px 0 9px;display:flex;align-items:center;justify-content:space-between}
+.allc.on{background:#3a3d4a}
 .allc svg{color:#8a8a8a}
 .creator{display:flex;align-items:center;gap:10px;margin:0 -13px 0 -15px;height:91px;padding:0 23px;font-size:19px;color:#e2e2e2;position:relative;cursor:pointer}
 .creator:hover{background:#323440}
@@ -129,9 +145,15 @@ svg.i{width:20px;height:20px;stroke:currentColor;fill:none;stroke-width:1.8;stro
 .range{display:flex;align-items:center;justify-content:space-between;height:80px;padding:0 26px 0 22px;cursor:pointer;position:relative}
 .range b{font-size:20px;font-weight:600;display:block;color:#eee;margin-bottom:4px}
 .range small{color:#a8a8a8;font-size:16px}
-.range-menu{position:absolute;right:22px;top:64px;background:#0c0c0d;border-radius:8px;padding:6px;z-index:10;min-width:200px}
-.range-menu button{display:block;width:100%;text-align:left;padding:10px 14px;border-radius:6px}
-.range-menu button:hover{background:#1f1f22}
+.range-menu{position:absolute;right:22px;top:68px;background:#19191b;border:1px solid #2a2a2d;border-radius:14px;padding:10px 8px;z-index:10;min-width:360px;max-height:480px;overflow-y:auto;box-shadow:0 12px 32px #0008}
+.range-menu button{display:block;width:100%;text-align:left;padding:16px 20px;border-radius:8px;font-size:21px;font-family:inherit;color:#eee;line-height:1.2}
+.range-menu button:hover{background:#262628}
+.range-sep{height:1px;background:#2c2c2e;margin:10px 12px}
+.editval{cursor:pointer;border-bottom:1px dashed #5a7bb8;border-radius:2px}
+.bal .editval,.rcard .editval,.kv .editval{border-bottom:none}
+.bal b .editval{font-size:inherit}
+.editval:hover{background:#2f7cf622}
+.editval-input{font:inherit;color:inherit;background:#1c2533;border:1px solid #2f7cf6;border-radius:4px;padding:0 4px;width:9em}
 .sumline{padding:4px 22px 0;font-size:21px;font-weight:500;display:flex;align-items:center;gap:10px}
 .delta{font-size:15px;border-radius:5px;padding:4px 8px;white-space:nowrap;font-weight:500}
 .delta.up{color:var(--green);background:#16301f}
@@ -179,6 +201,8 @@ svg.i{width:20px;height:20px;stroke:currentColor;fill:none;stroke-width:1.8;stro
 .manual .h{display:flex;justify-content:space-between;align-items:center;font-size:21px;color:#f2f2f2}
 .manual .h svg{color:#9aa0a8}
 .btn-dis{display:block;margin:18px 0 0 auto;width:246px;height:48px;background:#3a3b3e;color:#717479;border-radius:24px;font-size:17px;font-weight:500;letter-spacing:.4px;cursor:not-allowed}
+.btn-dis.blue{background:#2f7cf6;color:#fff;cursor:pointer}
+.btn-dis.blue:hover{background:#4a8bff}
 .rev h3{margin:0;padding:20px 22px 6px;font-size:21px;font-weight:600;color:#eee}
 .srow{display:flex;justify-content:space-between;align-items:center;margin-left:22px;padding:18px 34px 20px 0;border-top:1px solid #333}
 .srow:first-of-type{border-top:0}
@@ -245,7 +269,7 @@ body.msgmode .content{border-radius:0;background:#1a1a1a}
 .msg-search input{flex:1;background:none;border:0;outline:0;color:#e6e6e6;font:inherit;font-size:16px}
 .msg-search input::placeholder{color:#a8a8a8}
 .msg-grid{display:grid;grid-template-columns:repeat(4,296px);gap:22px;padding:0 14px;min-height:427px;align-content:start}
-.msg-card{display:flex;align-items:center;gap:12px;height:97px;padding:0 20px;background:#232323;border:1px solid #3c3c3c;border-radius:6px;text-align:left}
+.msg-card{display:flex;align-items:center;gap:12px;height:97px;padding:0 20px;background:#232323;border:1px solid #3c3c3c;border-radius:6px;text-align:left;position:relative}
 .msg-card:hover{border-color:#5a5a5a}
 .msg-card .cav{width:56px;height:56px;border-radius:6px}
 .msg-card .cav:after{display:none}
@@ -287,8 +311,8 @@ body.msgmode .content{border-radius:0;background:#1a1a1a}
   background:radial-gradient(circle at 50% 30%,#6e6e6e,#3a3a3a 55%,#262626 80%)}
 /* carré orange coupé par le rond en bas, comme sur la capture */
 .lb-badge:before{content:"";position:absolute;left:18px;top:13px;width:175px;height:260px;border-radius:26px;background:#e5530e}
-.lb-badge div{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:#fff;font-weight:600;font-size:74px;margin-left:4px}
-.lb-badge small{font-size:38px;margin-right:4px;margin-top:12px}
+.lb-badge div{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:#fff;font-weight:600;font-size:86px;margin-left:4px}
+.lb-badge small{font-size:44px;margin-right:16px;margin-top:12px}
 .lb-foot{height:97px;background:#e5530e;display:flex;align-items:center;gap:16px;padding:0 32px;font-size:26px;font-weight:300;color:#fff}
 .lb-foot .logo{width:36px;height:36px;border-radius:50%;background:#fff;display:grid;place-items:center}
 .lb-foot .logo i{width:20px;height:20px;border-radius:50%;background:#3b82f6}
@@ -296,7 +320,7 @@ body.msgmode .content{border-radius:0;background:#1a1a1a}
 .lb-k,.lb-v{letter-spacing:-.3px}
 .lb-foot{letter-spacing:-.5px}
 .lb-head h2,.lb-rank>button,.lb-toggle button{letter-spacing:-.3px}
-.lb-badge div{letter-spacing:-3px}
+.lb-badge div{letter-spacing:-1px}
 .lb-upd{text-align:right;color:#8a8a8a;font-size:18px;margin-top:33px}
 .placeholder{display:grid;place-items:center;height:100%;color:var(--muted);font-size:17px;text-align:center;padding:40px}
 .sec-empty{padding:60px 22px;text-align:center;color:var(--muted);font-size:16px}
@@ -325,15 +349,18 @@ body.msgmode .content{border-radius:0;background:#1a1a1a}
   <button class="chip" data-ic="trophy" data-nav="leaderboard">Leaderboard</button>
   <div class="sfw">SFW<i></i></div>
   <button class="chip bellchip" data-ic="bell"><span class="badge">99+</span></button>
-  <div class="avatar">Th</div>
+  <div class="avatar" id="avatarBtn" title="Cliquer pour changer la photo">Th</div>
+  <input type="file" id="avatarFile" style="display:none">
 </div>
 <div class="app">
   <nav class="rail" id="rail"></nav>
   <main class="content" id="main"></main>
 </div>
 <div id="flyout"></div>
+<div id="editModal"></div>
 
 <script>
+const MODEL_COUNT = 3;
 /* ---------- Icônes ---------- */
 const P = {
   grid:'<rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/>',
@@ -352,6 +379,7 @@ const P = {
   edit:'<path d="M12 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.4 2.6a1 1 0 0 1 3 3l-9 9a2 2 0 0 1-.9.5l-2.9.8a.5.5 0 0 1-.6-.6l.8-2.9a2 2 0 0 1 .5-.9z"/>',
   bell:'<path d="M10.3 21a2 2 0 0 0 3.4 0"/><path d="M3.3 15.3A1 1 0 0 0 4 17h16a1 1 0 0 0 .7-1.7C19.4 14 18 12.5 18 8A6 6 0 0 0 6 8c0 4.5-1.4 6-2.7 7.3"/>',
   msg:'<path d="M7.9 20A9 9 0 1 0 4 16.1L2 22z"/>',
+  msgdots:'<path d="M7.9 20A9 9 0 1 0 4 16.1L2 22z"/><circle cx="5.8" cy="11.5" r="1.3" fill="currentColor" stroke="none"/><circle cx="9.3" cy="11.5" r="1.3" fill="currentColor" stroke="none"/><circle cx="12.8" cy="11.5" r="1.3" fill="currentColor" stroke="none"/>',
   vault:'<rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.1-3.1a2 2 0 0 0-2.8 0L6 21"/>',
   cal:'<rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18M8 14h.01M12 14h.01M16 14h.01M8 18h.01M12 18h.01M16 18h.01"/>',
   coll:'<rect x="3" y="3" width="18" height="18" rx="2"/><path d="M8 3v8l3-2.5L14 11V3"/><path d="M8 16h8"/>',
@@ -397,9 +425,55 @@ const P = {
   info:'<circle cx="12" cy="12" r="9"/><path d="M12 11v5M12 8h.01"/>',
 };
 const esc = t => String(t).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+/* Édition directe : double-clic sur une valeur pour la modifier sur place (sauvegardée dans EDIT du modèle affiché) */
+function editGet(path){ let o = EDIT; for (const k of path.split('.')) o = o[k]; return o; }
+function editSet(path, val){ const ks = path.split('.'); let o = EDIT; for (let i=0;i<ks.length-1;i++) o = o[ks[i]]; o[ks[ks.length-1]] = val; }
+// `fallback` : valeur calculée à afficher/pré-remplir tant que le champ n'a jamais été édité à la main (valeur nulle)
+function ev(path, fmt=money, type='num', fallback){
+  const raw = editGet(path);
+  const val = (raw === null || raw === undefined) ? fallback : raw;
+  if (S.model === 'all') return fmt(val);
+  return `<span class="editval" data-ekey="${path}" data-etype="${type}" data-efallback="${fallback}" title="Double-clic pour modifier">${fmt(val)}</span>`;
+}
 const INF = `<span class="inf"><svg class="i" viewBox="0 0 24 24" style="width:20px;height:20px"><circle cx="12" cy="12" r="9"/><path d="M12 11v5M12 8h.01"/></svg></span>`;
 const ic = (n, s) => `<svg class="i" viewBox="0 0 24 24"${s?` style="width:${s}px;height:${s}px"`:''}>${P[n]||''}</svg>`;
 document.querySelectorAll('[data-ic]').forEach(el => el.insertAdjacentHTML('afterbegin', ic(el.dataset.ic, 26)));
+
+/* ---------- Photo de profil : le logo en haut à droite est indépendant des autres ronds bleus ---------- */
+// Toute photo (même une photo de téléphone de plusieurs Mo) est recadrée en carré et compressée,
+// pour accepter n'importe quelle image sans dépasser le quota de stockage du navigateur.
+function readPhotoFile(file, cb){
+  const img = new Image(), url = URL.createObjectURL(file);
+  img.onload = () => {
+    const c = document.createElement('canvas'); c.width = c.height = 300;
+    const s = Math.min(img.width, img.height);
+    c.getContext('2d').drawImage(img, (img.width-s)/2, (img.height-s)/2, s, s, 0, 0, 300, 300);
+    URL.revokeObjectURL(url);
+    cb(c.toDataURL('image/jpeg', 0.85));
+  };
+  img.onerror = () => { URL.revokeObjectURL(url); alert("Ce fichier n'est pas une image valide."); };
+  img.src = url;
+}
+function setCirclePhoto(key, img){
+  try { localStorage.setItem('photo_'+key, img); } catch { alert("Cette photo est trop lourde pour être enregistrée."); return; }
+  render();
+}
+(function initAvatar(){
+  const btn = document.getElementById('avatarBtn'), file = document.getElementById('avatarFile');
+  const apply = img => { btn.style.backgroundImage = `url(${img})`; btn.style.backgroundSize = 'cover'; btn.style.backgroundPosition = 'center'; btn.textContent = ''; };
+  const saved = localStorage.getItem('avatarImg');
+  if (saved) apply(saved);
+  btn.addEventListener('click', () => file.click());
+  btn.addEventListener('dblclick', () => file.click());
+  file.addEventListener('change', () => {
+    const f = file.files[0]; if (!f) return;
+    readPhotoFile(f, img => {
+      try { localStorage.setItem('avatarImg', img); } catch { alert("Cette photo est trop lourde pour être enregistrée."); return; }
+      apply(img);
+    });
+    file.value = '';
+  });
+})();
 
 /* ---------- Données ---------- */
 function rng(seed){return()=>{seed|=0;seed=seed+0x6D2B79F5|0;let t=Math.imul(seed^seed>>>15,1|seed);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296}}
@@ -408,8 +482,10 @@ const money = n => '$' + n.toLocaleString('en-US',{minimumFractionDigits:2,maxim
 const num = n => n.toLocaleString('en-US');
 const MFR = ['janv.','févr.','mars','avr.','mai','juin','juil.','août','sept.','oct.','nov.','déc.'];
 const MFULL = ['janvier','février','mars','avril','mai','juin','juillet','août','septembre','octobre','novembre','décembre'];
-const START = new Date(2026, 8, 23);
-const DAYS = Array.from({length:31}, (_, i) => new Date(2026, 8, 23 + i));
+// La fenêtre des "30 derniers jours" se termine toujours aujourd'hui (date réelle), pas figée sur une date passée
+const TODAY0 = new Date(); TODAY0.setHours(0,0,0,0);
+const START = new Date(TODAY0.getFullYear(), TODAY0.getMonth(), TODAY0.getDate() - 30);
+const DAYS = Array.from({length:31}, (_, i) => new Date(START.getFullYear(), START.getMonth(), START.getDate() + i));
 const dayLabel = d => `${MFR[d.getMonth()]} ${String(d.getDate()).padStart(2,'0')}, ${d.getFullYear()}`;
 
 function scaleTo(arr, total){
@@ -420,43 +496,154 @@ function scaleTo(arr, total){
   return out;
 }
 const SHAPE_MSG  = [130,210,80,60,30,25,40,300,30,70,25,45,50,20,60,120,30,180,330,180,140,110,120,125,350,190,150,230,90,70,4];
-const SHAPE_TIP  = [0,0,40,0,0,0,0,250,0,0,0,0,0,0,0,30,0,0,0,0,0,10,0,0,90,0,30,0,140,0,0];
+// Forme des 30 derniers jours spécifique à Aline : calme jusqu'au 10-12 oct., puis gros pics jusqu'à fin oct.
+const SHAPE_ALINE = [210,180,230,260,195,150,380,220,170,240,200,160,250,390,320,400,350,3000,1600,1150,1850,2000,1300,1750,1950,1050,1700,1850,1200,1600,600];
+const SHAPE_TIP  = [210,380,520,610,290,470,700,340,180,730,420,560,310,750,250,610,430,760,320,180,540,690,410,250,700,360,580,210,470,650,380];
 const SHAPE_SUB  = [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,2,3,4,8,6,8,7,80,30,22,18,14,12,10,3];
-const SHAPE_POST = [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0];
-const SERIES = {
-  messages: scaleTo(SHAPE_MSG, 2892),
-  tips: scaleTo(SHAPE_TIP, 691.40),
-  subs: scaleTo(SHAPE_SUB, 392.35),
-  posts: scaleTo(SHAPE_POST, 24),
-  streams: DAYS.map(()=>0),
-};
-SERIES.total = DAYS.map((_, i) => Math.round((SERIES.messages[i]+SERIES.tips[i]+SERIES.subs[i]+SERIES.posts[i])*100)/100);
-const TXCOUNT = SERIES.total.map(v => Math.round(v / 20 + R()*3));
+const SHAPE_POST = [2,4,1,6,3,8,2,5,10,3,7,2,9,4,12,5,3,8,15,6,2,9,4,20,8,3,10,5,2,6,3];
+const CAT_RATIO = {subs:4482.17/152846.46, tips:18659.06/152846.46, posts:3642.17/152846.46, messages:126063.06/152846.46, streams:0};
+let SERIES, TXCOUNT;
+// Recalcule les courbes de revenus (Relevés, Vue d'ensemble...) à partir de la répartition par catégorie (EDIT.cat30)
+// du modèle affiché (chaque modèle isolé, "All creators" additionne tout le monde).
+function computeSeries(){
+  const t = EDIT.cat30;
+  const aline = S.model === '1';
+  const out = {
+    messages: scaleTo(aline ? SHAPE_ALINE : SHAPE_MSG, Math.round(t.messages*100)/100),
+    tips: scaleTo(aline ? SHAPE_ALINE : SHAPE_TIP, Math.round(t.tips*100)/100),
+    subs: scaleTo(aline ? SHAPE_ALINE : SHAPE_SUB, Math.round(t.subs*100)/100),
+    posts: scaleTo(aline ? SHAPE_ALINE : SHAPE_POST, Math.round(t.posts*100)/100),
+    streams: DAYS.map(()=>t.streams/DAYS.length),
+  };
+  out.total = DAYS.map((_, i) => Math.round((out.messages[i]+out.tips[i]+out.subs[i]+out.posts[i]+out.streams[i])*100)/100);
+  SERIES = out;
+  if (!TXCOUNT) TXCOUNT = SERIES.total.map(v => Math.round(v / 20 + R()*3));
+}
 const VIS_SHAPE = [700,1600,900,800,700,800,700,900,800,700,800,900,1500,4500,2200,3800,5000,2600,1800,1700,1800,1900,2000,23500,3000,6400,4800,3000,2200,1300,300];
 function intScale(arr, total){ const o = scaleTo(arr, total).map(Math.round); o[o.indexOf(Math.max(...o))] += total - o.reduce((a,b)=>a+b,0); return o; }
-const VISITORS = { invites: intScale(VIS_SHAPE.map(v=>v*(0.6+R()*0.1)), 58708), users: intScale(VIS_SHAPE.map(v=>v*(0.35+R()*0.1)), 33117) };
+const VISITORS = { invites: intScale(VIS_SHAPE.map(v=>v*(0.6+R()*0.1)), 287350), users: intScale(VIS_SHAPE.map(v=>v*(0.35+R()*0.1)), 162320) };
 VISITORS.tout = VISITORS.invites.map((v,i)=>v+VISITORS.users[i]);
 const SUBS_NEW = intScale(SHAPE_SUB.map((v,i)=> i<14 ? 4+R()*6 : v*2.5 + 5), 1082);
 const SUBS_REN = DAYS.map((_,i)=> [6,14,22,29].includes(i) ? 1 : 0);
 
 const DASH = {
   yesterdaySales:152.71,
-  yesterday:{subs:24.71,posts:0,msgs:32,tips:96,refs:0,streams:0},
-  today:{subs:2.59,posts:0,msgs:0,tips:0,refs:0,streams:0},
-  week:{subs:178.36,posts:0,msgs:614.40,tips:216,refs:0,streams:0},
-  month:{subs:392.35,posts:24,msgs:2231.20,tips:403.40,refs:0,streams:0,
-    gross:{subs:490.80,posts:30,msgs:2789,tips:504.25,refs:0,streams:0}},
+  yesterday:{subs:112.91,posts:91.72,msgs:2611.60,tips:275.21,refs:0,streams:0},
+  today:{subs:181.97,posts:148.00,msgs:4215.37,tips:443.70,refs:0,streams:0},
+  week:{subs:1143.67,posts:0,msgs:32022.92,tips:2732.06,refs:0,streams:0,total:38212.38},
+  month:{subs:4482.17,posts:3642.17,msgs:103690.52,tips:10928.25,refs:0,streams:0},
 };
-// Forme des courbes Employee sales (semaine du 19 oct., mois d'octobre ; les jours à venir restent à 0)
-const SALES_WEEK = [298.5,148,281.26,131,150,0,0];
-const SALES_MONTH = [55,50,75,55,60,10,65,150,25,160,420,195,75,80,180,178,180,305,150,290,130,160,0,0,0,0,0,0,0,0,0];
+// Forme des courbes Employee sales (semaine du 19 oct., mois d'octobre ; le rythme ralentit en fin de mois)
+const SALES_WEEK = [155,195,110,195,155,210,165];
+const SALES_MONTH = [64,60,54,58,63,68,80,85,88,85,91,83,69,70,73,78,83,90,93,73,76,82,85,78,90,95,58,63,50,44,48];
 
 const MONTHS = [
-  ['2026-10',3050.95],['2026-09',4034.40],['2026-08',4827.78],['2026-07',1840.13],['2026-06',118.80],
-  ['2026-05',126.72],['2026-04',95.04],['2026-03',87.12],['2026-02',126.72],['2026-01',271.68],
-  ['2025-12',87.12],['2025-11',142.56],['2025-10',118.80],['2025-09',210.40],['2025-08',95.04],
-  ['2025-07',183.12],['2025-06',126.72],['2025-05',251.40],['2025-04',87.12],['2025-03',130.32],
+  ['2026-10',122743.11],['2026-09',145224.00],['2026-08',121114.12],['2026-07',102985.25],['2026-06',97227.27],
+  ['2026-05',84771.01],['2026-04',8966.86],['2026-03',7966.47],['2026-02',10428.29],['2026-01',9671.68],
+  ['2025-12',0],['2025-11',0],['2025-10',0],['2025-09',0],['2025-08',0],
+  ['2025-07',0],['2025-06',0],['2025-05',0],['2025-04',0],['2025-03',0],
 ];
+
+/* Chiffres clés modifiables directement dans l'app (panneau "Éditer"), par modèle, gardés dans ce navigateur */
+const ZERO_MONTHS = Object.fromEntries(MONTHS.filter(([k]) => k.startsWith('2026')).map(([k]) => [k,0]));
+const ZERO_PERIOD = {subs:0, tips:0, posts:0, msgs:0};
+const PCT_DEFAULTS = {
+  releves_total: 20, releves_paiements: 3.8,
+  pts_newSubs: 23.7,
+  portee_visitors: 228.8, portee_sideVisitors: 228.8, portee_subsRevenue: 100,
+  fans_subsRevenue: 100, fans_sideAbonnes: 24.1, fans_sideSubsRevenue: 100,
+  rev_total: 20, rev_subs: 20, rev_tips: 20, rev_messages: 20, rev_posts: 20,
+  ov_total: 6.9, ov_visitors: 228.8, ov_subsRevenue: 100, ov_newSubs: 23.7,
+  ov_publications: -33.3, ov_publishRevenue: -66.6, ov_msgRevenue: -20.2,
+};
+// Cases éditables de la carte "Vue d'ensemble" (null = pas encore modifié à la main, on affiche la valeur calculée)
+const OV_ZERO = {total:null, visitors:null, subsRevenue:null, newSubs:null, renewals:null, publications:null, publishRevenue:null, postsViews:null, msgRevenue:null};
+// Cases éditables du tableau Brut/Net "Revenus" de Vue d'ensemble (une paire {b,n} par catégorie, null = valeur calculée)
+const ROWOV_CATS = ['total','abonnements','pourboires','astuces','publications','messages','references','streams'];
+const ROWOV_ZERO = Object.fromEntries(ROWOV_CATS.map(k => [k, {b:null, n:null}]));
+const EDIT_REAL = {
+  solde: 824.11, fonds: 28427.04, inception: 710098.06, topPct: 0.03,
+  lbRank: 11, lbEarnings: 145224.17, lbLocation: 'France', lbMonth: 'Sep 2026',
+  months: Object.fromEntries(MONTHS.filter(([k]) => k.startsWith('2026')).map(([k,v]) => [k,v])),
+  cat30: {subs:4482.17, tips:18659.06, posts:3642.17, messages:126063.06, streams:0},
+  yesterdaySales: DASH.yesterdaySales,
+  pct: {...PCT_DEFAULTS},
+  ov: {...OV_ZERO},
+  rowOv: structuredClone(ROWOV_ZERO),
+  home: {
+    yesterday: {subs:DASH.yesterday.subs, tips:DASH.yesterday.tips, posts:DASH.yesterday.posts, msgs:DASH.yesterday.msgs},
+    today: {subs:DASH.today.subs, tips:DASH.today.tips, posts:DASH.today.posts, msgs:DASH.today.msgs},
+    week: {subs:DASH.week.subs, tips:DASH.week.tips, posts:DASH.week.posts, msgs:DASH.week.msgs, total:DASH.week.total},
+    month: {subs:DASH.month.subs, tips:DASH.month.tips, posts:DASH.month.posts, msgs:DASH.month.msgs},
+  },
+};
+const EDIT_ZERO = {
+  solde: 0, fonds: 0, inception: 0, topPct: 0,
+  lbRank: 0, lbEarnings: 0, lbLocation: '', lbMonth: '',
+  months: {...ZERO_MONTHS}, yesterdaySales: 0,
+  cat30: {subs:0, tips:0, posts:0, messages:0, streams:0},
+  home: {yesterday:{...ZERO_PERIOD}, today:{...ZERO_PERIOD}, week:{...ZERO_PERIOD, total:0}, month:{...ZERO_PERIOD}},
+  pct: Object.fromEntries(Object.keys(PCT_DEFAULTS).map(k => [k, 0])),
+  ov: {...OV_ZERO},
+  rowOv: structuredClone(ROWOV_ZERO),
+};
+const editDefaultFor = i => i === '0' ? EDIT_REAL : EDIT_ZERO;
+let EDIT;
+function editFor(modelIndex){
+  const def = editDefaultFor(modelIndex);
+  try {
+    const all = JSON.parse(localStorage.getItem('editvals')) || {};
+    const s = all[modelIndex];
+    if (s) return {...def, ...s, months:{...def.months, ...(s.months||{})}, cat30:{...def.cat30, ...(s.cat30||{})}, pct:{...def.pct, ...(s.pct||{})}, ov:{...def.ov, ...(s.ov||{})}, rowOv:Object.fromEntries(ROWOV_CATS.map(k => [k, {...def.rowOv[k], ...(s.rowOv?.[k]||{})}])), home:{yesterday:{...def.home.yesterday,...(s.home?.yesterday||{})}, today:{...def.home.today,...(s.home?.today||{})}, week:{...def.home.week,...(s.home?.week||{})}, month:{...def.home.month,...(s.home?.month||{})}}};
+  } catch {}
+  return structuredClone(def);
+}
+function loadEdit(modelIndex){
+  if (modelIndex === 'all') {
+    const parts = Array.from({length: MODEL_COUNT}, (_, i) => editFor(String(i)));
+    const sumKey = (k) => Math.round(parts.reduce((s,p) => s+p[k], 0)*100)/100;
+    const sumHome = (p,c) => Math.round(parts.reduce((s,e) => s+e.home[p][c], 0)*100)/100;
+    const sumCat = c => Math.round(parts.reduce((s,p) => s+p.cat30[c], 0)*100)/100;
+    EDIT = {
+      solde: sumKey('solde'), fonds: sumKey('fonds'), inception: sumKey('inception'), topPct: parts[0].topPct,
+      lbRank: parts[0].lbRank, lbEarnings: sumKey('lbEarnings'), lbLocation: parts[0].lbLocation, lbMonth: parts[0].lbMonth,
+      yesterdaySales: sumKey('yesterdaySales'),
+      months: Object.fromEntries(Object.keys(EDIT_REAL.months).map(k => [k, Math.round(parts.reduce((s,p) => s+p.months[k], 0)*100)/100])),
+      cat30: {subs:sumCat('subs'), tips:sumCat('tips'), posts:sumCat('posts'), messages:sumCat('messages'), streams:sumCat('streams')},
+      home: Object.fromEntries(['yesterday','today','week','month'].map(p => [p, {
+        subs:sumHome(p,'subs'), tips:sumHome(p,'tips'), posts:sumHome(p,'posts'), msgs:sumHome(p,'msgs'),
+        ...(p==='week' ? {total:sumHome(p,'total')} : {}),
+      }])),
+      pct: parts[0].pct,
+      ov: {...OV_ZERO},
+      rowOv: structuredClone(ROWOV_ZERO),
+    };
+    return;
+  }
+  EDIT = editFor(modelIndex);
+}
+const saveEdit = () => {
+  try {
+    const all = JSON.parse(localStorage.getItem('editvals')) || {};
+    all[S.model] = EDIT;
+    localStorage.setItem('editvals', JSON.stringify(all));
+  } catch {}
+};
+function applyEditCore(){
+  // Le total d'octobre / "30 derniers jours" découle toujours de la somme des catégories (cat30), jamais l'inverse.
+  const c = EDIT.cat30;
+  EDIT.months['2026-10'] = Math.round((c.subs+c.tips+c.posts+c.messages+c.streams)*100)/100;
+  for (const row of MONTHS) if (row[0] in EDIT.months) row[1] = EDIT.months[row[0]];
+  for (const p of ['yesterday','today','week']) Object.assign(DASH[p], EDIT.home[p]);
+  // "Ce mois" découle aussi de cat30, pour rester cohérent avec Relevés / Vue d'ensemble.
+  DASH.month.subs = c.subs; DASH.month.tips = c.tips; DASH.month.posts = c.posts; DASH.month.msgs = c.messages;
+  DASH.yesterdaySales = EDIT.yesterdaySales;
+  computeSeries();
+}
+function applyEdit(){
+  applyEditCore();
+  LB.country.rank = EDIT.lbRank; LB.location = EDIT.lbLocation; LB.earnings = EDIT.lbEarnings; LB.month = EDIT.lbMonth;
+}
 const monthName = k => { const [y,m] = k.split('-'); return `${MFULL[+m-1]}, ${y}`; };
 function monthSplit(k, v){
   if (+k.slice(0,4) === 2026 && +k.slice(5) >= 7) {
@@ -466,34 +653,42 @@ function monthSplit(k, v){
   const s = Math.round(v*0.55*100)/100, t = Math.round(v*0.25*100)/100, p = Math.round(v*0.05*100)/100;
   return {Abonnements:s, Pourboires:t, Publications:p, Messages:Math.round((v-s-t-p)*100)/100};
 }
-const INCEPTION = [
-  ['Abonnements',2975.50,2380.07,'#3aa0ff'],['Pourboires',2830.25,2264.20,'#2bb3a8'],
-  ['Publications',304.67,243.67,'#c0496b'],['Messages',13905.00,11124.00,'#c4653a'],['Références',0,0,'#7a7ad0'],
-];
+const INCEPTION_RATIO = {Abonnements:0.148645, Pourboires:0.141407, Publications:0.015217, Messages:0.694731, Références:0};
+const INCEPTION_COLOR = {Abonnements:'#3aa0ff', Pourboires:'#2bb3a8', Publications:'#c0496b', Messages:'#c4653a', Références:'#7a7ad0'};
+function inceptionRows(){
+  return Object.entries(INCEPTION_RATIO).map(([n,r]) => {
+    const ne = Math.round(EDIT.inception*r*100)/100, b = Math.round(ne*1.25*100)/100;
+    return [n, b, ne, INCEPTION_COLOR[n]];
+  });
+}
 
 const NAMES = ['Magno Carvalho','Yut','I♡chubby','Stlman','toujours négocier','Jamie A','Rod7x6','Roy Smaila','Jrock','Kevin','Qprn','Ivan g 23','Bender168','Carlos ruiz','Dave','MrNumberOne','Lucas_88','Big Tom','Nico V','Sam K','Pierre L','Alex.B'];
-const TX = [
-  ['2026-10-23 01:16',3.24,'sub','Magno Carvalho'],['2026-10-23 00:03',3.24,'sub','Yut'],
-  ['2026-10-22 23:58',3.24,'sub','I♡chubby'],['2026-10-22 22:46',4.99,'sub','Stlman'],
-  ['2026-10-22 20:32',26.00,'msg','toujours négocier'],['2026-10-22 19:21',3.24,'sub','Jamie A'],
-  ['2026-10-22 17:03',20.00,'tip','Rod7x6'],['2026-10-22 15:31',3.24,'sub','Roy Smaila'],
-  ['2026-10-22 14:13',3.24,'sub','Jrock'],['2026-10-22 09:34',3.24,'sub','Kevin'],
-  ['2026-10-22 05:44',14.00,'msg','Qprn'],['2026-10-22 02:32',3.24,'sub','Ivan g 23'],
-  ['2026-10-22 02:23',100.00,'tip','Bender168'],['2026-10-22 02:05',3.24,'sub','Carlos ruiz'],
-  ['2026-10-21 22:28',3.24,'sub','Dave'],['2026-10-21 22:24',40.00,'tip','Rod7x6'],
-  ['2026-10-21 22:20',20.00,'tip','Rod7x6'],
-];
+// Transactions générées en partant de maintenant (date/heure réelles) et en reculant de 5 à 7 minutes
+// entre chaque, pour que la liste suive toujours l'heure du jour en cours.
+const p2 = n => String(n).padStart(2,'0');
+const fmtTxDate = d => `${d.getFullYear()}-${p2(d.getMonth()+1)}-${p2(d.getDate())} ${p2(d.getHours())}:${p2(d.getMinutes())}`;
+const TX = [];
+const TX_TYPES = ['msg','msg','msg','sub','sub','tip','post'];
+const TX_PRICES = {msg:[9,14,18,25,30,45],sub:[3.24,4.99],tip:[5,10,20,50],post:[8,12]};
+let nextTxAt;
 (function genTx(){
-  let t = new Date(2026, 9, 21, 21, 0).getTime();
-  const types = ['msg','msg','msg','sub','sub','tip','post'];
-  const prices = {msg:[9,14,18,25,30,45],sub:[3.24,4.99],tip:[5,10,20,50],post:[8,12]};
-  for (let i = 0; i < 60; i++) {
-    t -= (30 + R()*240) * 60000;
-    const d = new Date(t), ty = types[Math.floor(R()*types.length)], pr = prices[ty][Math.floor(R()*prices[ty].length)];
-    const p2 = n => String(n).padStart(2,'0');
-    TX.push([`${d.getFullYear()}-${p2(d.getMonth()+1)}-${p2(d.getDate())} ${p2(d.getHours())}:${p2(d.getMinutes())}`, pr, ty, NAMES[Math.floor(R()*NAMES.length)]]);
+  let t = Date.now();
+  for (let i = 0; i < 77; i++) {
+    const d = new Date(t), ty = TX_TYPES[Math.floor(R()*TX_TYPES.length)], pr = TX_PRICES[ty][Math.floor(R()*TX_PRICES[ty].length)];
+    TX.push([fmtTxDate(d), pr, ty, NAMES[Math.floor(R()*NAMES.length)]]);
+    t -= (5 + R()*2) * 60000;
   }
+  nextTxAt = t + (5 + R()*2) * 60000 + (5 + R()*2) * 60000;
 })();
+// Tant que l'app tourne, une nouvelle transaction (toujours espacée de 5 à 7 min) s'ajoute en direct
+setInterval(() => {
+  if (Date.now() < nextTxAt) return;
+  const ty = TX_TYPES[Math.floor(R()*TX_TYPES.length)], pr = TX_PRICES[ty][Math.floor(R()*TX_PRICES[ty].length)];
+  TX.unshift([fmtTxDate(new Date()), pr, ty, NAMES[Math.floor(R()*NAMES.length)]]);
+  TX.length = Math.min(TX.length, 77);
+  nextTxAt = Date.now() + (5 + R()*2) * 60000;
+  render();
+}, 30000);
 // Libellés repris tels quels de l'interface d'origine
 const TXLABEL = {sub:"Formulaire d'abonnement", msg:'Paiement pour un message de', tip:'Conseil de', post:'Achat de publication de'};
 const TXCAT = {abonnements:'sub', pourboires:'tip', publications:'post', messages:'msg', streams:'stream'};
@@ -516,8 +711,10 @@ const S = {
   page:'home', flyout:null, period:'yesterday', earnType:'net',
   statsTab:'releves', pill:{releves:'revenus',overview:'revenus',engagement:'messages',portee:'visiteurs',fans:'abonnements'},
   cat:'tout', ocat:'total', range:'30', rangeOpen:false, porteeSeg:'tout', fansSeg:'tout',
-  topFan:'total', topFanTab:'abonnement', stmt:'revenus', open:{}, model:'0',
+  topFan:'total', topFanTab:'abonnement', stmt:'revenus', open:{}, model:'all', editOpen:false,
 };
+loadEdit(S.model);
+applyEditCore();
 
 /* ---------- Graphiques ---------- */
 let charts = [], queue = [];
@@ -552,7 +749,10 @@ function pairCharts(id, labels, main, sub, o){
     const tip = wrap.querySelector('.ctip'), cvs = wrap.querySelectorAll('canvas');
     const max = Math.max(...main, 1), step = [10,20,50,100,150,200,500,1000,2000,5000,8000,10000].find(v => max*1.1/v <= 3) || 20000;
     const smax = Math.max(...sub, 1), sstep = [1,2,5,10,25,50,100,500,1000,5000,100000].find(v => smax*1.1/v <= 2) || 200000;
-    const base = (cv, data, color, fill, ystep, yfmt, xlabels, hoverColor) => new Chart(cv.getContext('2d'), {
+    // Remonte la ligne : on ne part plus de zéro, pour que les jours bas restent visibles
+    const mainMin = Math.max(0, Math.floor(Math.min(...main) * 0.6 / step) * step);
+    const subMin = Math.max(0, Math.floor(Math.min(...sub) * 0.6 / sstep) * sstep);
+    const base = (cv, data, color, fill, ystep, yfmt, xlabels, hoverColor, ymin) => new Chart(cv.getContext('2d'), {
       type:'line', plugins:[PAIR_LINE],
       data:{labels, datasets:[{data, borderColor:color, borderWidth:2.2, backgroundColor:fill, fill:true, tension:0,
         pointRadius:0, pointHoverRadius:6, pointHoverBackgroundColor:'#fff', pointHoverBorderColor:hoverColor, pointHoverBorderWidth:3}]},
@@ -562,12 +762,12 @@ function pairCharts(id, labels, main, sub, o){
           x:{grid:{drawTicks:false, color:c => PAIR_GRID(c, labels)}, border:{display:false},
              ticks:{display:xlabels, color:'#cfcfcf', maxRotation:0, autoSkip:false, padding:8, font:{size:15},
                callback(v,i){ return labels.length <= 7 || i % 7 === 2 ? this.getLabelForValue(v).split(', ') : ''; }}},
-          y:{position:'right', beginAtZero:true, max:Math.ceil(data === main ? max*1.1/ystep : smax*1.1/ystep)*ystep,
+          y:{position:'right', beginAtZero:!ymin, min:ymin||undefined, max:Math.ceil(data === main ? max*1.1/ystep : smax*1.1/ystep)*ystep,
              grid:{drawTicks:false, color:c => c.tick.value === 0 ? '#d4d4d4' : '#2e2e2e', lineWidth:c => c.tick.value === 0 ? 1.5 : 1},
              border:{display:false}, ticks:{stepSize:ystep, color:'#cfcfcf', padding:10, font:{size:15}, callback:v => v ? yfmt(v) : ''}},
         }}});
-    const a = base(cvs[0], main, '#22a3ec', 'rgba(34,140,215,0.20)', step, o.yMain, false, '#22a3ec');
-    const b = base(cvs[1], sub, '#9a9a9a', 'rgba(255,255,255,0.05)', sstep, o.ySub, true, '#9a9a9a');
+    const a = base(cvs[0], main, '#22a3ec', 'rgba(34,140,215,0.20)', step, o.yMain, false, '#22a3ec', mainMin);
+    const b = base(cvs[1], sub, '#7b93c4', 'rgba(123,147,196,0.08)', sstep, o.ySub, true, '#7b93c4', subMin);
     charts.push(a, b);
     const show = i => {
       for (const c of [a, b]) { c.$hover = i; c.setActiveElements(i == null ? [] : [{datasetIndex:0, index:i}]); c.update('none'); }
@@ -618,7 +818,8 @@ function line(id, labels, data, o = {}){
                callback(v,i){ return o.xEvery && i % o.xEvery ? '' : this.getLabelForValue(v); }}},
           y:{position:'left', beginAtZero:true, max:o.max,
              grid:{color:'#505050', lineWidth:1.5, drawTicks:false}, border:{display:false, dash:[4,4]},
-             ticks:{color:'#a8a8a8', padding:14, maxTicksLimit:8, stepSize:o.step, font:{size:15}}},
+             ticks:{color:'#a8a8a8', padding:14, maxTicksLimit:o.ticks||8, stepSize:o.step, font:{size:15}},
+             afterBuildTicks: ax => { for (const v of o.extraTicks||[]) if (!ax.ticks.some(t => t.value === v)) ax.ticks.push({value:v}); ax.ticks.sort((a,b) => a.value-b.value); }},
         } : {
           x:{grid:{drawTicks:false, color:c => o.every && o.every < 1e9 && c.index % o.every !== 2 ? 'transparent' : '#3a3a3f'}, border:{display:false},
              ticks:{color:'#cfcfd4', maxRotation:0, autoSkip:false, padding:8,
@@ -633,6 +834,8 @@ function line(id, labels, data, o = {}){
 
 /* ---------- Composants ---------- */
 const delta = v => v == null ? '' : `<span class="delta ${v>=0?'up':'down'}">${v>=0?'↗':'↘'} ${Math.abs(v)}%</span>`;
+// Pourcentage éditable en double-clic (comme les autres valeurs), stocké dans EDIT.pct
+const pct = key => ev('pct.'+key, v => delta(v), 'num');
 // Illustration d'état vide : feuille avec petit visage bleu et traits autour
 const EMPTY_SVG = `<svg width="140" height="122" viewBox="0 0 140 122" fill="none">
   <g stroke="#6f6f74" stroke-width="2.2" stroke-linecap="round"><path d="M20 5l5 8M32 3v8M106 3l-6 8M118 9l-6 6"/></g>
@@ -647,12 +850,50 @@ const empty = t => `<div class="empty">${EMPTY_SVG}${t}</div>`;
 const pills = (key, list) => `<div class="pills">${list.map(([k,l]) => `<button class="pill ${S.pill[key]===k?'on':''}" data-set="pill.${key}" data-v="${k}">${l}</button>`).join('')}</div>`;
 const segs = (key, list) => `<div class="pills" style="padding-top:22px">${list.map(([k,l]) => `<button class="pill ${S[key]===k?'on':''}" data-set="${key}" data-v="${k}">${l}</button>`).join('')}</div>`;
 function days(){ return S.range === '7' ? DAYS.slice(-7) : DAYS; }
+const modelHasData = () => S.model === '0' || S.model === 'all';
 function sl(arr){ return S.range === '7' ? arr.slice(-7) : arr; }
+function slz(arr){ const a = sl(arr); return modelHasData() ? a : a.map(() => 0); }
+const mdl = arr => modelHasData() ? arr : [];
+const zm = arr => modelHasData() ? arr : arr.map(() => 0);
 const sum = a => Math.round(a.reduce((x,y)=>x+y,0)*100)/100;
+const RANGE_LABELS = {custom:'Personnalisé','24h':'Dernières 24 heures','7':'7 derniers jours','30':'Derniers 30 jours','90':'Derniers 90 jours','180':'Derniers 180 jours','365':'Derniers 365 jours','2026':'2026','2025':'2025',inception:"Depuis l'inscription"};
+const monthsSum = n => Math.round(MONTHS.slice(0, n).reduce((s,[,v]) => s+v, 0) * 100) / 100;
+const yearSum = y => Math.round(MONTHS.filter(([k]) => k.startsWith(y)).reduce((s,[,v]) => s+v, 0) * 100) / 100;
+function rangeTotalNet(){
+  switch (S.range) {
+    case '24h': return 4989.04;
+    case '90': return monthsSum(3);
+    case '180': return monthsSum(6);
+    case '365': return monthsSum(12);
+    case '2026': return yearSum('2026');
+    case '2025': return yearSum('2025');
+    case 'inception': return monthsSum(MONTHS.length);
+    default: return 0;
+  }
+}
+function rangeCatTotal(catKey){
+  const totalNet = rangeTotalNet();
+  if (catKey === 'streams') return 0;
+  if (catKey === 'total') return totalNet;
+  return Math.round(totalNet * CAT_RATIO[catKey] * 100) / 100;
+}
 function rangeBox(){
-  const d = days(), lbl = S.range === '7' ? '7 derniers jours' : 'Derniers 30 jours';
+  const d = days(), lbl = RANGE_LABELS[S.range] || 'Derniers 30 jours';
   return `<div class="range" data-act="range"><div><b>${lbl}</b><small>${dayLabel(d[0]).replace(/^(\S+) (\d+),/,'$1 $2,')} - ${dayLabel(d.at(-1))}${S.statsTab === 'releves' ? '' : ' (heure locale UTC+02:00)'}</small></div>${ic('down',24)}
-    ${S.rangeOpen ? `<div class="range-menu"><button data-set="range" data-v="7">7 derniers jours</button><button data-set="range" data-v="30">Derniers 30 jours</button></div>` : ''}</div>`;
+    ${S.rangeOpen ? `<div class="range-menu">
+      <button data-set="range" data-v="custom">${RANGE_LABELS.custom}</button>
+      <div class="range-sep"></div>
+      <button data-set="range" data-v="24h">${RANGE_LABELS['24h']}</button>
+      <button data-set="range" data-v="7">${RANGE_LABELS['7']}</button>
+      <button data-set="range" data-v="30">${RANGE_LABELS['30']}</button>
+      <button data-set="range" data-v="90">${RANGE_LABELS['90']}</button>
+      <button data-set="range" data-v="180">${RANGE_LABELS['180']}</button>
+      <button data-set="range" data-v="365">${RANGE_LABELS['365']}</button>
+      <div class="range-sep"></div>
+      <button data-set="range" data-v="2026">${RANGE_LABELS['2026']}</button>
+      <button data-set="range" data-v="2025">${RANGE_LABELS['2025']}</button>
+      <button data-set="range" data-v="inception">${RANGE_LABELS.inception}</button>
+    </div>` : ''}</div>`;
 }
 
 /* ---------- Rail + menus ---------- */
@@ -662,9 +903,9 @@ function renderRail(){
   // Icônes de la barre : 26 px (dessin ≈ 20 px) avec un trait d’environ 2 px
   const b = (icn, act, on) => `<button ${act} class="${on?'on':''}">${ic(icn,26)}</button>`;
   document.getElementById('rail').innerHTML = `
-    <div class="logo">${ic('wing',30)}</div>
+    <div class="logo photo-circle" data-pkey="rail" title="Double-clic pour changer la photo" style="${localStorage.getItem('photo_rail') ? `background-image:url(${localStorage.getItem('photo_rail')});background-size:cover;background-position:center` : ''}">${localStorage.getItem('photo_rail') ? '' : ic('wing',30)}</div>
     ${b('grid','data-nav="home"')}
-    ${b('wing','data-act="flyout" data-v="of"', ['statistics','statements'].includes(S.page) || S.flyout==='of')}
+    <button data-act="flyout" data-v="of" data-pkey="navwing" class="photo-circle3 ${['statistics','statements'].includes(S.page) || S.flyout==='of' ? 'on' : ''}" title="Triple-clic pour changer la photo" style="${localStorage.getItem('photo_navwing') ? `background-image:url(${localStorage.getItem('photo_navwing')});background-size:cover;background-position:center;border-radius:50%` : ''}">${localStorage.getItem('photo_navwing') ? '' : ic('wing',26)}</button>
     ${b('bars','data-act="flyout" data-v="reports"', S.flyout==='reports')}
     ${b('msgFill','data-nav="messages"', true)}
     ${b('image','data-nav="Médias"')}
@@ -687,29 +928,52 @@ function renderRail(){
 function pageHome(){
   // Brut : montants exacts quand on les connaît, sinon net + 25 % (part de la plateforme)
   const gross = S.earnType === 'gross', exact = gross && DASH[S.period].gross;
-  const d = exact || DASH[S.period], f = gross && !exact ? 1.25 : 1;
-  const tot = (d.subs+d.posts+d.msgs+d.tips+d.refs+d.streams) * f;
-  const tile = (v, l, icn, bg, fg) => `<div class="tile"><div><b>${money(v*f)}</b><span>${l}</span></div><div class="ico" style="background:${bg};color:${fg}">${ic(icn,28)}</div></div>`;
+  const d0 = exact || DASH[S.period], f = gross && !exact ? 1.25 : 1;
+  // "This week" repart à 0 chaque lundi minuit : chaque jour de la semaine = exactement les chiffres
+  // "hier"/"aujourd'hui" déjà saisis (jamais un total séparé recalculé à part, pour rester cohérent)
+  const now = new Date(), weekDow = (now.getDay() + 6) % 7; // 0 = lundi ... 6 = dimanche
+  const weekMonday = new Date(now.getFullYear(), now.getMonth(), now.getDate() - weekDow);
+  const totOf = p => DASH[p].total != null ? DASH[p].total : (DASH[p].subs+DASH[p].posts+DASH[p].msgs+DASH[p].tips+DASH[p].refs+DASH[p].streams);
+  const todayTotal0 = totOf('today'), yesterdayTotal0 = totOf('yesterday');
+  // Si aujourd'hui = lundi, hier appartenait à la semaine précédente : il ne compte pas dans "cette semaine"
+  const yesterdayPos = weekDow > 0 ? weekDow - 1 : null;
+  const weekElapsedShape = Array.from({length:7}, (_, i) =>
+    i === weekDow ? todayTotal0 : i === yesterdayPos ? yesterdayTotal0 : (i < weekDow ? 0 : null));
+  const weekElapsedTotal = Math.round(((yesterdayPos != null ? yesterdayTotal0 : 0) + todayTotal0) * 100) / 100;
+  const catSum = k => (yesterdayPos != null ? DASH.yesterday[k] : 0) + DASH.today[k];
+  const d = S.period === 'week'
+    ? {subs:catSum('subs'), tips:catSum('tips'), posts:catSum('posts'), msgs:catSum('msgs'), refs:catSum('refs'), streams:catSum('streams'), total:weekElapsedTotal}
+    : d0;
+  const tot = (d.total != null ? d.total : (d.subs+d.posts+d.msgs+d.tips+d.refs+d.streams)) * f;
+  const tileEditable = f === 1 && (S.period === 'yesterday' || S.period === 'today');
+  const tile = (v, l, icn, bg, fg, path) => `<div class="tile"><div><b>${tileEditable && path ? ev(path) : money(v*f)}</b><span>${l}</span></div><div class="ico" style="background:${bg};color:${fg}">${ic(icn,28)}</div></div>`;
   const per = [['yesterday','Yesterday'],['today','Today'],['week','This week'],['month','This month']];
-  // À la journée : un seul point ; semaine / mois : une courbe jour par jour
+  // À la journée : un seul point ; semaine / mois : une courbe jour par jour, mise à l'échelle du total de la période
   const t2 = Math.round(tot*100)/100;
-  const md = gross && DASH.month.gross || DASH.month, mf = gross && !DASH.month.gross ? 1.25 : 1;
-  const month = scaleTo(SALES_MONTH, Math.round((md.subs+md.posts+md.msgs+md.tips+md.refs+md.streams)*mf*100)/100);
+  const monthTotal = DASH.month.total != null ? DASH.month.total : (DASH.month.subs+DASH.month.posts+DASH.month.msgs+DASH.month.tips+DASH.month.refs+DASH.month.streams);
+  // Seuls les jours du mois déjà écoulés (date réelle) comptent ; les jours à venir restent vides, pas à 0 plat
+  const todayIdx = now.getDate() - 1, elapsedShapeM = SALES_MONTH.slice(0, todayIdx + 1);
+  const monthElapsed = scaleTo(elapsedShapeM, Math.round(monthTotal*100)/100);
+  const month = SALES_MONTH.map((_, i) => i <= todayIdx ? monthElapsed[i] : null);
   if (S.period === 'yesterday' || S.period === 'today') {
     // Ventes des employés du jour (aujourd'hui : 0 $ pour l'instant)
-    const today = S.period === 'today', v = today ? 0 : t2, prev = today ? DASH.yesterdaySales*f : month[20];
-    line('sales', ['','',today ? 'Oct 23' : 'Oct 22','',''], [null,null,v,null,null],
+    const today = S.period === 'today', v = t2, prev = today ? DASH.yesterdaySales*f : monthElapsed[Math.max(0, todayIdx - 2)];
+    const lbl = d => d.toLocaleDateString('en-US', {month:'short', day:'numeric'});
+    const yest = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 1);
+    line('sales', ['','',today ? lbl(now) : lbl(yest),'',''], [null,null,v,null,null],
       {points:true, fill:false, dashed:true, showLine:false, xLabels:true, growth:[,,growthOf(v, prev)],
        ...(v ? {max:Math.max(180, Math.ceil(v*1.15/30)*30), step:30} : {max:1, step:0.2})});
   } else {
     const week = S.period === 'week';
-    const days = week ? Array.from({length:7}, (_, k) => new Date(2026, 9, 19 + k)) : Array.from({length:31}, (_, k) => new Date(2026, 9, 1 + k));
-    const data = week ? scaleTo(SALES_WEEK, t2) : month;
-    const prevs = data.map((_, k) => k ? data[k-1] : week ? month[17] : 0);
-    const mx = Math.max(...data), step = [10,20,30,50,100,200,500].find(v => mx*1.1/v <= 6) || 1000;
-    line('sales', days.map(x => `Oct ${x.getDate()}`), data,
+    const days = week ? Array.from({length:7}, (_, k) => new Date(weekMonday.getFullYear(), weekMonday.getMonth(), weekMonday.getDate() + k)) : Array.from({length:31}, (_, k) => new Date(2026, 9, 1 + k));
+    const data = week ? weekElapsedShape.map(v => v == null ? null : Math.round(v*f*100)/100) : month;
+    const prevs = data.map((v, k) => v == null ? null : (k ? data[k-1] : (week ? 0 : null)));
+    const mx = Math.max(...data, 1), step = [10,20,30,50,100,200,500].find(v => mx*1.1/v <= 6) || 1000;
+    const max = Math.ceil(mx*1.1/step)*step;
+    line('sales', week ? days.map(x => x.toLocaleDateString('en-US', {weekday:'long'})) : days.map(x => `Oct ${x.getDate()}`), data,
       {points:true, dashed:true, xLabels:true, xEvery:week ? 0 : 2, tension:0.4, width:7, color:'#3366ff',
-       fillColor:'rgba(255,255,255,0.06)', growth:data.map((v, k) => growthOf(v, prevs[k])), step, max:Math.ceil(mx*1.1/step)*step});
+       fillColor:'rgba(255,255,255,0.06)', growth:data.map((v, k) => growthOf(v, prevs[k])), step, max,
+       ticks: week ? 8 : Math.ceil(max/step)+2});
   }
   return `<div class="home">
     <section class="card earn">
@@ -723,10 +987,10 @@ function pageHome(){
         <div class="seg">${per.map(([k,l]) => `<button class="${S.period===k?'on':''}" data-set="period" data-v="${k}">${l}</button>`).join('')}</div>
       </div>
       <div class="earn-grid">
-        <div><div class="brand"></div><div class="total-l">Total earnings</div><div class="total-v"><small>$</small>${money(tot).slice(1).replace(/1(?=\d)/g, '<span class="one">1</span>')}</div></div>
-        <div>${tile(d.subs,'Subscriptions','sub','#263b33','#3ecf8e')}${tile(d.tips,'Tips','bulb','#28304d','#4c7dff')}</div>
-        <div>${tile(d.posts,'Posts','post','#263b33','#3ecf8e')}${tile(d.refs,'Referrals','refer','#46292b','#ff6b6b')}</div>
-        <div>${tile(d.msgs,'Messages','chat','#382a47','#b06bff')}${tile(d.streams,'Streams','stream','#262d45','#3f6bff')}</div>
+        <div><div class="brand photo-circle" data-pkey="brand" title="Double-clic pour changer la photo" style="${localStorage.getItem('photo_brand') ? `background-image:url(${localStorage.getItem('photo_brand')});background-size:cover;background-position:center` : ''}"></div><div class="total-l">Total earnings</div><div class="total-v"><small>$</small>${money(tot).slice(1).replace(/1(?=\d)/g, '<span class="one">1</span>')}</div></div>
+        <div>${tile(d.subs,'Subscriptions','sub','#263b33','#3ecf8e','home.'+S.period+'.subs')}${tile(d.tips,'Tips','bulb','#28304d','#4c7dff','home.'+S.period+'.tips')}</div>
+        <div>${tile(d.posts,'Posts','post','#263b33','#3ecf8e','home.'+S.period+'.posts')}${tile(d.refs,'Referrals','refer','#46292b','#ff6b6b')}</div>
+        <div>${tile(d.msgs,'Messages','chat','#382a47','#b06bff','home.'+S.period+'.msgs')}${tile(d.streams,'Streams','stream','#262d45','#3f6bff')}</div>
       </div>
     </section>
     <section class="card box" style="grid-row:span 3;display:flex;flex-direction:column"><h4>My shifts ${INF}</h4><div style="margin-top:293px">${empty('No data')}</div></section>
@@ -750,14 +1014,16 @@ function pageStats(){
 }
 const pageHead = t => `<div class="page-head"><h2>${t}</h2><span class="muted">UTC+02:00 ${INF}</span><div class="spacer"></div>${ic('expand',26)}<span style="width:36px"></span>${ic('refresh',26)}</div>`;
 const creators = () => `<aside class="creators"><div class="searchrow"><div class="search">Search ${ic('search',24)}</div><div class="sq">${ic('refresh',24)}</div></div>
-  <div class="allc">All creators ${ic('down',18)}</div>
+  <div class="allc ${S.model==='all'?'on':''}" data-set="model" data-v="all" style="cursor:pointer">All creators ${ic('down',18)}</div>
   ${MODELS.map((m, i) => `<div class="creator ${S.model===String(i)?'on':''}" data-set="model" data-v="${i}">
     <div class="cav ${m.photo?'has':''}" data-act="photo" data-v="${i}" title="Cliquer pour ajouter une photo" ${m.photo?`style="background-image:url(${m.photo})"`:''}>${m.photo?'':'+'}</div>
-    <span data-act="rename" data-v="${i}" title="Cliquer pour renommer">${esc(m.name)}</span></div>`).join('')}</aside>`;
+    <span data-act="rename" data-v="${i}" title="Cliquer pour renommer" style="flex:1">${esc(m.name)}</span>
+    ${m.unread ? `<div class="msgbadge" style="background:#ff6b6b;color:#fff">${ic('msgdots',13)}${m.unread}</div>` : ''}
+    </div>`).join('')}</aside>`;
 
 /* Modèles : photos et noms gardés dans ce navigateur */
-const MODELS = (() => { try { const s = JSON.parse(localStorage.getItem('models')); if (Array.isArray(s) && s.length) return s; } catch {}
-  return Array.from({length:6}, (_, i) => ({name:`Modèle ${i+1}`, photo:''})); })();
+const MODELS = (() => { try { const s = JSON.parse(localStorage.getItem('models')); if (Array.isArray(s) && s.length) { if (s[0].unread == null) s[0].unread = 5; return s; } } catch {}
+  return Array.from({length:3}, (_, i) => ({name:`Modèle ${i+1}`, photo:'', unread: [5,4,2][i]})); })();
 const saveModels = () => { try { localStorage.setItem('models', JSON.stringify(MODELS)); } catch {} };
 const photoInput = Object.assign(document.createElement('input'), {type:'file', accept:'image/*', hidden:true});
 document.body.appendChild(photoInput);
@@ -780,15 +1046,15 @@ function tabReleves(){
   if (p === 'revenus') {
     const key = {tout:'total',abonnements:'subs',pourboires:'tips',publications:'posts',messages:'messages',streams:'streams'}[S.cat];
     const data = sl(SERIES[key]), tot = sum(data);
-    pairCharts('pair-rev', days().map(dayLabel), data, sl(TXCOUNT), {mainLabel:'Revenus', subLabel:'Transactions', fmtMain:money, fmtSub:num, yMain:v => '$'+v, ySub:v => v});
+    pairCharts('pair-rev', days().map(dayLabel), data, slz(TXCOUNT), {mainLabel:'Revenus', subLabel:'Transactions', fmtMain:money, fmtSub:num, yMain:v => '$'+v, ySub:v => v});
     html += rangeBox() + segs('cat', [['tout','Tout'],['abonnements','Abonnements'],['pourboires','Des pourboires'],['publications','Publications'],['messages','Messages'],['streams','Streams']])
-      + `<div class="sumline">${money(tot)} <span class="muted">(${money(tot*1.25)} Brut)</span> ${S.range==='30' && S.cat==='tout' ? delta(-6.9) : ''}</div>
+      + `<div class="sumline">${S.range==='30' && key!=='total' ? ev('cat30.'+key) : money(tot)} <span class="muted">(${money(tot*1.25)} Brut)</span> ${S.range==='30' && S.cat==='tout' ? pct('releves_total') : ''}</div>
       ${pairHTML('pair-rev')}
       ${txTable(S.cat)}`;
   } else if (p === 'paiements') {
-    const data = sl(PAY_DAILY);
-    pairCharts('pair-pay', days().map(dayLabel), data, sl(PAY_COUNT), {mainLabel:'Paiements', subLabel:'Transactions', fmtMain:money, fmtSub:num, yMain:v => '$'+v, ySub:v => v});
-    html += rangeBox() + `<div class="sumline" style="padding-top:41px">${money(sum(data))} ${S.range === '30' ? delta(-25.1) : ''}</div>
+    const data = slz(PAY_DAILY);
+    pairCharts('pair-pay', days().map(dayLabel), data, slz(PAY_COUNT), {mainLabel:'Paiements', subLabel:'Transactions', fmtMain:money, fmtSub:num, yMain:v => '$'+v, ySub:v => v});
+    html += rangeBox() + `<div class="sumline" style="padding-top:41px">${money(sum(data))} ${S.range === '30' ? pct('releves_paiements') : ''}</div>
       ${pairHTML('pair-pay', 96)}<div class="band"></div>
       <div class="mrow" style="border-top:0;font-size:19px;font-weight:500;min-height:65px">Les transactions peuvent prendre jusqu'à 3 à 5 jours ouvrables</div>
       <div class="band"></div>${payoutTable()}`;
@@ -810,18 +1076,30 @@ function txTable(cat){
     <tr class="txdesc"><td colspan="3">${TXLABEL[t]} <span class="link">${n}</span></td><td class="r"><span class="spin"></span></td></tr>`).join('')}</table>`;
 }
 // Demandes de paiement : montants par jour (30 jours) puis une ligne par versement
-const PAY_SHAPE = [110,0,0,330,170,0,110,0,80,0,0,650,0,0,0,0,0,0,280,350,0,80,0,0,0,0,100,110,880,250,0];
-const PAY_DAILY = (() => { const o = scaleTo(PAY_SHAPE, 3524).map(Math.round); o[o.indexOf(Math.max(...o))] += 3524 - o.reduce((a,b)=>a+b,0); return o; })();
+// Index dans DAYS (0 = 23 sept. 2026 ... 30 = 23 oct. 2026) → versements réels du créateur
+const PAYOUT_EVENTS = [
+  [3,1400],[3,1900],   // 26 sept.
+  [4,600],[4,50],      // 27 sept.
+  [6,900],             // 29 sept.
+  [8,20],              // 1 oct.
+  [11,25000],[11,3000],// 4 oct.
+  [18,300],            // 11 oct.
+  [19,800],            // 12 oct.
+  [21,15000],          // 14 oct.
+  [26,200],            // 19 oct.
+  [27,500],            // 20 oct.
+  [28,150],[28,50],    // 21 oct.
+  [29,10000],          // 22 oct.
+  [30,34000],          // 23 oct.
+];
+const PAY_DAILY = DAYS.map((_, d) => PAYOUT_EVENTS.filter(([di]) => di === d).reduce((s,[,a]) => s+a, 0));
 const PAYOUTS = (() => {
   const list = []; let inv = 90021457;
-  for (let d = PAY_DAILY.length - 1; d >= 0; d--) {
-    const v = PAY_DAILY[d]; if (!v) continue;
-    const parts = v > 300 ? [Math.round(v * 0.55), v - Math.round(v * 0.55)] : [v];
-    for (const amt of parts) {
-      const t = new Date(DAYS[d]); t.setHours(8 + Math.floor(R() * 15), Math.floor(R() * 60));
-      list.push({t, amt, inv}); inv -= 20000 + Math.floor(R() * 15000);
-    }
+  for (const [d, amt] of PAYOUT_EVENTS) {
+    const t = new Date(DAYS[d]); t.setHours(8 + Math.floor(R() * 15), Math.floor(R() * 60));
+    list.push({t, amt, inv}); inv -= 20000 + Math.floor(R() * 15000);
   }
+  list.sort((a, b) => b.t - a.t);
   return list;
 })();
 const PAY_COUNT = PAY_DAILY.map((_, d) => PAYOUTS.filter(p => p.t.getDate() === DAYS[d].getDate() && p.t.getMonth() === DAYS[d].getMonth()).length);
@@ -829,7 +1107,7 @@ const payTime = t => { let H = t.getHours(); const ap = H >= 12 ? 'pm' : 'am'; H
   return `${MFR[t.getMonth()]} ${String(t.getDate()).padStart(2,'0')}, ${t.getFullYear()}, ${H}:${String(t.getMinutes()).padStart(2,'0')} ${ap}`; };
 function payoutTable(){
   return `<table class="table tx pay" style="margin-top:19px"><tr><th>Rendez-vous amoureux</th><th class="r" style="width:340px">Facture</th><th class="r" style="width:318px">Montant</th></tr>
-    ${PAYOUTS.map(p => `<tr class="txrow"><td style="font-weight:500">${payTime(p.t)}</td><td class="r">${p.inv}</td><td class="r" style="font-weight:500">${money(p.amt)}</td></tr>
+    ${mdl(PAYOUTS).map(p => `<tr class="txrow"><td style="font-weight:500">${payTime(p.t)}</td><td class="r">${p.inv}</td><td class="r" style="font-weight:500">${money(p.amt)}</td></tr>
     <tr class="txdesc"><td colspan="2">Le paiement a été traité</td><td class="r" style="color:#2ea7f2">${ic('check',22)}</td></tr>
     <tr class="paydl"><td colspan="3" class="r"><a class="dl">TÉLÉCHARGER LA FACTURE</a></td></tr>`).join('')}</table>`;
 }
@@ -838,25 +1116,31 @@ function tabOverview(){
   const p = S.pill.overview;
   let html = pills('overview', [['revenus','Revenus'],['points','Principaux points forts'],['serie',"Série d'activités"]]) + '<div class="band"></div>' + rangeBox();
   if (p === 'revenus') {
-    const rows = [['total','Total',5000.05,3999.75,'total'],['abonnements','Abonnements',490.80,392.35,'subs'],['pourboires','Des pourboires',864.25,691.40,'tips'],['astuces','Astuces pour diffuser',0,0,'streams'],['publications','Publications',30,24,'posts'],['messages','Messages',3615,2892,'messages'],['references','Références',0,0,'streams'],['streams','Streams',0,0,'streams']];
-    const cur = rows.find(r => r[0] === S.ocat), data = sl(SERIES[cur[4]]);
-    const f = S.range === '7' ? sum(data) / (cur[3] || 1) : 1;
+    const incRows = Object.fromEntries(inceptionRows().map(([n,b,ne]) => [n, [b,ne]]));
+    const incTotalBrut = Math.round(EDIT.inception*1.25*100)/100;
+    const rows = [['total','Total',incTotalBrut,EDIT.inception,'total'],['abonnements','Abonnements',...incRows['Abonnements'],'subs'],['pourboires','Des pourboires',...incRows['Pourboires'],'tips'],['astuces','Astuces pour diffuser',0,0,'streams'],['publications','Publications',...incRows['Publications'],'posts'],['messages','Messages',...incRows['Messages'],'messages'],['references','Références',...incRows['Références'],'streams'],['streams','Streams',0,0,'streams']];
+    const cur = rows.find(r => r[0] === S.ocat);
+    let data = sl(SERIES[cur[4]]), f;
+    if (S.range === '7') { f = sum(data) / (cur[3] || 1); }
+    else if (S.range === '30' || S.range === 'custom') { f = 1; }
+    else { const tgt = rangeCatTotal(cur[4]); f = cur[3] ? tgt / cur[3] : 0; data = data.map(v => Math.round(v*f*100)/100); }
     line('ov-main', days().map(dayLabel), data, {fmt:money, yfmt:v=>'$'+v, every:S.range==='7'?1:7});
-    html += `<div class="band"></div><div class="mrow" style="border-top:0">Depuis Inception<span style="font-weight:600">${money(16011.94)}</span></div><div class="band"></div>
+    html += `<div class="band"></div><div class="mrow" style="border-top:0">Depuis l'inscription<span style="font-weight:600">${ev('inception')}</span></div><div class="band"></div>
       <div class="mrow" style="border-top:0;font-size:21px;font-weight:500">${dayLabel(days()[0])} - ${dayLabel(days().at(-1))}<span style="font-weight:600">${money(sum(data))}</span></div>
       <div class="chartwrap" style="height:192px"><canvas id="ov-main"></canvas></div>
       <table class="table" style="margin-top:8px"><tr><th>Revenus</th><th class="r" style="width:200px">Brut</th><th class="r" style="width:250px">Net</th></tr>
-      ${rows.map(r => `<tr style="cursor:pointer" data-set="ocat" data-v="${r[0]}"><td><span class="radio ${S.ocat===r[0]?'on':''}"></span>${r[1]}</td><td class="r" style="color:#a8a8a8">${money(r[2]*f)}</td><td class="r">${money(r[3]*f)}</td></tr>`).join('')}</table>
-      <div class="band"></div>${MONTHS.map(([k,v]) => `<div class="mrow">${monthName(k)}<span>${money(v)}</span></div>`).join('')}`;
+      ${rows.map(r => `<tr><td style="cursor:pointer" data-set="ocat" data-v="${r[0]}"><span class="radio ${S.ocat===r[0]?'on':''}"></span>${r[1]}</td><td class="r" style="color:#a8a8a8">${ev('rowOv.'+r[0]+'.b', money, 'num', Math.round(r[2]*f*100)/100)}</td><td class="r">${ev('rowOv.'+r[0]+'.n', money, 'num', Math.round(r[3]*f*100)/100)}</td></tr>`).join('')}</table>
+      <div class="band"></div>${MONTHS.map(([k,v]) => `<div class="mrow">${monthName(k)}<span>${(k in EDIT.months && k !== '2026-10') ? ev('months.'+k) : money(v)}</span></div>`).join('')}`;
   } else if (p === 'points') {
-    const best = SERIES.total.indexOf(Math.max(...SERIES.total));
+    const totZ = SERIES.total, visZ = zm(VISITORS.tout);
+    const best = totZ.indexOf(Math.max(...totZ));
     html += `<div class="hi" style="padding-top:22px">
-      <div><span>Meilleure journée</span><b>${money(SERIES.total[best])}</b><div class="muted">${dayLabel(DAYS[best])}</div></div>
-      <div><span>Meilleur fan</span><b>MrNumberOne</b><div class="muted">${money(412)} dépensés</div></div>
-      <div><span>Source principale</span><b>Messages</b><div class="muted">72 % des revenus</div></div>
-      <div><span>Pic de visiteurs</span><b>${num(Math.max(...VISITORS.tout))}</b><div class="muted">${dayLabel(DAYS[VISITORS.tout.indexOf(Math.max(...VISITORS.tout))])}</div></div>
-      <div><span>Nouveaux abonnés</span><b>1082</b><div class="muted">${delta(23.7)}</div></div>
-      <div><span>Panier moyen (message)</span><b>${money(21.40)}</b><div class="muted">sur 135 ventes</div></div></div>`;
+      <div><span>Meilleure journée</span><b>${money(totZ[best])}</b><div class="muted">${dayLabel(DAYS[best])}</div></div>
+      <div><span>Meilleur fan</span><b>${modelHasData()?'MrNumberOne':'—'}</b><div class="muted">${money(modelHasData()?412:0)} dépensés</div></div>
+      <div><span>Source principale</span><b>${modelHasData()?'Messages':'—'}</b><div class="muted">${modelHasData()?'72 % des revenus':'0 %'}</div></div>
+      <div><span>Pic de visiteurs</span><b>${num(Math.max(...visZ))}</b><div class="muted">${dayLabel(DAYS[visZ.indexOf(Math.max(...visZ))])}</div></div>
+      <div><span>Nouveaux abonnés</span><b>${modelHasData()?1082:0}</b><div class="muted">${modelHasData()?pct('pts_newSubs'):''}</div></div>
+      <div><span>Panier moyen (message)</span><b>${money(modelHasData()?21.40:0)}</b><div class="muted">${modelHasData()?'sur 135 ventes':''}</div></div></div>`;
   } else {
     const lvl = v => v === 0 ? '#26262a' : v < 60 ? '#1d3a5c' : v < 150 ? '#2462a3' : '#37a8ff';
     html += `<div style="padding:22px 22px 6px" class="muted">Activité par jour (revenu net)</div>
@@ -869,7 +1153,7 @@ function tabEngagement(){
   const p = S.pill.engagement;
   let html = pills('engagement', [['messages','Messages'],['publications','Publications']]) + '<div class="band"></div>' + rangeBox();
   if (p === 'messages') {
-    const sent = sl(SHAPE_MSG.map(v => Math.round(v * 1.4 + 40))), bought = sl(SHAPE_MSG.map(v => Math.round(v / 22)));
+    const sent = slz(SHAPE_MSG.map(v => Math.round(v * 1.4 + 40))), bought = slz(SHAPE_MSG.map(v => Math.round(v / 22)));
     line('eng', days().map(dayLabel), null, {multi:[{data:sent,color:BLUE},{data:bought,color:'#b06bff'}], every:S.range==='7'?1:7});
     html += `<div class="sumline" style="padding-top:20px">${num(sum(sent))} messages envoyés · <span style="color:#b06bff">${num(sum(bought))} achetés</span></div>
       <div class="chartwrap" style="height:240px"><canvas id="eng"></canvas></div>
@@ -888,12 +1172,12 @@ function tabPortee(){
   const p = S.pill.portee;
   let html = pills('portee', [['visiteurs','Visiteurs du profil'],['promotions','Promotions'],['essai',"Liens d'essai"],['suivi','Liens de suivi']]) + '<div class="band"></div>' + rangeBox();
   if (p === 'visiteurs') {
-    const data = sl(VISITORS[S.porteeSeg]), dur = data.map(v => v * 9.5);
+    const data = slz(VISITORS[S.porteeSeg]), dur = data.map(v => v * 9.5);
     const dfmt = v => { const h = Math.round(v/3600); return h >= 24 ? `${Math.floor(h/24)}d ${h%24}h` : `${h}h`; };
     pairCharts('pair-vis', days().map(dayLabel), data, dur, {mainLabel:'Visiteurs', subLabel:'Durée de la vue', fmtMain:num, fmtSub:dfmt, yMain:v => v, ySub:dfmt});
-    const inv = sum(sl(VISITORS.invites)), usr = sum(sl(VISITORS.users));
+    const inv = sum(slz(VISITORS.invites)), usr = sum(slz(VISITORS.users));
     html += segs('porteeSeg', [['tout','Tout'],['invites','Invités'],['users','Utilisateurs']])
-      + `<div class="sumline">${num(sum(data))} Visiteurs ${S.range==='30' ? delta(228.8) : ''}</div>
+      + `<div class="sumline">${num(sum(data))} Visiteurs ${S.range==='30' ? pct('portee_visitors') : ''}</div>
       ${pairHTML('pair-vis')}
       <table class="table"><tr><th>Stat</th><th class="r">Invités</th><th class="r">Utilisateurs</th><th class="r">Total</th></tr>
       <tr><td><b>Visiteurs du profil</b></td><td class="r">${num(inv)}</td><td class="r">${num(usr)}</td><td class="r">${num(inv+usr)}</td></tr>
@@ -918,15 +1202,15 @@ function tabFans(){
   let html = pills('fans', [['abonnements','Abonnements'],['meilleurs','Meilleurs ventilateurs'],['activite','Activité des fans']]) + '<div class="band"></div>' + rangeBox();
   if (p === 'abonnements') {
     const subs = S.fansSeg === 'ren' ? SUBS_REN : S.fansSeg === 'new' ? SUBS_NEW : SUBS_NEW.map((v,i)=>v+SUBS_REN[i]);
-    pairCharts('pair-fans', days().map(dayLabel), sl(SERIES.subs), sl(subs), {mainLabel:'Revenus', subLabel:'Abonnés', fmtMain:money, fmtSub:num, yMain:v => '$'+v, ySub:v => v});
-    const list = S.fansSeg === 'ren' ? FANS.filter(f => f[3].includes('month')) : FANS;
+    pairCharts('pair-fans', days().map(dayLabel), sl(SERIES.subs), slz(subs), {mainLabel:'Revenus', subLabel:'Abonnés', fmtMain:money, fmtSub:num, yMain:v => '$'+v, ySub:v => v});
+    const list = mdl(S.fansSeg === 'ren' ? FANS.filter(f => f[3].includes('month')) : FANS);
     html += segs('fansSeg', [['tout','Tout'],['ren','Renouvelle'],['new','Nouveaux abonnés']])
-      + `<div class="sumline">${num(sum(sl(subs)))} Abonnés, ${money(sum(sl(SERIES.subs)))} ${S.range==='30' ? delta(100) : ''}</div>
+      + `<div class="sumline">${num(sum(slz(subs)))} Abonnés, ${money(sum(sl(SERIES.subs)))} ${S.range==='30' ? pct('fans_subsRevenue') : ''}</div>
       ${pairHTML('pair-fans')}
       <table class="table"><tr><th>Nom</th><th>Prix</th><th class="r">Durée totale</th></tr>
       ${list.map(([n,u,pr,d]) => `<tr><td style="display:flex;gap:14px;align-items:center"><div class="fav" style="width:46px;height:46px;font-size:16px">${n.slice(0,2)}</div><div><b>${n}</b><div class="muted">@${u}</div></div></td><td>${pr ? money(pr) : 'gratuit'}</td><td class="r">${d}</td></tr>`).join('')}</table>`;
   } else if (p === 'meilleurs') {
-    html += `<table class="table"><tr><th>#</th><th>Fan</th><th class="r">Dépensé</th></tr>${TOPSPENDERS.map(([n,v],i) => `<tr><td>${i+1}</td><td>${n}</td><td class="r">${money(v)}</td></tr>`).join('')}</table>`;
+    html += `<table class="table"><tr><th>#</th><th>Fan</th><th class="r">Dépensé</th></tr>${mdl(TOPSPENDERS).map(([n,v],i) => `<tr><td>${i+1}</td><td>${n}</td><td class="r">${money(v)}</td></tr>`).join('')}</table>`;
   } else {
     const hrs = Array.from({length:7*24}, () => R());
     html += `<div style="padding:22px 22px 6px" class="muted">Fans actifs par heure (UTC+02:00)</div>
@@ -937,37 +1221,37 @@ function tabFans(){
 
 /* Panneaux de droite */
 const rightBalance = () => `<div class="rcard">
-  <div class="top5">${ic('star',24).replace('class="i"','class="i" style="color:#3b9cf0"')}<span>Vous êtes dans le top % 5.1de tous les créateurs !</span></div>
-  <div class="bal"><div><b>${money(0.32)}</b><span>Solde courant</span></div><div><b style="color:#9aa0a8">${money(1468.42)}</b><span style="color:#9aa0a8">Fonds en attente</span><div style="margin-top:10px;color:#9aa0a8">${ic('info',20)}</div></div></div>
-  <div class="manual"><div class="h">Paiements manuels ${ic('down',24)}</div><div style="margin-top:4px;font-size:15px;color:#9aa0a8">Le montant minimum de retrait est de $20</div><button class="btn-dis" disabled>DEMANDE DE RETRAIT</button></div></div>`;
+  <div class="top5">${ic('star',24).replace('class="i"','class="i" style="color:#3b9cf0"')}<span>Vous êtes dans le top ${ev('topPct', v=>String(v).replace('.',','), 'num')}% de tous les<br>créateurs !</span></div>
+  <div class="bal"><div><b>${ev('solde')}</b><span>Solde courant</span></div><div><b style="color:#9aa0a8">${ev('fonds')}</b><span style="color:#9aa0a8">Fonds en attente</span><div style="margin-top:10px;color:#9aa0a8">${ic('info',20)}</div></div></div>
+  <div class="manual"><div class="h">Paiements manuels ${ic('down',24)}</div><div style="margin-top:4px;font-size:15px;color:#9aa0a8">Le montant minimum de retrait est de $20</div><button class="btn-dis blue">DEMANDE DE RETRAIT</button></div></div>`;
 function rightRevenus(){
-  const rows = [['Total','total',-6.9,'#9a9a9a'],['Abonnements','subs',100,'#7cb342'],['Des pourboires','tips',15.2,'#8e6bd8'],['Messages','messages',-20.2,'#35a2ea'],['Publications','posts',-66.6,'#f5a524'],['Streams','streams',null,'#ff6b9b']];
-  rows.forEach(([,k,,c]) => line('sp-'+k, days().map(dayLabel), sl(SERIES[k]), {spark:true, fill:false, color:c}));
-  return `<div class="rcard rev"><h3>Revenus</h3>${rows.map(([l,k,d]) => `<div class="srow"><div class="l"><span>${l}</span><b>${money(sum(sl(SERIES[k])))}</b>${S.range==='30'?delta(d):''}</div><div class="spark"><canvas id="sp-${k}"></canvas></div></div>`).join('')}</div>`;
+  const rows = [['Total','total','rev_total','#9a9a9a'],['Abonnements','subs','rev_subs','#7cb342'],['Des pourboires','tips','rev_tips','#8e6bd8'],['Messages','messages','rev_messages','#35a2ea'],['Publications','posts','rev_posts','#f5a524'],['Streams','streams',null,'#ff6b9b']];
+  rows.forEach(([,k,,c]) => line('sp-'+k, days().map(dayLabel), sl(SERIES[k]), {spark:true, fill:false, color:c, tension:0.4}));
+  return `<div class="rcard rev"><h3>Revenus</h3>${rows.map(([l,k,pk]) => `<div class="srow"><div class="l"><span>${l}</span><b>${k==='total' ? money(sum(sl(SERIES.total))) : ev('cat30.'+k)}</b>${S.range==='30'&&pk?pct(pk):''}</div><div class="spark"><canvas id="sp-${k}"></canvas></div></div>`).join('')}</div>`;
 }
 function rightOverview(){
-  line('sp-ov', days().map(dayLabel), sl(SUBS_NEW), {spark:true, fill:false, color:'#cfcfd4'});
-  return `<div class="rcard rev"><h3>Revenus</h3><div style="padding:4px 22px 20px;font-size:26px;font-weight:600;display:flex;align-items:center;gap:8px">${money(sum(sl(SERIES.total)))} ${delta(-6.9)}</div>
+  line('sp-ov', days().map(dayLabel), slz(SUBS_NEW), {spark:true, fill:false, color:'#cfcfd4', tension:0.4});
+  return `<div class="rcard rev"><h3>Revenus</h3><div style="padding:4px 22px 20px;font-size:26px;font-weight:600;display:flex;align-items:center;gap:8px">${ev('ov.total', money, 'num', sum(sl(SERIES.total)))} ${pct('ov_total')}</div>
     <div class="g2" style="border-top:1px solid #333">
-      <div><span>Visiteurs du profil</span><b>${num(sum(sl(VISITORS.tout)))}</b>${delta(228.8)}</div>
-      <div><span>Revenus des abonnements</span><b>${money(sum(sl(SERIES.subs)))}</b>${delta(100)}</div>
-      <div><span>Nouveaux abonnements/renouvellements</span><b>${num(sum(sl(SUBS_NEW)))} / ${sum(sl(SUBS_REN))}</b>${delta(23.7)}</div>
+      <div><span>Visiteurs du profil</span><b>${ev('ov.visitors', num, 'num', sum(slz(VISITORS.tout)))}</b>${pct('ov_visitors')}</div>
+      <div><span>Revenus des abonnements</span><b>${ev('ov.subsRevenue', money, 'num', sum(sl(SERIES.subs)))}</b>${pct('ov_subsRevenue')}</div>
+      <div><span>Nouveaux abonnements/renouvellements</span><b>${ev('ov.newSubs', num, 'num', sum(slz(SUBS_NEW)))} / ${ev('ov.renewals', num, 'num', sum(slz(SUBS_REN)))}</b>${pct('ov_newSubs')}</div>
       <div class="spark" style="height:80px;width:100%"><canvas id="sp-ov"></canvas></div>
-      <div><span>Publications</span><b>2</b>${delta(-33.3)}</div>
-      <div><span>Publie des revenus</span><b>${money(24)}</b>${delta(-66.6)}</div>
-      <div><span>Posts et vues</span><b>16,876</b></div>
-      <div><span>Revenus des messages</span><b>${money(sum(sl(SERIES.messages)))}</b>${delta(-20.2)}</div></div></div>`;
+      <div><span>Publications</span><b>${ev('ov.publications', num, 'num', 2)}</b>${pct('ov_publications')}</div>
+      <div><span>Publie des revenus</span><b>${ev('ov.publishRevenue', money, 'num', 24)}</b>${pct('ov_publishRevenue')}</div>
+      <div><span>Posts et vues</span><b>${ev('ov.postsViews', num, 'num', 16876)}</b></div>
+      <div><span>Revenus des messages</span><b>${ev('ov.msgRevenue', money, 'num', sum(sl(SERIES.messages)))}</b>${pct('ov_msgRevenue')}</div></div></div>`;
 }
 function rightPortee(){
-  line('sp-p', days().map(dayLabel), sl(SERIES.subs), {spark:true, fill:false, color:'#cfcfd4'});
+  line('sp-p', days().map(dayLabel), sl(SERIES.subs), {spark:true, fill:false, color:'#cfcfd4', tension:0.4});
   return `<div class="rcard"><h3 style="margin:0;padding:20px 22px 0;font-size:19px;font-weight:500">Sommaire</h3><div class="g2">
-    <div><span>Visiteurs du profil</span><b>${num(sum(sl(VISITORS.tout)))}</b>${delta(228.8)}</div>
-    <div><span>Nouveaux abonnements/renouvellements</span><b>${num(sum(sl(SUBS_NEW)))} / ${sum(sl(SUBS_REN))}</b></div>
-    <div><span>Revenus des abonnements</span><b>${money(sum(sl(SERIES.subs)))}</b>${delta(100)}</div>
+    <div><span>Visiteurs du profil</span><b>${num(sum(slz(VISITORS.tout)))}</b>${pct('portee_sideVisitors')}</div>
+    <div><span>Nouveaux abonnements/renouvellements</span><b>${num(sum(slz(SUBS_NEW)))} / ${sum(slz(SUBS_REN))}</b></div>
+    <div><span>Revenus des abonnements</span><b>${money(sum(sl(SERIES.subs)))}</b>${pct('portee_subsRevenue')}</div>
     <div class="spark" style="height:70px;width:100%"><canvas id="sp-p"></canvas></div></div></div>`;
 }
 function rightFans(){
-  line('sp-f', days().map(dayLabel), sl(SERIES.subs), {spark:true, fill:false, color:'#cfcfd4'});
+  line('sp-f', days().map(dayLabel), sl(SERIES.subs), {spark:true, fill:false, color:'#cfcfd4', tension:0.4});
   const f = TOPFANS[S.topFan];
   const tabBody = S.topFanTab === 'abonnement'
     ? [['Abonnement précédent',f.prev],['Commencé',f.start],['Durée totale',f.dur],['Expiré',f.exp],['Motif','Aucune raison donnée']]
@@ -975,9 +1259,9 @@ function rightFans(){
     ? [['Total dépensé',money(f.spent)],['Abonnements',money(f.spent*0.1)],['Pourboires',money(f.spent*0.35)],['Messages',money(f.spent*0.55)]]
     : [['Offres actives','Aucune']];
   return `<div class="rcard"><h3 style="margin:0;padding:20px 22px 0;font-size:19px;font-weight:500">Sommaire</h3><div class="g2">
-    <div><span>Abonnés</span><b>${num(sum(sl(SUBS_NEW))+4)}</b>${delta(24.1)}</div>
-    <div><span>Nouveaux abonnements/renouvellements</span><b>${num(sum(sl(SUBS_NEW)))} / ${sum(sl(SUBS_REN))}</b></div>
-    <div><span>Revenus des abonnements</span><b>${money(sum(sl(SERIES.subs)))}</b>${delta(100)}</div>
+    <div><span>Abonnés</span><b>${num(sum(slz(SUBS_NEW))+4)}</b>${pct('fans_sideAbonnes')}</div>
+    <div><span>Nouveaux abonnements/renouvellements</span><b>${num(sum(slz(SUBS_NEW)))} / ${sum(slz(SUBS_REN))}</b></div>
+    <div><span>Revenus des abonnements</span><b>${money(sum(sl(SERIES.subs)))}</b>${pct('fans_sideSubsRevenue')}</div>
     <div class="spark" style="height:70px;width:100%"><canvas id="sp-f"></canvas></div></div></div>
   <div class="rcard"><h3 style="margin:0;padding:20px 22px 14px;font-size:19px;font-weight:500">Ventilateur supérieur</h3>
     <div class="pills" style="padding:0 22px 14px">${[['total','Total'],['abonnements','Abonnements'],['pourboires','Des pourboires']].map(([k,l]) => `<button class="pill ${S.topFan===k?'on':''}" data-set="topFan" data-v="${k}">${l}</button>`).join('')}</div>
@@ -994,21 +1278,21 @@ function pageStatements(){
   let right = '';
   if (S.stmt === 'revenus') {
     right = `<h3>REVENUS <small>Date/heure affichée en heure locale (UTC+02:00)</small></h3><div class="rcard"><table class="table stable"><tr><th>Date et heure</th><th>Montant</th><th>Honoraires</th><th>Net</th><th>Description</th><th class="r">Statut</th></tr>
-      ${TX.slice(0,40).map(([d,a,t,n]) => { const [dd,h] = d.split(' '), [y,m,day] = dd.split('-'); return `<tr><td>${+day} ${MFR[+m-1]}, ${y} ${h.replace(/^0/,'')}</td><td>${money(a)}</td><td>${money(a*0.2)}</td><td><b>${money(a*0.8)}</b></td><td>${TXLABEL[t]} <span class="link">${n}</span></td><td class="r"><span class="spin"></span></td></tr>`; }).join('')}</table></div>`;
+      ${mdl(TX).slice(0,40).map(([d,a,t,n]) => { const [dd,h] = d.split(' '), [y,m,day] = dd.split('-'); return `<tr><td>${+day} ${MFR[+m-1]}, ${y} ${h.replace(/^0/,'')}</td><td>${money(a)}</td><td>${money(a*0.2)}</td><td><b>${money(a*0.8)}</b></td><td>${TXLABEL[t]} <span class="link">${n}</span></td><td class="r"><span class="spin"></span></td></tr>`; }).join('')}</table></div>`;
   } else if (S.stmt === 'gains') {
     const labels = ['mars 25', ...MONTHS.slice().reverse().slice(1).map(([k]) => { const [y,m] = k.split('-'); return `${MFR[+m-1]} ${y.slice(2)}`; })];
     const ordered = MONTHS.slice().reverse();
     let acc = {Abonnements:0,Pourboires:0,Publications:0,Messages:0};
     const cum = {Abonnements:[],Pourboires:[],Publications:[],Messages:[],Références:[]};
     ordered.forEach(([k,v]) => { const s = monthSplit(k, v*1.25); for (const c in acc) { acc[c] += s[c]; cum[c].push(Math.round(acc[c]*100)/100); } cum['Références'].push(0); });
-    line('gains', labels, null, {multi: INCEPTION.map(([n,,,c]) => ({data:cum[n], color:c})), tension:0.35, every:4, yfmt:v=>'$'+v});
+    line('gains', labels, null, {multi: inceptionRows().map(([n,,,c]) => ({data:cum[n], color:c})), tension:0.35, every:4, yfmt:v=>'$'+v});
     right = `<h3>STATISTIQUES SUR LES GAINS <small>Date/heure affichée dans le fuseau horaire UTC</small></h3>
-      <div class="acc"><div class="acc-h">Depuis Inception <span class="muted">${money(16011.94)} ${ic('up',18)}</span></div>
+      <div class="acc"><div class="acc-h">Depuis l'inscription <span class="muted">${ev('inception')} ${ic('up',18)}</span></div>
         <div style="height:260px;padding:10px 16px"><canvas id="gains"></canvas></div>
         <div class="datebar">${ic('cal',24).replace('class="i"','class="i" style="color:#4c8dff"')}<span style="margin:auto"><span class="muted">De</span> 2 mars 2025 <span class="muted">Pour</span> 23 oct. 2026</span></div>
-        <div class="acc-b"><table class="table stable">${INCEPTION.map(([n,b,ne,c]) => `<tr><td><span class="legend-dot" style="background:${c}"></span>${n === 'Pourboires' ? 'Des pourboires' : n}</td><td class="r">${money(b)}</td><td class="r">${money(ne)}</td></tr>`).join('')}
-        <tr style="border-top:2px solid #2f7cf6"><td><b>TOTAL</b></td><td class="r"><span class="muted">BRUT</span> <b>${money(20015.42)}</b></td><td class="r"><span class="muted">NET</span> <b>${money(16011.94)}</b></td></tr></table></div></div>
-      ${MONTHS.map(([k,v]) => { const o = S.open[k], s = monthSplit(k, v); return `<div class="acc"><div class="acc-h" data-act="month" data-v="${k}">${monthName(k)}<span>${money(v)} ${ic(o?'up':'down',20)}</span></div>
+        <div class="acc-b"><table class="table stable">${inceptionRows().map(([n,b,ne,c]) => `<tr><td><span class="legend-dot" style="background:${c}"></span>${n === 'Pourboires' ? 'Des pourboires' : n}</td><td class="r">${money(b)}</td><td class="r">${money(ne)}</td></tr>`).join('')}
+        <tr style="border-top:2px solid #2f7cf6"><td><b>TOTAL</b></td><td class="r"><span class="muted">BRUT</span> <b>${money(Math.round(EDIT.inception*1.25*100)/100)}</b></td><td class="r"><span class="muted">NET</span> <b>${ev('inception')}</b></td></tr></table></div></div>
+      ${MONTHS.map(([k,v]) => { const o = S.open[k], s = monthSplit(k, v); return `<div class="acc"><div class="acc-h" data-act="month" data-v="${k}">${monthName(k)}<span>${(k in EDIT.months && k !== '2026-10') ? ev('months.'+k) : money(v)} ${ic(o?'up':'down',20)}</span></div>
         ${o ? `<div class="acc-b"><table class="table stable">${Object.entries(s).map(([c,x]) => `<tr><td>${c}</td><td class="r">${money(x*1.25)}</td><td class="r">${money(x)}</td></tr>`).join('')}</table></div>` : ''}</div>`; }).join('')}`;
   } else if (S.stmt === 'paiements') {
     right = `<h3>DEMANDES DE PAIEMENT</h3><div class="rcard">${payoutTable()}</div>`;
@@ -1019,16 +1303,16 @@ function pageStatements(){
   }
   return pageHead('Statements') + `<div class="two">${creators()}
     <div class="snav"><div style="display:flex;align-items:center;gap:16px">${ic('back',28)}<h1 style="margin:0;font-size:24px;flex:1">RELEVÉS</h1></div>
-      <div class="banner">${ic('star',26).replace('class="i"','class="i" style="color:#ffc531"')}Vous êtes dans le top % 5.1de tous les créateurs !</div>
-      <div class="rcard" style="border-color:#3a3a3f"><div style="display:flex;justify-content:space-between;align-items:center;background:#1c2533;padding:18px 22px;font-size:18px;font-weight:600"><span>SOLDE COURANT</span><span style="font-size:19px">${money(0.32)} ${ic('up',18)}</span></div>
-        <div class="kv" style="border:0;font-size:18px"><span>FONDS EN ATTENTE ⓘ</span><span style="font-size:19px;color:#b9b9be">${money(1468.42)}</span></div>
-        <div class="manual"><div class="h" style="border:1px solid var(--line);border-radius:6px;padding:16px 20px">Paiements manuels ${ic('down')}</div><div class="muted" style="margin-top:10px">Le montant minimum de retrait est de $20</div><button class="btn-dis" disabled style="margin:18px auto 0">DEMANDE DE RETRAIT</button></div></div>
+      <div class="banner">${ic('star',26).replace('class="i"','class="i" style="color:#ffc531"')}Vous êtes dans le top ${ev('topPct', v=>String(v).replace('.',','), 'num')}% de tous les<br>créateurs !</div>
+      <div class="rcard" style="border-color:#3a3a3f"><div style="display:flex;justify-content:space-between;align-items:center;background:#1c2533;padding:18px 22px;font-size:18px;font-weight:600"><span>SOLDE COURANT</span><span style="font-size:19px">${ev('solde')} ${ic('up',18)}</span></div>
+        <div class="kv" style="border:0;font-size:18px"><span>FONDS EN ATTENTE ⓘ</span><span style="font-size:19px;color:#b9b9be">${ev('fonds')}</span></div>
+        <div class="manual"><div class="h" style="border:1px solid var(--line);border-radius:6px;padding:16px 20px">Paiements manuels ${ic('down')}</div><div class="muted" style="margin-top:10px">Le montant minimum de retrait est de $20</div><button class="btn-dis blue" style="margin:18px auto 0">DEMANDE DE RETRAIT</button></div></div>
       <div class="navlist">${SNAV.map(([k,i,l]) => `<button class="${S.stmt===k?'on':''}" data-set="stmt" data-v="${k}">${ic(i,24)}${l}</button>`).join('')}</div></div>
     <div class="sright">${right}</div></div>`;
 }
 
 /* ---------- Leaderboard ---------- */
-const LB = {country:{rank:285}, global:{rank:2147}, location:'France', earnings:4467, month:'Sep 2026', updated:'2026-10-02 03:36 UTC'};
+const LB = {country:{rank:EDIT.lbRank}, global:{rank:2147}, location:EDIT.lbLocation, earnings:EDIT.lbEarnings, month:EDIT.lbMonth, updated:'2026-10-02 03:36 UTC'};
 const agencyName = () => { try { return localStorage.getItem('agency') || 'Ryva Agency'; } catch { return 'Ryva Agency'; } };
 function pageLeaderboard(){
   const r = LB[S.lbScope || 'country'];
@@ -1042,10 +1326,10 @@ function pageLeaderboard(){
     <div class="lb-card"><div class="lb-inner">
       <div class="lb-body">
         <h1 class="lb-name" data-act="agency" title="Cliquer pour renommer">${esc(agencyName())}</h1>
-        <div class="lb-k">Location</div><div class="lb-v">${LB.location}</div>
-        <div class="lb-k">Total earnings ${ic('help',20)}</div><div class="lb-v">$${num(LB.earnings)}</div>
-        <div class="lb-k">Month</div><div class="lb-v">${LB.month}</div>
-        <div class="lb-badge"><div style="font-size:${r.rank >= 1000 ? 52 : 74}px"><small>#</small>${num(r.rank)}</div></div>
+        <div class="lb-k">Location</div><div class="lb-v">${ev('lbLocation', x=>x, 'text')}</div>
+        <div class="lb-k">Total earnings ${ic('help',20)}</div><div class="lb-v">$${ev('lbEarnings', num)}</div>
+        <div class="lb-k">Month</div><div class="lb-v">${ev('lbMonth', x=>x, 'text')}</div>
+        <div class="lb-badge"><div style="font-size:${r.rank >= 1000 ? 60 : 86}px"><small>#</small>${(S.lbScope||'country')==='country' ? ev('lbRank', num) : num(r.rank)}</div></div>
       </div>
       <div class="lb-foot"><span class="logo"><i></i></span>Monthly Leaderboard</div>
     </div></div>
@@ -1065,7 +1349,9 @@ function pageMessages(){
       <label class="msg-search"><input id="msgq" placeholder="Search by Creator name" value="${esc(S.msgQ || '')}">${ic('search',18)}</label></div>
     <div class="msg-grid">${list.map(m => `<button class="msg-card" data-set="model" data-v="${m.i}">
       <div class="cav ${m.photo?'has':''}" ${m.photo?`style="background-image:url(${m.photo})"`:''}>${m.photo?'':'+'}</div>
-      <div><b>${esc(m.name)}</b><span class="msg-pill" style="background:#ff5c5c">${ic('msg',11)}${7 - m.i % 4}</span><span class="msg-pill" style="background:#22c98a">${ic('bell',11)}1</span></div></button>`).join('')}</div>
+      <div><b>${esc(m.name)}</b><span class="msg-pill" style="background:#22c98a">${ic('bell',11)}1</span></div>
+      ${m.unread ? `<div class="msgbadge" style="background:#ff6b6b;color:#fff">${ic('msgdots',13)}${m.unread}</div>` : ''}
+      </button>`).join('')}</div>
     <div class="msg-hint">Click on a Creator to start messaging</div>
   </div>`;
 }
@@ -1088,17 +1374,102 @@ function render(){
   const sc = document.getElementById('statsCenter'); if (sc) sc.scrollTop = inner;
   document.body.classList.toggle('msgmode', S.page === 'messages');
   renderRail();
+  document.getElementById('editModal').innerHTML = S.editOpen ? editPanel() : '';
   queue.forEach(fn => fn());
 }
 
+function editPanel(){
+  const mrow = (k,l) => `<div class="editrow"><label>${l}</label><input type="number" step="0.01" id="em_${k}" value="${EDIT.months[k]}"></div>`;
+  const hrow = (p,c,l) => `<div class="editrow"><label>${l}</label><input type="number" step="0.01" id="eh_${p}_${c}" value="${EDIT.home[p][c]}"></div>`;
+  const hblock = (p,l) => `<h3>${l}</h3>${hrow(p,'subs','Abonnements')}${hrow(p,'tips','Pourboires')}${hrow(p,'posts','Publications')}${hrow(p,'msgs','Messages')}${p==='week'?hrow(p,'total','Total de la semaine'):''}`;
+  const modelName = MODELS[+S.model]?.name || S.model;
+  return `<div class="editbg" data-act="editClose"><div class="editcard" onclick="event.stopPropagation()">
+    <h2>Éditer les chiffres de ${esc(modelName)}</h2>
+    <div class="muted" style="margin:-10px 0 14px;font-size:14px">Ces valeurs sont propres à ${esc(modelName)} et s'ajoutent automatiquement au dashboard principal (combiné).</div>
+    <h3>Solde</h3>
+    <div class="editrow"><label>Solde courant</label><input type="number" step="0.01" id="em_solde" value="${EDIT.solde}"></div>
+    <div class="editrow"><label>Fonds en attente</label><input type="number" step="0.01" id="em_fonds" value="${EDIT.fonds}"></div>
+    <div class="editrow"><label>Depuis l'inscription</label><input type="number" step="0.01" id="em_inception" value="${EDIT.inception}"></div>
+    <div class="editrow"><label>Ventes employés (hier)</label><input type="number" step="0.01" id="em_yesterdaySales" value="${EDIT.yesterdaySales}"></div>
+    <div class="editrow"><label>Top % (badge)</label><input type="number" step="0.01" id="em_topPct" value="${EDIT.topPct}"></div>
+    <h3>Revenus des 30 derniers jours</h3>
+    <div class="editrow"><label>Abonnements</label><input type="number" step="0.01" id="em_cat_subs" value="${EDIT.cat30.subs}"></div>
+    <div class="editrow"><label>Des pourboires</label><input type="number" step="0.01" id="em_cat_tips" value="${EDIT.cat30.tips}"></div>
+    <div class="editrow"><label>Publications</label><input type="number" step="0.01" id="em_cat_posts" value="${EDIT.cat30.posts}"></div>
+    <div class="editrow"><label>Messages</label><input type="number" step="0.01" id="em_cat_messages" value="${EDIT.cat30.messages}"></div>
+    <div class="editrow"><label>Streams</label><input type="number" step="0.01" id="em_cat_streams" value="${EDIT.cat30.streams}"></div>
+    <h3>Leaderboard</h3>
+    <div class="editrow"><label>Rang (pays)</label><input type="number" id="em_lbRank" value="${EDIT.lbRank}"></div>
+    <div class="editrow"><label>Total earnings</label><input type="number" step="0.01" id="em_lbEarnings" value="${EDIT.lbEarnings}"></div>
+    <div class="editrow"><label>Pays</label><input type="text" id="em_lbLocation" value="${EDIT.lbLocation}"></div>
+    <div class="editrow"><label>Mois</label><input type="text" id="em_lbMonth" value="${EDIT.lbMonth}"></div>
+    <h3>Revenus par mois (2026)</h3>
+    <div class="muted" style="font-size:13px;margin:-4px 0 10px">Octobre = somme de "Revenus des 30 derniers jours" ci-dessus (non modifiable ici).</div>
+    <div class="editrow"><label>${monthName('2026-10')}</label><span style="width:200px;text-align:right;color:#9a9a9a">${money(EDIT.months['2026-10'])}</span></div>
+    ${Object.keys(EDIT.months).filter(k => k !== '2026-10').sort().reverse().map(k => mrow(k, monthName(k))).join('')}
+    ${hblock('yesterday','Accueil — Hier')}
+    ${hblock('today',"Accueil — Aujourd'hui")}
+    ${hblock('week','Accueil — Cette semaine')}
+    <div class="editfoot"><button class="cancel" onclick="S.editOpen=false;render()">Annuler</button><button class="save" onclick="saveEditForm()">Enregistrer</button></div>
+  </div></div>`;
+}
+
+function saveEditForm(){
+  const v = id => parseFloat(document.getElementById(id).value) || 0;
+  EDIT.solde = v('em_solde'); EDIT.fonds = v('em_fonds'); EDIT.inception = v('em_inception');
+  EDIT.yesterdaySales = v('em_yesterdaySales');
+  EDIT.lbRank = Math.round(v('em_lbRank')); EDIT.lbEarnings = v('em_lbEarnings');
+  EDIT.lbLocation = document.getElementById('em_lbLocation').value.trim() || EDIT.lbLocation;
+  EDIT.lbMonth = document.getElementById('em_lbMonth').value.trim() || EDIT.lbMonth;
+  EDIT.topPct = v('em_topPct');
+  EDIT.cat30.subs = v('em_cat_subs'); EDIT.cat30.tips = v('em_cat_tips'); EDIT.cat30.posts = v('em_cat_posts');
+  EDIT.cat30.messages = v('em_cat_messages'); EDIT.cat30.streams = v('em_cat_streams');
+  for (const k of Object.keys(EDIT.months)) if (k !== '2026-10') EDIT.months[k] = v('em_' + k);
+  for (const p of ['yesterday','today','week']) {
+    for (const c of ['subs','tips','posts','msgs']) EDIT.home[p][c] = v('eh_' + p + '_' + c);
+  }
+  EDIT.home.week.total = v('eh_week_total');
+  saveEdit();
+  applyEdit();
+  S.editOpen = false;
+  render();
+}
+
+/* Triple-clic sur le logo bleu central de la barre de gauche : changer sa photo */
+let tcKey = null, tcCount = 0, tcTimer = null;
+document.addEventListener('click', e => {
+  const tc = e.target.closest('.photo-circle3');
+  if (!tc) return;
+  if (tcKey === tc.dataset.pkey) tcCount++; else { tcKey = tc.dataset.pkey; tcCount = 1; }
+  clearTimeout(tcTimer);
+  tcTimer = setTimeout(() => { tcCount = 0; tcKey = null; }, 600);
+  if (tcCount >= 3) {
+    tcCount = 0; tcKey = null; clearTimeout(tcTimer);
+    e.stopImmediatePropagation();
+    const key = tc.dataset.pkey;
+    const input = Object.assign(document.createElement('input'), {type:'file'});
+    input.addEventListener('change', () => {
+      const f = input.files[0]; if (!f) return;
+      readPhotoFile(f, img => setCirclePhoto(key, img));
+    });
+    input.click();
+  }
+}, true);
 document.addEventListener('click', e => {
   const t = e.target.closest('[data-set],[data-nav],[data-act]');
   if (!t) { if (S.flyout || S.rangeOpen || S.earnOpen || S.lbOpen) { S.flyout = null; S.rangeOpen = false; S.earnOpen = false; S.lbOpen = false; render(); } return; }
-  if (t.dataset.nav) { const changed = S.page !== t.dataset.nav; S.page = t.dataset.nav; S.flyout = null; S.rangeOpen = false; if (changed) document.getElementById('main').scrollTop = 0; }
+  if (t.dataset.nav) {
+    const changed = S.page !== t.dataset.nav; S.page = t.dataset.nav; S.flyout = null; S.rangeOpen = false;
+    if (changed) document.getElementById('main').scrollTop = 0;
+    // L'écran principal (Home) montre toujours le total combiné de tous les modèles, quel que soit le créateur
+    // sélectionné en dernier dans Statistiques/Statements.
+    if (t.dataset.nav === 'home' && S.model !== 'all') { S.model = 'all'; loadEdit('all'); applyEdit(); }
+  }
   else if (t.dataset.set) {
     const ks = t.dataset.set.split('.'); let o = S; while (ks.length > 1) o = o[ks.shift()]; o[ks[0]] = t.dataset.v;
     S.rangeOpen = false; S.earnOpen = false; S.lbOpen = false;
     if (t.dataset.set === 'statsTab') S.cat = 'tout';
+    if (t.dataset.set === 'model') { loadEdit(S.model); applyEdit(); }
     e.stopPropagation();
   }
   else if (t.dataset.act === 'flyout') { S.flyout = S.flyout === t.dataset.v ? null : t.dataset.v; S.flyTop = t.getBoundingClientRect().top; }
@@ -1115,8 +1486,52 @@ document.addEventListener('click', e => {
     const i = +t.dataset.v, n = prompt('Nom du modèle', MODELS[i].name);
     if (n && n.trim()) { MODELS[i].name = n.trim(); saveModels(); }
     S.model = t.dataset.v;
+    loadEdit(S.model); applyEdit();
   }
+  else if (t.dataset.act === 'editOpen') {
+    if (S.model !== 'all') S.editOpen = true;
+    else alert("Sélectionne un créateur précis pour éditer ses chiffres (pas \"All creators\").");
+  }
+  else if (t.dataset.act === 'editClose') { S.editOpen = false; }
+  else if (t.dataset.act === 'editSave') { saveEditForm(); return; }
   render();
+});
+document.addEventListener('dblclick', e => {
+  const ph = e.target.closest('.photo-circle');
+  if (ph) {
+    const key = ph.dataset.pkey;
+    const input = Object.assign(document.createElement('input'), {type:'file'});
+    input.addEventListener('change', () => {
+      const f = input.files[0]; if (!f) return;
+      readPhotoFile(f, img => setCirclePhoto(key, img));
+    });
+    input.click();
+    return;
+  }
+  const el = e.target.closest('.editval');
+  if (!el) return;
+  if (S.model === 'all') { alert("Sélectionne un créateur précis pour éditer ses chiffres (pas \"All creators\")."); return; }
+  const path = el.dataset.ekey, type = el.dataset.etype, raw = editGet(path);
+  const cur = (raw === null || raw === undefined) ? parseFloat(el.dataset.efallback) : raw;
+  const input = document.createElement('input');
+  input.className = 'editval-input';
+  input.type = type === 'text' ? 'text' : 'number';
+  if (type === 'num') input.step = '0.01';
+  input.value = cur;
+  el.replaceWith(input);
+  input.focus(); input.select();
+  let done = false;
+  const commit = () => {
+    if (done) return; done = true;
+    if (type === 'text') { editSet(path, input.value.trim() || cur); }
+    else { const v = parseFloat(input.value); editSet(path, isNaN(v) ? cur : v); }
+    saveEdit(); applyEdit(); render();
+  };
+  input.addEventListener('blur', commit);
+  input.addEventListener('keydown', k => {
+    if (k.key === 'Enter') input.blur();
+    else if (k.key === 'Escape') { done = true; render(); }
+  });
 });
 render();
 </script>
