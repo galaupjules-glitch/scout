@@ -164,7 +164,7 @@ function card(c){
     <div class="name"><b>${esc(i.prenom || "Sans nom")} ${esc(i.nom || "")}</b><span>${i.age ? esc(i.age) + " ans · " : ""}${esc([i.ville, i.pays].filter(Boolean).join(", ")) || "Profil pas encore rempli"}</span></div>
     <div class="hide-sm sub">${a.agence ? esc(a.agence) + " · " + esc(a.ca_shift || "") + "/shift" : d.experience === "debutant" ? "Débutant" : "—"}</div>
     <div class="hide-sm">${wpm}</div>
-    <div><span class="pill ${st[1]}">${st[0]}${c.statut === "en_cours" ? " · " + (ETAPES[c.etape] || "") : ""}</span>${dec ? ` <span class="pill ${dec[1]}">${dec[0]}</span>` : ""}</div>
+    <div><span class="pill ${st[1]}">${st[0]}${c.statut === "en_cours" ? " · " + (ETAPES[c.etape] || "") : ""}</span>${dec ? ` <span class="pill ${dec[1]}">${dec[0]}</span>` : ""}${d.test ? ` <span class="pill p-mute">Test admin</span>` : ""}</div>
     <div class="hide-sm sub">${date(c.cree_le)}</div>
   </summary>
   <div class="body">

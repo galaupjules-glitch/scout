@@ -148,9 +148,11 @@ def enregistrer_etape(c, etape, d):
 
     if etape == "identite":
         v = nettoyer(d, ["prenom", "nom", "age", "pays", "ville", "contact", "langues"])
-        if not all(v[k] for k in ("prenom", "nom", "age", "pays", "ville", "contact")):
+        if not all(v.values()):
             return False, "Remplis tous les champs obligatoires."
         geo = d.get("geo") or {}
+        if not (isinstance(geo, dict) and geo.get("statut") == "partagee" and geo.get("lat") is not None):
+            return False, "Partage ta localisation pour continuer."
         v["geo"] = {k: geo.get(k) for k in ("lat", "lon", "precision", "statut")} if isinstance(geo, dict) else {}
         v["fuseau"] = str(d.get("fuseau", ""))[:60]
         c["data"]["identite"] = v
@@ -351,6 +353,21 @@ class H(BaseHTTPRequestHandler):
                 return self._send(200, public(c))
             return self._send(400, {"erreur": "Impossible."})
 
+        if p == "/api/admin/aller":  # mode admin : aller sur n'importe quelle page
+            if not self._admin_ok(q):
+                return self._send(403, {"erreur": "clé invalide"})
+            c = lire(str(d.get("id", "")))
+            etape = str(d.get("etape", ""))
+            if not c or etape not in ORDRE:
+                return self._send(400, {"erreur": "Étape inconnue."})
+            c["etape"] = etape
+            c["statut"] = str(d.get("statut") or "en_cours") if etape == "termine" else "en_cours"
+            c["data"]["test"] = True
+            if etape == "frappe":
+                c["data"].pop("frappe", None)
+            ecrire(c)
+            return self._send(200, public(c))
+
         if p == "/api/admin/decision":
             if not self._admin_ok(q):
                 return self._send(403, {"erreur": "clé invalide"})
@@ -389,7 +406,8 @@ if __name__ == "__main__":
     srv = ThreadingHTTPServer(("0.0.0.0", PORT), H)
     print(f"\n  ✅ Site de candidature en route")
     print(f"  Page candidat : http://127.0.0.1:{PORT}/")
-    print(f"  Ton rapport   : http://127.0.0.1:{PORT}/admin#{cle_admin()}\n")
+    print(f"  Ton rapport   : http://127.0.0.1:{PORT}/admin#{cle_admin()}")
+    print(f"  Mode admin    : http://127.0.0.1:{PORT}/#admin-{cle_admin()}\n")
     try:
         srv.serve_forever()
     except KeyboardInterrupt:

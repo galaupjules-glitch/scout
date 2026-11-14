@@ -65,6 +65,14 @@ button{font:600 15px var(--body);border:0;border-radius:10px;padding:13px 20px;c
 .geo .txt b{color:var(--fg);display:block;font-size:14px}
 .geo.ok{border-style:solid;border-color:color-mix(in srgb,var(--ok) 50%,transparent)}
 .geo.ok b{color:var(--ok)}
+.geo.bad{border-color:var(--err);border-style:solid}
+.geo .help{flex-basis:100%;font-size:13px;color:var(--fg);background:var(--surface-2);border-radius:10px;padding:10px 12px}
+.geo .help ol{margin:6px 0 0;padding-left:18px;color:var(--muted)}
+.adminbar{display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-top:12px;padding:8px;border:1px dashed var(--warn);border-radius:12px}
+.adminbar b{font-size:12px;color:var(--warn);letter-spacing:.06em;text-transform:uppercase;margin-right:4px}
+.adminbar button{font:500 12px var(--body);padding:6px 10px;border-radius:99px;background:var(--surface-2);color:var(--fg);border:1px solid var(--line)}
+.adminbar button.on{border-color:var(--accent);color:var(--accent)}
+.adminbar .skip{background:var(--warn);color:#2a2008;border-color:var(--warn);margin-left:auto}
 
 /* test de frappe */
 .rules{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:18px}
@@ -115,6 +123,7 @@ button{font:600 15px var(--body);border:0;border-radius:10px;padding:13px 20px;c
     <div class="brand"><b id="agence">Aurivon</b><span>Recrutement chatters</span></div>
     <div class="steps" id="steps"><i></i><i></i><i></i><i></i><i></i><i></i></div>
     <div class="steplabel" id="steplabel">Bienvenue</div>
+    <div class="adminbar" id="adminbar" hidden></div>
   </header>
 
   <!-- 0. Accueil -->
@@ -147,11 +156,20 @@ button{font:600 15px var(--body);border:0;border-radius:10px;padding:13px 20px;c
       </div>
       <label><span class="req">Ville</span><input id="ville" autocomplete="address-level2"></label>
       <div class="geo" id="geo">
-        <div class="txt"><b id="geo-t">Partager ma localisation</b><span id="geo-s">Ça nous permet de confirmer d'où tu travailles. Ton téléphone ou ton navigateur va te demander l'autorisation.</span></div>
+        <div class="txt"><b id="geo-t" class="req">Partager ma localisation</b><span id="geo-s">Obligatoire. Clique sur « Partager » puis sur « Autoriser » quand Chrome te le demande.</span></div>
         <button type="button" class="ghost" id="geo-btn">📍 Partager</button>
+        <div class="help" id="geo-help" hidden>
+          <b>Chrome bloque ta localisation ? Voici comment l'activer :</b>
+          <ol>
+            <li>Clique sur l'icône à gauche de l'adresse du site (le cadenas ou les réglages).</li>
+            <li>Mets <b>Localisation</b> sur <b>Autoriser</b>, puis recharge la page.</li>
+            <li>Sur Mac, vérifie aussi : Réglages Système › Confidentialité et sécurité › Service de localisation › Google Chrome activé.</li>
+            <li>Sur téléphone : Réglages › Chrome › Position › Autoriser.</li>
+          </ol>
+        </div>
       </div>
-      <label><span class="req">Telegram, WhatsApp ou Discord</span><input id="contact" placeholder="@pseudo ou numéro"></label>
-      <label>Langues parlées <small>et ton niveau d'anglais</small><input id="langues" placeholder="ex : français natif, anglais courant"></label>
+      <label><span class="req">Pseudo Discord</span><input id="contact" placeholder="ex : lina.chat" autocomplete="off"></label>
+      <label><span class="req">Langues parlées</span><small>et ton niveau d'anglais</small><input id="langues" placeholder="ex : français natif, anglais courant"></label>
       <div class="err" id="e-identite"></div>
       <div class="actions"><button class="btn" type="submit">Continuer</button></div>
     </form>
@@ -283,6 +301,8 @@ function show(etape){
   $$("#steps i").forEach((el,k) => { el.className = etape==="termine" || k < i ? "done" : k === i ? "now" : "" });
   $("#steplabel").textContent = LABELS[etape] || "";
   window.scrollTo({top:0});
+  if(etape === "frappe" && !(T && !T.fini)){ $("#frappe-intro").hidden = false; $("#frappe-test").hidden = true; $("#frappe-res").hidden = true }
+  if(ADMIN) renderAdminbar(etape);
   if(etape === "shifts") renderShifts();
   if(etape === "resultats") renderThumbs();
   if(etape === "termine") renderEnd();
@@ -294,6 +314,26 @@ async function etape(nom, data){
   return r;
 }
 
+/* ---------- mode admin (lien spécial : #admin-<clé>) ---------- */
+const ADMIN = location.hash.startsWith("#admin") ? (location.hash.slice(7) || "apercu") : null;
+const PAGES = [["accueil","Accueil"],["identite","Profil"],["frappe","Frappe"],["experience","Expérience"],["agence","Agence"],["shifts","Shifts"],["resultats","Résultats"],
+  ["termine:complet","Fin"],["termine:stop_debutant","Fin débutant"],["termine:stop_frappe","Fin frappe ratée"]];
+let vue = "accueil";
+function renderAdminbar(etape){
+  vue = etape === "termine" ? "termine:" + (ME && ME.statut) : etape;
+  const bar = $("#adminbar"); bar.hidden = false; bar.innerHTML = "<b>Mode admin</b>";
+  PAGES.forEach(([k, l]) => { const b = document.createElement("button"); b.textContent = l; b.className = k === vue ? "on" : ""; b.onclick = () => aller(k); bar.append(b) });
+  const i = PAGES.findIndex(([k]) => k === vue);
+  if(i >= 0 && i < 6){ const s = document.createElement("button"); s.className = "skip"; s.textContent = "Passer cette étape →"; s.onclick = () => aller(PAGES[i + 1][0]); bar.append(s) }
+}
+async function aller(k){
+  if(k === "accueil") return show("accueil");
+  if(!ME){ ME = await api("/api/start", {}); store.set(ME.id) }
+  const [etape, statut] = k.split(":");
+  const r = await api("/api/admin/aller?cle=" + encodeURIComponent(ADMIN), {id:ME.id, etape, statut:statut || "en_cours"});
+  Object.assign(ME, r); T = null; show(etape);
+}
+
 /* ---------- démarrage ---------- */
 (async function init(){
   try{ CFG = await api("/api/config") }catch(e){}
@@ -303,6 +343,7 @@ async function etape(nom, data){
   $("#r-ess").textContent = CFG.essais; $("#acc-wpm").textContent = `Minimum ${CFG.wpm_min} mots par minute`;
   const id = store.get();
   if(id){ try{ ME = await api("/api/moi?id=" + encodeURIComponent(id)); return show(ME.etape) }catch(e){} }
+  if(ADMIN) renderAdminbar("accueil");
   show("accueil");
 })();
 
@@ -315,15 +356,17 @@ function alertErr(sel, e){ const el = document.createElement("div"); el.classNam
 
 /* ---------- 1. identité + géoloc ---------- */
 $("#geo-btn").onclick = () => {
-  if(!navigator.geolocation){ geo = {statut:"indisponible"}; return geoMsg("Localisation indisponible sur cet appareil", "Ce n'est pas bloquant, tu peux continuer.") }
+  if(!navigator.geolocation){ geo = {statut:"indisponible"}; $("#geo-help").hidden = false; return geoMsg("Localisation indisponible", "Ouvre ce lien dans Google Chrome pour pouvoir la partager.") }
   $("#geo-btn").disabled = true; geoMsg("Recherche de ta position…", "Accepte la demande de ton navigateur.");
   navigator.geolocation.getCurrentPosition(p => {
+    $("#geo").classList.remove("bad"); $("#geo-help").hidden = true;
     geo = {statut:"partagee", lat:+p.coords.latitude.toFixed(5), lon:+p.coords.longitude.toFixed(5), precision:Math.round(p.coords.accuracy)};
     $("#geo").classList.add("ok"); $("#geo-btn").hidden = true;
     geoMsg("✓ Localisation partagée", `Précision environ ${geo.precision < 1000 ? geo.precision + " m" : Math.round(geo.precision/1000) + " km"}.`);
   }, err => {
     geo = {statut: err.code === 1 ? "refusee" : "erreur"}; $("#geo-btn").disabled = false;
-    geoMsg(err.code === 1 ? "Localisation refusée" : "Position introuvable", "Tu peux réessayer, ou continuer sans.");
+    $("#geo").classList.add("bad"); $("#geo-help").hidden = false; $("#geo-btn").textContent = "📍 Réessayer";
+    geoMsg(err.code === 1 ? "Localisation bloquée" : "Position introuvable", "Elle est obligatoire pour continuer. Suis les étapes ci-dessous puis réessaie.");
   }, {enableHighAccuracy:false, timeout:15000, maximumAge:60000});
 };
 function geoMsg(t,s){ $("#geo-t").textContent = t; $("#geo-s").textContent = s }
@@ -331,7 +374,8 @@ function geoMsg(t,s){ $("#geo-t").textContent = t; $("#geo-s").textContent = s }
 $("#f-identite").onsubmit = async ev => {
   ev.preventDefault();
   const v = Object.fromEntries(["prenom","nom","age","pays","ville","contact","langues"].map(k => [k, $("#"+k).value.trim()]));
-  for(const k of ["prenom","nom","age","pays","ville","contact"]) if(!v[k]){ $("#"+k).focus(); return $("#e-identite").textContent = "Remplis tous les champs obligatoires." }
+  for(const k of ["prenom","nom","age","pays","ville","contact","langues"]) if(!v[k]){ $("#"+k).focus(); return $("#e-identite").textContent = "Remplis tous les champs obligatoires." }
+  if(geo.statut !== "partagee"){ $("#geo").classList.add("bad"); $("#geo").scrollIntoView({block:"center"}); return $("#e-identite").textContent = "Partage ta localisation pour continuer." }
   if(!/^\d{2}$/.test(v.age) || +v.age < 16){ $("#age").focus(); return $("#e-identite").textContent = "Indique un âge valide." }
   let fuseau = ""; try{ fuseau = Intl.DateTimeFormat().resolvedOptions().timeZone }catch(e){}
   try{ await etape("identite", {...v, geo, fuseau}); show(ME.etape) }catch(e){ $("#e-identite").textContent = e.message }
