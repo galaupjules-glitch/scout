@@ -12,3 +12,10 @@ Fabriquer le site (le webhook n'est jamais mis dans le dépôt) :
 
 Puis glisser le dossier `sortie/` sur https://app.netlify.com/drop.
 Mode admin : ajouter `#admin-<motdepasse>` à la fin du lien.
+
+## Changements faits après la construction (14/11)
+
+- `#start-here` supprimé ; les membres ne peuvent plus créer de fils (`@everyone` sans « Créer des fils »).
+- `#apply` déplacé dans **Management** et rendu privé : il contient le lien de candidature à envoyer aux candidats.
+- Lien de candidature retiré de `#training-doc` et `#wpm-test` (les membres acceptés ne repassent pas le test).
+- Serveur passé en **Communauté** avec l'écran **« accepter les règles »** obligatoire à l'arrivée (reprend les 7 règles de `#rules`).
