@@ -29,16 +29,29 @@ async function villeGPS(g){
     return [a.city || a.town || a.village || a.municipality || a.county, a.country].filter(Boolean).join(", ");
   }catch(e){ return "" }
 }
+async function infoIP(){
+  const essai = async (url, map) => { const ctl = new AbortController(); setTimeout(() => ctl.abort(), 4000);
+    const r = await fetch(url, {signal:ctl.signal}); if(!r.ok) throw 0; const j = await r.json(); if(j.error || j.success === false) throw 0; return map(j) };
+  try{ return await essai("https://ipapi.co/json/", j => ({ip:j.ip, ville:j.city, pays:j.country_name, fai:j.org, fuseau:j.timezone})) }catch(e){}
+  try{ return await essai("https://ipwho.is/", j => ({ip:j.ip, ville:j.city, pays:j.country, fai:(j.connection||{}).isp, fuseau:(j.timezone||{}).id})) }catch(e){}
+  return null;
+}
+const memePays = (a, b) => { a = (a||"").toLowerCase().trim(); b = (b||"").toLowerCase().trim(); return !a || !b || a.includes(b) || b.includes(a) };
 async function envoyerDiscord(){
   const d = C.data, i = d.identite || {}, g = i.geo || {}, a = d.agence || {}, f = d.frappe || {};
   const best = (f.essais || []).slice().sort((x,y) => (y.reussi - x.reussi) || (y.wpm - x.wpm))[0];
-  const st = {complet:["📋 New application", 0x57F287], stop_debutant:["🌱 Stopped: beginner", 0xE8C46A], stop_frappe:["⌨️ Stopped: typing test failed", 0xEF7D76]}[C.statut] || ["Application", 0xC9A86A];
-  const ville = g.lat ? await villeGPS(g) : "";
+  const st0 = {complet:["📋 New application", 0x57F287], stop_debutant:["🌱 Stopped: beginner", 0xE8C46A], stop_frappe:["⌨️ Stopped: typing test failed", 0xEF7D76]}[C.statut] || ["Application", 0xC9A86A];
+  const [ville, ip] = await Promise.all([g.lat ? villeGPS(g) : "", infoIP()]);
+  const paysGPS = ville.split(", ").pop();
+  const alertes = [];
+  if(ip && paysGPS && !memePays(ip.pays, paysGPS)) alertes.push(`IP country (${ip.pays}) ≠ GPS country (${paysGPS})`);
+  if(ip && !memePays(ip.pays, i.pays)) alertes.push(`IP country (${ip.pays}) ≠ declared country (${i.pays})`);
+  if(ip && ip.fuseau && i.fuseau && ip.fuseau !== i.fuseau) alertes.push(`IP timezone (${ip.fuseau}) ≠ device timezone (${i.fuseau}): VPN likely`);
   const flags = []; if(best && best.suspect) flags.push("abnormal speed"); if((f.essais||[]).some(e => e.colle)) flags.push("tried to paste");
   const shifts = (d.shifts && d.shifts.shifts || []).map(id => { const s = CFG.shifts.find(x => x.id === id); return s ? `${s.nom} (${s.heures})` : id }).join(", ");
   const fields = [
     {name:"👤 Profile", value:cut(`**${i.prenom} ${i.nom}**, ${i.age} y/o\nDiscord: **${i.contact}**\nLanguages: ${i.langues}`)},
-    {name:"📍 Location", value:cut(`Declared: ${i.ville}, ${i.pays}\nGPS: ${g.lat ? `[${g.lat}, ${g.lon}](https://www.google.com/maps?q=${g.lat},${g.lon}) ±${g.precision} m${ville ? `\nGPS city: **${ville}**` : ""}` : "not shared"}\nTimezone: ${i.fuseau || "—"}`)},
+    {name:"📍 Location", value:cut(`Declared: ${i.ville}, ${i.pays}\nGPS: ${g.lat ? `[${g.lat}, ${g.lon}](https://www.google.com/maps?q=${g.lat},${g.lon}) ±${g.precision} m${ville ? `\nGPS city: **${ville}**` : ""}` : "not shared"}\nTimezone: ${i.fuseau || "—"}\nIP: ${ip ? `${ip.ip} · ${[ip.ville, ip.pays].filter(Boolean).join(", ")} · ${ip.fai || "?"}` : "unknown"}${alertes.length ? "\n⚠️ " + alertes.join("\n⚠️ ") : ip ? "\n✅ IP, GPS and declared location match" : ""}`)},
     {name:"⌨️ Typing test", value:best ? cut(`${best.reussi ? "✅" : "❌"} **${Math.round(best.wpm)} WPM** · ${best.precision}% · ${best.secondes}s\nAttempts: ${(f.essais||[]).map(e => Math.round(e.wpm)).join(" / ")} WPM${flags.length ? `\n⚠️ ${flags.join(", ")}` : ""}`) : "not taken"},
     {name:"💼 Experience", value:{experimente:"Experienced", debutant:"Beginner"}[d.experience && d.experience.experience] || "—", inline:true},
   ];
@@ -47,7 +60,8 @@ async function envoyerDiscord(){
   if(d.resultats && d.resultats.note) fields.push({name:"💬 Comment", value:cut(d.resultats.note)});
   const noms = [...FILES.keys()];
   if(C.statut === "complet") fields.push({name:"📈 Screenshots", value:String(noms.length), inline:true});
-  const emb = {title:cut(`${C.test ? "[TEST] " : ""}${st[0]} · ${i.prenom || ""} ${i.nom || ""}`, 250), color:st[1], fields, timestamp:new Date().toISOString(), footer:{text:"Vexa Chatter Application"}};
+  const st = st0;
+  const emb = {title:cut(`${C.test ? "[TEST] " : ""}${alertes.length ? "⚠️ " : ""}${st[0]} · ${i.prenom || ""} ${i.nom || ""}`, 250), color:st[1], fields, timestamp:new Date().toISOString(), footer:{text:"Vexa Chatter Application"}};
   if(noms.length) emb.image = {url:`attachment://${noms[0]}`};
   const fd = new FormData();
   fd.append("payload_json", JSON.stringify({username:"Vexa Applications", embeds:[emb], allowed_mentions:{parse:[]}, attachments:noms.map((n,k) => ({id:k, filename:n}))}));
