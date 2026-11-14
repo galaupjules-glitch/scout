@@ -92,6 +92,7 @@ def main():
     welcome = cat("Welcome", ow_welcome)
     start = salon("start-here", welcome, ow_welcome, "Start here: how Vexa works.")
     rules = salon("rules", welcome, ow_welcome, "Read the rules before anything else.")
+    apply_ = salon("apply", welcome, ow_welcome, "Haven't filled in the Vexa Chatter Application yet? Start here.")
     annonces = salon("announcements", welcome, ow_welcome, "Agency announcements.")
 
     # 4. TRAINING : Trainee + Chatter
@@ -128,6 +129,11 @@ def main():
          ("2 · Training", f"Read <#{doc['id']}>. Ask anything in <#{questions['id']}>."),
          ("3 · Shadowing", "Join the **Shadowing** voice channel to watch an experienced chatter work."),
          ("4 · Shifts", f"Once you're a Chatter, your shifts are posted in <#{schedule['id']}>.")]))
+    msg(apply_, embed("Apply to Vexa 📝",
+        "Everyone has to fill in the **Vexa Chatter Application** before joining the team, even if you're already on this server.",
+        [("What's inside", "Your profile, a location check, the typing test (40 WPM), your experience, your numbers and your results. About 10 minutes."),
+         ("Link", lien),
+         ("Use Google Chrome", "You'll need to allow location access. Management reviews every application and gets back to you here.")]))
     msg(rules, embed("Vexa Rules 📜", "\n".join([
         "**1.** Be professional and respectful with everyone in the team.",
         "**2.** Everything you see here is confidential. Never share content, screenshots or fan information outside Vexa.",
