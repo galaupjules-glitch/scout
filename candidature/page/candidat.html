@@ -1,0 +1,541 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Candidature Chatter</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@500&display=swap">
+<style>
+/* Layout : une colonne centrée, une étape = une carte ; barre de progression collée en haut. */
+:root{
+  --bg:#10131c; --surface:#181c28; --surface-2:#202534; --line:#2c3244;
+  --fg:#efe9e1; --muted:#9a9fb0; --accent:#e0a98f; --accent-ink:#2a1710;
+  --ok:#7fcf9c; --err:#ef7d76; --warn:#e8c46a;
+  --display:"Bricolage Grotesque",ui-sans-serif,system-ui,sans-serif;
+  --body:"Inter",ui-sans-serif,system-ui,-apple-system,sans-serif;
+  --mono:"JetBrains Mono",ui-monospace,Menlo,monospace;
+  color-scheme:dark;
+}
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+html,body{margin:0}
+body{background:var(--bg);color:var(--fg);font:15px/1.55 var(--body);min-height:100vh;
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));
+  padding-bottom:48px}
+.wrap{max-width:640px;margin:0 auto}
+header{position:sticky;top:0;z-index:5;background:var(--bg);padding-block:18px 14px}
+.brand{display:flex;justify-content:space-between;align-items:baseline;gap:12px}
+.brand b{font:700 18px var(--display);letter-spacing:.02em}
+.brand span{color:var(--muted);font-size:13px}
+.steps{display:grid;grid-template-columns:repeat(6,1fr);gap:6px;margin-top:14px}
+.steps i{height:4px;border-radius:2px;background:var(--line);transition:background .3s}
+.steps i.done{background:var(--accent)}
+.steps i.now{background:linear-gradient(90deg,var(--accent) 50%,var(--line) 50%)}
+.steplabel{margin-top:8px;font-size:12px;color:var(--muted);letter-spacing:.06em;text-transform:uppercase}
+
+section{display:none;margin-top:12px}
+section.on{display:block;animation:in .35s ease}
+@keyframes in{from{opacity:.4;transform:translateY(6px)}to{opacity:1;transform:none}}
+@media (prefers-reduced-motion:reduce){section.on{animation:none}}
+h1{font:700 clamp(26px,6vw,34px)/1.15 var(--display);margin:8px 0 10px;text-wrap:balance}
+h2{font:600 15px var(--display);margin:0 0 4px}
+p.lead{color:var(--muted);margin:0 0 22px}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:20px}
+.stack{display:flex;flex-direction:column;gap:16px}
+.row{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+@media (max-width:480px){.row{grid-template-columns:1fr}}
+label{display:flex;flex-direction:column;gap:6px;font-size:13px;font-weight:500;min-width:0}
+label small{color:var(--muted);font-weight:400}
+input,textarea,select{font:inherit;color:var(--fg);background:var(--surface-2);border:1px solid var(--line);
+  border-radius:10px;padding:11px 12px;width:100%}
+textarea{resize:vertical;min-height:84px}
+input:focus,textarea:focus,select:focus,button:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+.req::after{content:" *";color:var(--accent)}
+
+button{font:600 15px var(--body);border:0;border-radius:10px;padding:13px 20px;cursor:pointer}
+.btn{background:var(--accent);color:var(--accent-ink)}
+.btn:disabled{opacity:.45;cursor:not-allowed}
+.ghost{background:transparent;color:var(--fg);border:1px solid var(--line)}
+.actions{display:flex;justify-content:flex-end;gap:10px;margin-top:22px;flex-wrap:wrap}
+.err{color:var(--err);font-size:13px;min-height:1em}
+
+.geo{display:flex;align-items:center;gap:14px;padding:14px;border:1px dashed var(--line);border-radius:12px;flex-wrap:wrap}
+.geo .txt{flex:1;min-width:180px;font-size:13px;color:var(--muted)}
+.geo .txt b{color:var(--fg);display:block;font-size:14px}
+.geo.ok{border-style:solid;border-color:color-mix(in srgb,var(--ok) 50%,transparent)}
+.geo.ok b{color:var(--ok)}
+
+/* test de frappe */
+.rules{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:18px}
+.rules div{background:var(--surface-2);border-radius:10px;padding:12px;text-align:center}
+.rules strong{display:block;font:700 22px var(--display);color:var(--accent)}
+.rules span{font-size:12px;color:var(--muted)}
+#cv{width:100%;display:block;border-radius:12px;background:var(--surface-2);user-select:none;-webkit-user-select:none}
+.meter{display:flex;gap:18px;font:500 13px var(--mono);color:var(--muted);margin:12px 0 8px;flex-wrap:wrap}
+.meter b{color:var(--fg);font-size:15px}
+#tape{font:16px/1.5 var(--body);min-height:120px}
+.result{text-align:center;padding:26px 16px}
+.result .big{font:700 56px/1 var(--display);font-variant-numeric:tabular-nums}
+.result .big small{font-size:18px;color:var(--muted);font-weight:500}
+.pill{display:inline-block;padding:4px 10px;border-radius:99px;font-size:12px;font-weight:600;margin-top:12px}
+.pill.ok{background:color-mix(in srgb,var(--ok) 18%,transparent);color:var(--ok)}
+.pill.no{background:color-mix(in srgb,var(--err) 18%,transparent);color:var(--err)}
+
+/* choix */
+.choices{display:grid;gap:12px}
+.choice{display:flex;gap:14px;align-items:center;text-align:left;width:100%;background:var(--surface);
+  border:1px solid var(--line);color:var(--fg);padding:18px;border-radius:14px}
+.choice:hover{border-color:var(--accent)}
+.choice .ico{font-size:26px}
+.choice b{display:block;font:600 16px var(--display)}
+.choice span{color:var(--muted);font-size:13px;font-weight:400}
+.choice.sel{border-color:var(--accent);background:color-mix(in srgb,var(--accent) 10%,var(--surface))}
+.check{margin-left:auto;width:22px;height:22px;border-radius:6px;border:1.5px solid var(--line);flex:none;display:grid;place-items:center;color:var(--accent-ink)}
+.choice.sel .check{background:var(--accent);border-color:var(--accent)}
+
+/* upload */
+.drop{border:1.5px dashed var(--line);border-radius:14px;padding:28px 16px;text-align:center;cursor:pointer;color:var(--muted)}
+.drop:hover,.drop.over{border-color:var(--accent);color:var(--fg)}
+.drop b{color:var(--fg);display:block;margin-bottom:4px}
+.thumbs{display:grid;grid-template-columns:repeat(auto-fill,minmax(96px,1fr));gap:10px}
+.thumbs figure{margin:0;position:relative;aspect-ratio:1;border-radius:10px;overflow:hidden;background:var(--surface-2)}
+.thumbs img{width:100%;height:100%;object-fit:cover}
+.thumbs button{position:absolute;top:4px;right:4px;padding:2px 8px;font-size:12px;background:rgba(0,0,0,.65);color:#fff;border-radius:6px}
+.thumbs .load{display:grid;place-items:center;font-size:12px;color:var(--muted)}
+.linkbtn{background:none;color:var(--muted);text-decoration:underline;padding:8px}
+
+.end{text-align:center;padding:30px 10px}
+.end .ico{font-size:48px}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="brand"><b id="agence">Aurivon</b><span>Recrutement chatters</span></div>
+    <div class="steps" id="steps"><i></i><i></i><i></i><i></i><i></i><i></i></div>
+    <div class="steplabel" id="steplabel">Bienvenue</div>
+  </header>
+
+  <!-- 0. Accueil -->
+  <section data-s="accueil">
+    <h1>Deviens chatter dans l'équipe <span class="ag">Aurivon</span></h1>
+    <p class="lead">Six étapes, environ 10 minutes. Chaque étape doit être validée pour passer à la suivante. Tes réponses sont enregistrées au fur et à mesure.</p>
+    <div class="card stack">
+      <div><h2>1 · Ton profil</h2><span class="muted">Qui tu es, d'où tu viens</span></div>
+      <div><h2>2 · Test de frappe</h2><span class="muted" id="acc-wpm">Minimum 40 mots par minute</span></div>
+      <div><h2>3 · Ton expérience</h2></div>
+      <div><h2>4 · Ton agence et tes chiffres</h2></div>
+      <div><h2>5 · Tes shifts</h2></div>
+      <div><h2>6 · Tes résultats</h2><span class="muted">Captures d'écran de tes stats</span></div>
+    </div>
+    <div class="actions"><button class="btn" id="go">Commencer ma candidature</button></div>
+  </section>
+
+  <!-- 1. Identité -->
+  <section data-s="identite">
+    <h1>Présente-toi</h1>
+    <p class="lead">Les champs marqués d'une étoile sont obligatoires.</p>
+    <form class="card stack" id="f-identite" novalidate>
+      <div class="row">
+        <label><span class="req">Prénom</span><input id="prenom" autocomplete="given-name"></label>
+        <label><span class="req">Nom de famille</span><input id="nom" autocomplete="family-name"></label>
+      </div>
+      <div class="row">
+        <label><span class="req">Âge</span><input id="age" inputmode="numeric" maxlength="3"></label>
+        <label><span class="req">Pays</span><input id="pays" autocomplete="country-name"></label>
+      </div>
+      <label><span class="req">Ville</span><input id="ville" autocomplete="address-level2"></label>
+      <div class="geo" id="geo">
+        <div class="txt"><b id="geo-t">Partager ma localisation</b><span id="geo-s">Ça nous permet de confirmer d'où tu travailles. Ton téléphone ou ton navigateur va te demander l'autorisation.</span></div>
+        <button type="button" class="ghost" id="geo-btn">📍 Partager</button>
+      </div>
+      <label><span class="req">Telegram, WhatsApp ou Discord</span><input id="contact" placeholder="@pseudo ou numéro"></label>
+      <label>Langues parlées <small>et ton niveau d'anglais</small><input id="langues" placeholder="ex : français natif, anglais courant"></label>
+      <div class="err" id="e-identite"></div>
+      <div class="actions"><button class="btn" type="submit">Continuer</button></div>
+    </form>
+  </section>
+
+  <!-- 2. Frappe -->
+  <section data-s="frappe">
+    <h1>Test de frappe</h1>
+    <p class="lead">Recopie le texte le plus vite et le plus exactement possible. Le chrono démarre à ta première touche. Le copier-coller est désactivé.</p>
+    <div class="rules">
+      <div><strong id="r-wpm">40</strong><span>mots / minute</span></div>
+      <div><strong id="r-prec">90 %</strong><span>de précision</span></div>
+      <div><strong id="r-ess">3</strong><span>essais</span></div>
+    </div>
+    <div class="card" id="frappe-intro">
+      <p style="margin-top:0">Le texte est en anglais, dans le style d'une conversation avec un fan. Les majuscules et la ponctuation comptent.</p>
+      <div class="actions" style="margin-top:8px"><button class="btn" id="frappe-go">Afficher le texte</button></div>
+    </div>
+    <div id="frappe-test" hidden>
+      <canvas id="cv" aria-label="Texte à recopier"></canvas>
+      <div class="meter"><span>Temps <b id="m-t">0,0 s</b></span><span>Vitesse <b id="m-w">0</b> mots/min</span><span>Avancement <b id="m-p">0 %</b></span></div>
+      <textarea id="tape" spellcheck="false" autocomplete="off" autocorrect="off" autocapitalize="off" placeholder="Commence à taper ici…"></textarea>
+      <div class="actions"><button class="btn" id="frappe-fin" disabled>J'ai terminé</button></div>
+    </div>
+    <div class="card result" id="frappe-res" hidden>
+      <div class="big" id="res-wpm">0 <small>mots/min</small></div>
+      <div style="color:var(--muted);margin-top:8px" id="res-det"></div>
+      <span class="pill" id="res-pill"></span>
+      <div class="actions" style="justify-content:center" id="res-act"></div>
+    </div>
+  </section>
+
+  <!-- 3. Expérience -->
+  <section data-s="experience">
+    <h1>As-tu déjà travaillé comme chatter ?</h1>
+    <p class="lead">Réponds honnêtement.</p>
+    <div class="choices">
+      <button class="choice" data-exp="experimente"><span class="ico">💼</span><span><b>Oui, j'ai de l'expérience</b><span>J'ai déjà chatté pour une agence ou en freelance</span></span></button>
+      <button class="choice" data-exp="debutant"><span class="ico">🌱</span><span><b>Non, je débute</b><span>Je n'ai jamais été chatter</span></span></button>
+    </div>
+    <div class="err" id="e-experience"></div>
+  </section>
+
+  <!-- 4. Agence -->
+  <section data-s="agence">
+    <h1>Ton agence et tes chiffres</h1>
+    <p class="lead">Avec qui tu as travaillé et ce que tu as généré. On vérifie à l'étape des captures.</p>
+    <form class="card stack" id="f-agence" novalidate>
+      <label><span class="req">Nom de l'agence</span><small>Écris « freelance » si tu travaillais seul</small><input id="agence-nom"></label>
+      <div class="row">
+        <label><span class="req">Combien de temps ?</span><input id="duree" placeholder="ex : 8 mois"></label>
+        <label><span class="req">Créatrices gérées</span><input id="creatrices" placeholder="ex : 3 (top 1 %)"></label>
+      </div>
+      <div class="row">
+        <label><span class="req">CA moyen par shift</span><input id="ca_shift" placeholder="ex : 350 $"></label>
+        <label>CA sur ton meilleur mois<input id="ca_mois" placeholder="ex : 9 000 $"></label>
+      </div>
+      <label>Ton meilleur résultat <small>une vente, un PPV, un record…</small><textarea id="meilleur"></textarea></label>
+      <label>Pourquoi tu cherches une nouvelle agence ?<textarea id="depart"></textarea></label>
+      <div class="err" id="e-agence"></div>
+      <div class="actions"><button class="btn" type="submit">Continuer</button></div>
+    </form>
+  </section>
+
+  <!-- 5. Shifts -->
+  <section data-s="shifts">
+    <h1>Quels shifts t'intéressent ?</h1>
+    <p class="lead">Horaires en heure de Paris. Tu peux en choisir plusieurs.</p>
+    <div class="choices" id="shift-list"></div>
+    <div class="card stack" style="margin-top:14px">
+      <label>Combien de shifts par semaine ?
+        <select id="par_semaine"><option value="">Choisir</option><option>3</option><option>4</option><option>5</option><option>6</option><option>7</option></select>
+      </label>
+      <label>Disponibilités ou contraintes <small>optionnel</small><input id="dispo" placeholder="ex : pas le dimanche"></label>
+    </div>
+    <div class="err" id="e-shifts"></div>
+    <div class="actions"><button class="btn" id="shifts-ok">Continuer</button></div>
+  </section>
+
+  <!-- 6. Résultats -->
+  <section data-s="resultats">
+    <h1>Montre-nous tes résultats</h1>
+    <p class="lead">Ajoute des captures d'écran : dashboard de ventes, statistiques, conversations qui ont converti. Cache les noms des fans si tu veux.</p>
+    <div class="card stack">
+      <label class="drop" id="drop" for="file"><b>Ajouter des captures</b>Touche ici ou glisse tes images (10 max)</label>
+      <input type="file" id="file" accept="image/*" multiple hidden>
+      <div class="thumbs" id="thumbs"></div>
+      <label>Un commentaire sur tes résultats ? <small>optionnel</small><textarea id="note"></textarea></label>
+    </div>
+    <div class="err" id="e-resultats"></div>
+    <div class="actions">
+      <button class="linkbtn" id="no-shots">Je n'ai pas de captures</button>
+      <button class="btn" id="send">Envoyer ma candidature</button>
+    </div>
+  </section>
+
+  <!-- Fin -->
+  <section data-s="termine">
+    <div class="card end" id="end"></div>
+  </section>
+</div>
+
+<script>
+const $ = s => document.querySelector(s);
+const $$ = s => [...document.querySelectorAll(s)];
+const ORDRE = ["identite","frappe","experience","agence","shifts","resultats"];
+const LABELS = {accueil:"Bienvenue",identite:"Étape 1 / 6 · Profil",frappe:"Étape 2 / 6 · Test de frappe",
+  experience:"Étape 3 / 6 · Expérience",agence:"Étape 4 / 6 · Agence",shifts:"Étape 5 / 6 · Shifts",
+  resultats:"Étape 6 / 6 · Résultats",termine:"Terminé"};
+let CFG = {wpm_min:40, precision_min:90, essais:3, shifts:[], max_fichiers:10, agence:"Aurivon"};
+let ME = null;
+let geo = {statut:"non_demande"};
+
+const store = {
+  get(){ try{ return localStorage.getItem("cand_id") }catch(e){ return null } },
+  set(v){ try{ localStorage.setItem("cand_id", v) }catch(e){} }
+};
+
+async function api(path, body){
+  const r = await fetch(path, body ? {method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(body)} : {});
+  const j = await r.json().catch(()=>({erreur:"Erreur réseau"}));
+  if(!r.ok) throw new Error(j.erreur || "Erreur");
+  return j;
+}
+
+function show(etape){
+  $$("section").forEach(s => s.classList.toggle("on", s.dataset.s === etape));
+  const i = ORDRE.indexOf(etape);
+  $$("#steps i").forEach((el,k) => { el.className = etape==="termine" || k < i ? "done" : k === i ? "now" : "" });
+  $("#steplabel").textContent = LABELS[etape] || "";
+  window.scrollTo({top:0});
+  if(etape === "shifts") renderShifts();
+  if(etape === "resultats") renderThumbs();
+  if(etape === "termine") renderEnd();
+}
+
+async function etape(nom, data){
+  const r = await api("/api/etape", {id:ME.id, etape:nom, data});
+  Object.assign(ME, r);
+  return r;
+}
+
+/* ---------- démarrage ---------- */
+(async function init(){
+  try{ CFG = await api("/api/config") }catch(e){}
+  $$(".ag, #agence").forEach(e => e.textContent = CFG.agence);
+  document.title = "Candidature Chatter · " + CFG.agence;
+  $("#r-wpm").textContent = CFG.wpm_min; $("#r-prec").textContent = CFG.precision_min + " %";
+  $("#r-ess").textContent = CFG.essais; $("#acc-wpm").textContent = `Minimum ${CFG.wpm_min} mots par minute`;
+  const id = store.get();
+  if(id){ try{ ME = await api("/api/moi?id=" + encodeURIComponent(id)); return show(ME.etape) }catch(e){} }
+  show("accueil");
+})();
+
+$("#go").onclick = async () => {
+  $("#go").disabled = true;
+  try{ ME = await api("/api/start", {}); store.set(ME.id); show(ME.etape) }
+  catch(e){ $("#go").disabled = false; alertErr("#go", e) }
+};
+function alertErr(sel, e){ const el = document.createElement("div"); el.className="err"; el.textContent = e.message; $(sel).after(el) }
+
+/* ---------- 1. identité + géoloc ---------- */
+$("#geo-btn").onclick = () => {
+  if(!navigator.geolocation){ geo = {statut:"indisponible"}; return geoMsg("Localisation indisponible sur cet appareil", "Ce n'est pas bloquant, tu peux continuer.") }
+  $("#geo-btn").disabled = true; geoMsg("Recherche de ta position…", "Accepte la demande de ton navigateur.");
+  navigator.geolocation.getCurrentPosition(p => {
+    geo = {statut:"partagee", lat:+p.coords.latitude.toFixed(5), lon:+p.coords.longitude.toFixed(5), precision:Math.round(p.coords.accuracy)};
+    $("#geo").classList.add("ok"); $("#geo-btn").hidden = true;
+    geoMsg("✓ Localisation partagée", `Précision environ ${geo.precision < 1000 ? geo.precision + " m" : Math.round(geo.precision/1000) + " km"}.`);
+  }, err => {
+    geo = {statut: err.code === 1 ? "refusee" : "erreur"}; $("#geo-btn").disabled = false;
+    geoMsg(err.code === 1 ? "Localisation refusée" : "Position introuvable", "Tu peux réessayer, ou continuer sans.");
+  }, {enableHighAccuracy:false, timeout:15000, maximumAge:60000});
+};
+function geoMsg(t,s){ $("#geo-t").textContent = t; $("#geo-s").textContent = s }
+
+$("#f-identite").onsubmit = async ev => {
+  ev.preventDefault();
+  const v = Object.fromEntries(["prenom","nom","age","pays","ville","contact","langues"].map(k => [k, $("#"+k).value.trim()]));
+  for(const k of ["prenom","nom","age","pays","ville","contact"]) if(!v[k]){ $("#"+k).focus(); return $("#e-identite").textContent = "Remplis tous les champs obligatoires." }
+  if(!/^\d{2}$/.test(v.age) || +v.age < 16){ $("#age").focus(); return $("#e-identite").textContent = "Indique un âge valide." }
+  let fuseau = ""; try{ fuseau = Intl.DateTimeFormat().resolvedOptions().timeZone }catch(e){}
+  try{ await etape("identite", {...v, geo, fuseau}); show(ME.etape) }catch(e){ $("#e-identite").textContent = e.message }
+};
+
+/* ---------- 2. frappe ---------- */
+let T = null; // {idx, texte, layout, debut, colle, fini}
+const cv = $("#cv"), ctx = cv.getContext("2d");
+
+$("#frappe-go").onclick = startFrappe;
+async function startFrappe(){
+  const t = await api("/api/texte");
+  T = {...t, debut:0, colle:false, fini:false};
+  $("#frappe-intro").hidden = true; $("#frappe-res").hidden = true; $("#frappe-test").hidden = false;
+  $("#tape").value = ""; $("#tape").disabled = false; $("#frappe-fin").disabled = true;
+  ["#m-t","#m-w","#m-p"].forEach((s,i) => $(s).textContent = ["0,0 s","0","0 %"][i]);
+  layoutText(); draw(""); $("#tape").focus();
+}
+function layoutText(){
+  const w = cv.clientWidth, dpr = window.devicePixelRatio || 1;
+  const size = w < 420 ? 16 : 19, lh = Math.round(size * 1.6), pad = 16;
+  ctx.font = `500 ${size}px Inter, system-ui, sans-serif`;
+  const pos = []; let x = pad, y = pad + size, line = 0;
+  const words = T.texte.split(" ");
+  let i = 0;
+  words.forEach((word, wi) => {
+    const ww = ctx.measureText(word).width;
+    if(x + ww > w - pad && x > pad){ x = pad; y += lh }
+    for(const ch of word){ const cw = ctx.measureText(ch).width; pos.push({ch, x, y, w:cw}); x += cw; i++ }
+    if(wi < words.length - 1){ const sw = ctx.measureText(" ").width; pos.push({ch:" ", x, y, w:sw}); x += sw; i++ }
+  });
+  const h = y + pad;
+  cv.width = w * dpr; cv.height = h * dpr; cv.style.height = h + "px";
+  T.layout = {pos, size, dpr};
+}
+function draw(typed){
+  const {pos, size, dpr} = T.layout, css = getComputedStyle(document.documentElement);
+  const c = n => css.getPropertyValue(n).trim();
+  ctx.setTransform(dpr,0,0,dpr,0,0);
+  ctx.clearRect(0,0,cv.width,cv.height);
+  ctx.font = `500 ${size}px Inter, system-ui, sans-serif`;
+  pos.forEach((p, k) => {
+    if(k < typed.length){
+      const good = typed[k] === p.ch;
+      if(!good){ ctx.fillStyle = "rgba(239,125,118,.22)"; ctx.fillRect(p.x, p.y - size, Math.max(p.w, 6), size * 1.3) }
+      ctx.fillStyle = good ? c("--ok") : c("--err");
+    } else ctx.fillStyle = k === typed.length ? c("--fg") : c("--muted");
+    ctx.fillText(p.ch, p.x, p.y);
+    if(k === typed.length){ ctx.fillStyle = c("--accent"); ctx.fillRect(p.x, p.y + 4, Math.max(p.w, 8), 2) }
+  });
+}
+window.addEventListener("resize", () => { if(T && !$("#frappe-test").hidden){ layoutText(); draw($("#tape").value) } });
+
+const tape = $("#tape");
+["paste","drop"].forEach(ev => tape.addEventListener(ev, e => { e.preventDefault(); T.colle = true }));
+tape.addEventListener("contextmenu", e => e.preventDefault());
+let lastLen = 0, timer = null;
+tape.addEventListener("input", () => {
+  if(!T || T.fini) return;
+  const v = tape.value;
+  if(v.length - lastLen > 12) T.colle = true; // saisie anormale (collage, autoremplissage)
+  lastLen = v.length;
+  if(!T.debut && v.length){ T.debut = performance.now(); timer = setInterval(tick, 100) }
+  draw(v); tick();
+  $("#frappe-fin").disabled = v.trim().length < 10;
+  if(v.length >= T.texte.length) finFrappe();
+});
+function tick(){
+  if(!T.debut) return;
+  const s = (performance.now() - T.debut) / 1000, v = tape.value;
+  $("#m-t").textContent = s.toFixed(1).replace(".", ",") + " s";
+  $("#m-w").textContent = s > 1 ? Math.round((v.length / 5) / (s / 60)) : 0;
+  $("#m-p").textContent = Math.min(100, Math.round(v.length / T.texte.length * 100)) + " %";
+}
+$("#frappe-fin").onclick = finFrappe;
+
+async function finFrappe(){
+  if(T.fini) return; T.fini = true; clearInterval(timer);
+  tape.disabled = true; $("#frappe-fin").disabled = true;
+  const secondes = (performance.now() - T.debut) / 1000;
+  try{
+    const r = await etape("frappe", {texte:T.idx, tape:tape.value, secondes, colle:T.colle});
+    showRes(r);
+  }catch(e){ showRes({erreur:e.message}) }
+}
+function showRes(r){
+  $("#frappe-test").hidden = true; $("#frappe-res").hidden = false;
+  const act = $("#res-act"); act.innerHTML = "";
+  if(r.erreur){ $("#res-wpm").textContent = "—"; $("#res-det").textContent = r.erreur; return }
+  const x = r.resultat;
+  $("#res-wpm").innerHTML = `${Math.round(x.wpm)} <small>mots/min</small>`;
+  $("#res-det").textContent = `Précision ${String(x.precision).replace(".", ",")} % · ${String(x.secondes).replace(".", ",")} s`;
+  const pill = $("#res-pill");
+  pill.className = "pill " + (x.reussi ? "ok" : "no");
+  pill.textContent = x.reussi ? "Test validé" : `Objectif : ${CFG.wpm_min} mots/min et ${CFG.precision_min} % de précision`;
+  const b = document.createElement("button"); b.className = "btn";
+  if(r.avance){ b.textContent = "Étape suivante"; b.onclick = () => show(ME.etape) }
+  else if(r.stop){ b.textContent = "Continuer"; b.onclick = () => show("termine") }
+  else { b.textContent = `Réessayer (${r.reste} essai${r.reste > 1 ? "s" : ""} restant${r.reste > 1 ? "s" : ""})`; b.onclick = startFrappe }
+  act.append(b);
+}
+
+/* ---------- 3. expérience ---------- */
+$$("[data-exp]").forEach(b => b.onclick = async () => {
+  $$("[data-exp]").forEach(x => x.classList.toggle("sel", x === b));
+  try{ await etape("experience", {experience:b.dataset.exp}); show(ME.etape) }
+  catch(e){ $("#e-experience").textContent = e.message }
+});
+
+/* ---------- 4. agence ---------- */
+$("#f-agence").onsubmit = async ev => {
+  ev.preventDefault();
+  const m = {agence:"agence-nom", duree:"duree", creatrices:"creatrices", ca_shift:"ca_shift", ca_mois:"ca_mois", meilleur:"meilleur", depart:"depart"};
+  const v = Object.fromEntries(Object.entries(m).map(([k,id]) => [k, $("#"+id).value.trim()]));
+  for(const k of ["agence","duree","creatrices","ca_shift"]) if(!v[k]){ $("#"+m[k]).focus(); return $("#e-agence").textContent = "Remplis tous les champs obligatoires." }
+  try{ await etape("agence", v); show(ME.etape) }catch(e){ $("#e-agence").textContent = e.message }
+};
+
+/* ---------- 5. shifts ---------- */
+const choixShifts = new Set();
+function renderShifts(){
+  const box = $("#shift-list"); if(box.childElementCount) return;
+  const ico = {matin:"🌅", aprem:"☀️", nuit:"🌙"};
+  CFG.shifts.forEach(s => {
+    const b = document.createElement("button"); b.className = "choice"; b.type = "button";
+    b.innerHTML = `<span class="ico">${ico[s.id] || "⏰"}</span><span><b></b><span></span></span><span class="check">✓</span>`;
+    b.querySelector("b").textContent = s.nom; b.querySelector("span span").textContent = s.heures;
+    b.onclick = () => { choixShifts.has(s.id) ? choixShifts.delete(s.id) : choixShifts.add(s.id); b.classList.toggle("sel") };
+    box.append(b);
+  });
+}
+$("#shifts-ok").onclick = async () => {
+  if(!choixShifts.size) return $("#e-shifts").textContent = "Choisis au moins un shift.";
+  try{ await etape("shifts", {shifts:[...choixShifts], par_semaine:$("#par_semaine").value, dispo:$("#dispo").value.trim()}); show(ME.etape) }
+  catch(e){ $("#e-shifts").textContent = e.message }
+};
+
+/* ---------- 6. résultats ---------- */
+const enCours = new Set();
+function renderThumbs(){
+  const box = $("#thumbs"); box.innerHTML = "";
+  (ME.fichiers || []).forEach(nom => {
+    const f = document.createElement("figure");
+    f.innerHTML = `<div class="load" style="height:100%">✓ Capture<br>${nom.slice(0,2)}</div><button type="button" aria-label="Retirer">✕</button>`;
+    const prev = previews.get(nom); if(prev){ f.firstChild.replaceWith(Object.assign(new Image(), {src:prev, alt:""})) }
+    f.querySelector("button").onclick = async () => { try{ ME = {...ME, ...(await api("/api/fichier/supprimer", {id:ME.id, nom}))}; renderThumbs() }catch(e){} };
+    box.append(f);
+  });
+  enCours.forEach(() => { const f = document.createElement("figure"); f.innerHTML = `<div class="load" style="height:100%">Envoi…</div>`; box.append(f) });
+}
+const previews = new Map();
+function compresser(file){
+  return new Promise((ok, ko) => {
+    const img = new Image(), url = URL.createObjectURL(file);
+    img.onload = () => {
+      const max = 1800, k = Math.min(1, max / Math.max(img.width, img.height));
+      const c = document.createElement("canvas"); c.width = Math.round(img.width * k); c.height = Math.round(img.height * k);
+      c.getContext("2d").drawImage(img, 0, 0, c.width, c.height); URL.revokeObjectURL(url);
+      ok(c.toDataURL("image/jpeg", .85));
+    };
+    img.onerror = () => ko(new Error("Image illisible : " + file.name));
+    img.src = url;
+  });
+}
+async function ajouter(files){
+  $("#e-resultats").textContent = "";
+  for(const file of [...files]){
+    if(!file.type.startsWith("image/")) continue;
+    if((ME.fichiers || []).length + enCours.size >= CFG.max_fichiers){ $("#e-resultats").textContent = `${CFG.max_fichiers} captures maximum.`; break }
+    const tok = Symbol(); enCours.add(tok); renderThumbs();
+    try{
+      const data = await compresser(file);
+      const r = await api("/api/fichier", {id:ME.id, data});
+      previews.set(r.fichiers[r.fichiers.length - 1], data);
+      ME = {...ME, ...r};
+    }catch(e){ $("#e-resultats").textContent = e.message }
+    enCours.delete(tok); renderThumbs();
+  }
+}
+$("#file").onchange = e => { ajouter(e.target.files); e.target.value = "" };
+const drop = $("#drop");
+drop.addEventListener("dragover", e => { e.preventDefault(); drop.classList.add("over") });
+drop.addEventListener("dragleave", () => drop.classList.remove("over"));
+drop.addEventListener("drop", e => { e.preventDefault(); drop.classList.remove("over"); ajouter(e.dataTransfer.files) });
+
+async function envoyer(){
+  if(enCours.size) return $("#e-resultats").textContent = "Attends la fin de l'envoi des captures.";
+  try{ await etape("resultats", {note:$("#note").value.trim()}); show("termine") }
+  catch(e){ $("#e-resultats").textContent = e.message }
+}
+$("#send").onclick = () => (ME.fichiers || []).length ? envoyer() : ($("#e-resultats").textContent = "Ajoute au moins une capture, ou clique sur « Je n'ai pas de captures ».");
+$("#no-shots").onclick = envoyer;
+
+/* ---------- fin ---------- */
+function renderEnd(){
+  const e = $("#end"), p = ME.prenom ? " " + ME.prenom : "";
+  const msg = {
+    complet:["🎉", `Merci${p}, ta candidature est envoyée`, "L'équipe étudie ton profil et te recontacte sur le contact que tu as donné."],
+    stop_debutant:["🌱", `Merci${p} pour ton intérêt`, `Pour le moment, ${CFG.agence} recrute uniquement des chatters qui ont déjà de l'expérience. Reviens vers nous quand ce sera ton cas.`],
+    stop_frappe:["⌨️", `Merci${p} pour ton temps`, `Le poste demande au moins ${CFG.wpm_min} mots par minute. Entraîne-toi et repostule dans quelques semaines.`],
+  }[ME.statut] || ["✓", "Candidature enregistrée", ""];
+  e.innerHTML = `<div class="ico"></div><h1></h1><p class="lead" style="margin:0"></p>`;
+  e.querySelector(".ico").textContent = msg[0]; e.querySelector("h1").textContent = msg[1]; e.querySelector("p").textContent = msg[2];
+}
+</script>
+</body>
+</html>

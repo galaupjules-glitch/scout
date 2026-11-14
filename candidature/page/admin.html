@@ -1,0 +1,239 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Rapport Candidatures</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@500&display=swap">
+<style>
+/* Layout : compteurs en haut, filtres, puis une liste de dossiers dépliables. */
+:root{
+  --bg:#10131c; --surface:#181c28; --surface-2:#202534; --line:#2c3244;
+  --fg:#efe9e1; --muted:#9a9fb0; --accent:#e0a98f; --accent-ink:#2a1710;
+  --ok:#7fcf9c; --err:#ef7d76; --warn:#e8c46a;
+  --display:"Bricolage Grotesque",ui-sans-serif,system-ui,sans-serif;
+  --body:"Inter",ui-sans-serif,system-ui,sans-serif; --mono:"JetBrains Mono",ui-monospace,Menlo,monospace;
+  color-scheme:dark;
+}
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+body{margin:0;background:var(--bg);color:var(--fg);font:14px/1.5 var(--body);
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:20px 60px}
+.wrap{max-width:1040px;margin:0 auto}
+.top{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap}
+h1{font:700 26px var(--display);margin:0}
+a{color:var(--accent)}
+.btn{font:600 13px var(--body);background:var(--surface-2);color:var(--fg);border:1px solid var(--line);border-radius:8px;padding:8px 12px;cursor:pointer;text-decoration:none}
+.btn:hover{border-color:var(--accent)}
+.kpis{display:grid;grid-template-columns:repeat(5,1fr);gap:10px;margin:18px 0}
+@media (max-width:720px){.kpis{grid-template-columns:repeat(2,1fr)}}
+.kpi{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:12px 14px}
+.kpi b{display:block;font:700 26px var(--display);font-variant-numeric:tabular-nums}
+.kpi span{color:var(--muted);font-size:12px}
+.filters{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px}
+.filters button{font:500 13px var(--body);background:transparent;color:var(--muted);border:1px solid var(--line);border-radius:99px;padding:6px 12px;cursor:pointer}
+.filters button.on{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+.filters input{flex:1;min-width:160px;background:var(--surface);border:1px solid var(--line);border-radius:99px;padding:6px 14px;color:var(--fg);font:inherit}
+
+.list{display:flex;flex-direction:column;gap:8px}
+details{background:var(--surface);border:1px solid var(--line);border-radius:12px}
+details[open]{border-color:color-mix(in srgb,var(--accent) 40%,var(--line))}
+summary{list-style:none;cursor:pointer;display:grid;grid-template-columns:minmax(0,2fr) minmax(0,1.4fr) 110px 120px 90px;gap:12px;align-items:center;padding:12px 16px}
+summary::-webkit-details-marker{display:none}
+@media (max-width:720px){summary{grid-template-columns:1fr auto;}.hide-sm{display:none}}
+.name b{display:block;font-weight:600}
+.name span,.sub{color:var(--muted);font-size:12px}
+.pill{display:inline-block;padding:3px 9px;border-radius:99px;font-size:12px;font-weight:600;white-space:nowrap}
+.p-ok{background:color-mix(in srgb,var(--ok) 16%,transparent);color:var(--ok)}
+.p-no{background:color-mix(in srgb,var(--err) 16%,transparent);color:var(--err)}
+.p-warn{background:color-mix(in srgb,var(--warn) 16%,transparent);color:var(--warn)}
+.p-mute{background:var(--surface-2);color:var(--muted)}
+.wpm{font:500 13px var(--mono)}
+.body{padding:4px 16px 18px;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}
+@media (max-width:720px){.body{grid-template-columns:1fr}}
+.blk{background:var(--surface-2);border-radius:10px;padding:12px 14px;min-width:0}
+.blk h3{font:600 12px var(--body);letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin:0 0 8px}
+.kv{display:grid;grid-template-columns:120px minmax(0,1fr);gap:4px 10px;font-size:13px}
+.kv dt{color:var(--muted)} .kv dd{margin:0;overflow-wrap:anywhere}
+.full{grid-column:1/-1}
+.shots{display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:8px}
+.shots img{width:100%;aspect-ratio:1;object-fit:cover;border-radius:8px;cursor:zoom-in;background:var(--surface)}
+.dec{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.dec button.on{border-color:var(--accent);color:var(--accent)}
+textarea{width:100%;min-height:60px;background:var(--surface);color:var(--fg);border:1px solid var(--line);border-radius:8px;padding:8px;font:inherit}
+.empty{text-align:center;color:var(--muted);padding:50px 10px;background:var(--surface);border-radius:12px;border:1px dashed var(--line)}
+.lock{max-width:380px;margin:12vh auto;text-align:center}
+.lock input{width:100%;padding:12px;border-radius:10px;border:1px solid var(--line);background:var(--surface);color:var(--fg);font:inherit;margin:12px 0}
+#zoom{position:fixed;inset:0;background:rgba(5,6,10,.9);display:grid;place-items:center;padding:20px;cursor:zoom-out;z-index:20}
+#zoom img{max-height:92vh;max-width:100%;border-radius:8px}
+button:focus-visible,summary:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="lock" id="lock" hidden>
+    <h1>Rapport candidatures</h1>
+    <p class="sub">Entre la clé affichée dans la fenêtre du serveur.</p>
+    <input id="cle" placeholder="Clé d'accès" autocomplete="off">
+    <button class="btn" id="unlock">Ouvrir</button>
+    <p class="sub" id="lock-err"></p>
+  </div>
+
+  <div id="app" hidden>
+    <div class="top">
+      <h1>Candidatures chatters</h1>
+      <div style="display:flex;gap:8px"><button class="btn" id="refresh">Actualiser</button><a class="btn" id="csv">Exporter (CSV)</a></div>
+    </div>
+    <div class="kpis" id="kpis"></div>
+    <div class="filters" id="filters"></div>
+    <div class="list" id="list"></div>
+  </div>
+</div>
+<div id="zoom" hidden><img alt=""></div>
+
+<script>
+const $ = s => document.querySelector(s);
+let CLE = decodeURIComponent(location.hash.slice(1)), DATA = null, FILTRE = "complet", Q = "";
+const geoCache = {};
+const STATUT = {
+  en_cours:["En cours","p-mute"], complet:["Complet","p-ok"],
+  stop_debutant:["Débutant · stoppé","p-warn"], stop_frappe:["Frappe ratée","p-no"]
+};
+const DECISION = {retenu:["Retenu","p-ok"], a_revoir:["À revoir","p-warn"], refuse:["Refusé","p-no"]};
+const ETAPES = {identite:"Profil", frappe:"Frappe", experience:"Expérience", agence:"Agence", shifts:"Shifts", resultats:"Résultats", termine:"Fin"};
+
+function esc(s){ return String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c])) }
+const date = t => new Date(t * 1000).toLocaleString("fr-FR", {day:"2-digit", month:"2-digit", hour:"2-digit", minute:"2-digit"});
+
+async function charger(){
+  const r = await fetch("/api/admin/candidats?cle=" + encodeURIComponent(CLE));
+  if(r.status === 403){ $("#app").hidden = true; $("#lock").hidden = false; if(CLE) $("#lock-err").textContent = "Clé invalide."; return }
+  DATA = await r.json();
+  $("#lock").hidden = true; $("#app").hidden = false;
+  $("#csv").href = "/api/admin/export.csv?cle=" + encodeURIComponent(CLE);
+  render();
+}
+$("#unlock").onclick = () => { CLE = $("#cle").value.trim(); location.hash = CLE; charger() };
+$("#cle").onkeydown = e => { if(e.key === "Enter") $("#unlock").click() };
+$("#refresh").onclick = charger;
+
+function render(){
+  const C = DATA.candidats;
+  const best = c => c.data.frappe?.meilleur;
+  const k = [
+    [C.length, "candidatures"],
+    [C.filter(c => c.statut === "complet").length, "dossiers complets"],
+    [C.filter(c => best(c)?.reussi).length, `≥ ${DATA.wpm_min} mots/min`],
+    [C.filter(c => c.statut === "stop_debutant").length, "débutants stoppés"],
+    [C.filter(c => c.decision === "retenu").length, "retenus"],
+  ];
+  $("#kpis").innerHTML = k.map(([n, l]) => `<div class="kpi"><b>${n}</b><span>${l}</span></div>`).join("");
+
+  const F = [["complet","Complets"],["tous","Tous"],["en_cours","En cours"],["stop_debutant","Débutants"],["stop_frappe","Frappe ratée"],["retenu","Retenus"]];
+  $("#filters").innerHTML = F.map(([v, l]) => `<button data-f="${v}" class="${FILTRE === v ? "on" : ""}">${l}</button>`).join("") +
+    `<input id="q" placeholder="Rechercher un nom, une ville, une agence…" value="${esc(Q)}">`;
+  $("#filters").querySelectorAll("[data-f]").forEach(b => b.onclick = () => { FILTRE = b.dataset.f; render() });
+  $("#q").oninput = e => { Q = e.target.value; renderList() };
+  renderList();
+}
+
+function renderList(){
+  let C = DATA.candidats.filter(c => FILTRE === "tous" ? true : FILTRE === "retenu" ? c.decision === "retenu" : c.statut === FILTRE);
+  if(Q){ const q = Q.toLowerCase(); C = C.filter(c => JSON.stringify(c.data).toLowerCase().includes(q)) }
+  if(!C.length){ $("#list").innerHTML = `<div class="empty">Aucune candidature dans cette catégorie pour l'instant.<br>Envoie le lien de la page candidat pour recevoir les premières réponses.</div>`; return }
+  $("#list").innerHTML = C.map(card).join("");
+  $("#list").querySelectorAll("details").forEach(d => d.addEventListener("toggle", () => { if(d.open) ouvrir(d) }));
+  $("#list").querySelectorAll(".shots img").forEach(i => i.onclick = () => { $("#zoom img").src = i.src; $("#zoom").hidden = false });
+}
+$("#zoom").onclick = () => $("#zoom").hidden = true;
+
+function card(c){
+  const d = c.data, i = d.identite || {}, a = d.agence || {}, f = d.frappe || {}, b = f.meilleur, g = i.geo || {};
+  const st = STATUT[c.statut] || [c.statut, "p-mute"], dec = DECISION[c.decision];
+  const shifts = (d.shifts || []).map(id => { const s = DATA.shifts.find(x => x.id === id); return s ? `${s.nom} (${s.heures})` : id }).join(", ");
+  const wpm = b ? `<span class="pill ${b.reussi ? "p-ok" : "p-no"} wpm">${Math.round(b.wpm)} mpm</span>` : `<span class="pill p-mute">—</span>`;
+  const flags = [];
+  if(b?.suspect) flags.push("vitesse anormale");
+  if(f.essais?.some(e => e.colle)) flags.push("tentative de collage");
+  const gpsTxt = g.lat ? `<a href="https://www.google.com/maps?q=${g.lat},${g.lon}" target="_blank" rel="noopener">${g.lat}, ${g.lon}</a> · ±${g.precision} m<br><span class="sub geo-ville" data-lat="${g.lat}" data-lon="${g.lon}">Recherche de la ville…</span>`
+    : `<span class="pill ${g.statut === "refusee" ? "p-no" : "p-mute"}">${{refusee:"Refusée", erreur:"Erreur", indisponible:"Indisponible"}[g.statut] || "Non partagée"}</span>`;
+  const shots = (d.fichiers || []).map(n => `<img loading="lazy" alt="Capture" src="/fichiers/${c.id}/${n}?cle=${encodeURIComponent(CLE)}">`).join("");
+
+  return `<details data-id="${c.id}">
+  <summary>
+    <div class="name"><b>${esc(i.prenom || "Sans nom")} ${esc(i.nom || "")}</b><span>${i.age ? esc(i.age) + " ans · " : ""}${esc([i.ville, i.pays].filter(Boolean).join(", ")) || "Profil pas encore rempli"}</span></div>
+    <div class="hide-sm sub">${a.agence ? esc(a.agence) + " · " + esc(a.ca_shift || "") + "/shift" : d.experience === "debutant" ? "Débutant" : "—"}</div>
+    <div class="hide-sm">${wpm}</div>
+    <div><span class="pill ${st[1]}">${st[0]}${c.statut === "en_cours" ? " · " + (ETAPES[c.etape] || "") : ""}</span>${dec ? ` <span class="pill ${dec[1]}">${dec[0]}</span>` : ""}</div>
+    <div class="hide-sm sub">${date(c.cree_le)}</div>
+  </summary>
+  <div class="body">
+    <div class="blk"><h3>Profil</h3><dl class="kv">
+      <dt>Contact</dt><dd>${esc(i.contact) || "—"}</dd>
+      <dt>Lieu déclaré</dt><dd>${esc([i.ville, i.pays].filter(Boolean).join(", ")) || "—"}</dd>
+      <dt>Langues</dt><dd>${esc(i.langues) || "—"}</dd>
+      <dt>Fuseau</dt><dd>${esc(i.fuseau) || "—"}</dd>
+      <dt>IP</dt><dd>${esc(c.ip) || "—"}</dd>
+    </dl></div>
+    <div class="blk"><h3>Localisation</h3><dl class="kv">
+      <dt>Position GPS</dt><dd>${gpsTxt}</dd>
+    </dl></div>
+    <div class="blk"><h3>Test de frappe</h3>${b ? `<dl class="kv">
+      <dt>Meilleur score</dt><dd><b>${b.wpm} mots/min</b> · ${b.precision} % · ${b.secondes} s</dd>
+      <dt>Essais</dt><dd>${f.essais.map(e => `${Math.round(e.wpm)} mpm (${Math.round(e.precision)} %)`).join(" · ")}</dd>
+      <dt>Alertes</dt><dd>${flags.length ? `<span class="pill p-warn">${flags.join(", ")}</span>` : "Aucune"}</dd>
+    </dl>` : `<span class="sub">Pas encore passé</span>`}</div>
+    <div class="blk"><h3>Expérience & agence</h3><dl class="kv">
+      <dt>Expérience</dt><dd>${{experimente:"Expérimenté", debutant:"Débutant"}[d.experience] || "—"}</dd>
+      <dt>Agence</dt><dd>${esc(a.agence) || "—"}${a.duree ? " · " + esc(a.duree) : ""}</dd>
+      <dt>Créatrices</dt><dd>${esc(a.creatrices) || "—"}</dd>
+      <dt>CA / shift</dt><dd>${esc(a.ca_shift) || "—"}</dd>
+      <dt>Meilleur mois</dt><dd>${esc(a.ca_mois) || "—"}</dd>
+      <dt>Meilleur résultat</dt><dd>${esc(a.meilleur) || "—"}</dd>
+      <dt>Pourquoi partir</dt><dd>${esc(a.depart) || "—"}</dd>
+    </dl></div>
+    <div class="blk"><h3>Shifts</h3><dl class="kv">
+      <dt>Choisis</dt><dd>${esc(shifts) || "—"}</dd>
+      <dt>Par semaine</dt><dd>${esc(d.shifts_semaine) || "—"}</dd>
+      <dt>Contraintes</dt><dd>${esc(d.dispo) || "—"}</dd>
+    </dl></div>
+    <div class="blk"><h3>Commentaire du candidat</h3><span>${esc(d.resultats_note) || '<span class="sub">—</span>'}</span></div>
+    <div class="blk full"><h3>Résultats (${(d.fichiers || []).length} captures)</h3>${shots ? `<div class="shots">${shots}</div>` : `<span class="sub">Aucune capture</span>`}</div>
+    <div class="blk full"><h3>Ta décision</h3>
+      <div class="dec">${Object.entries(DECISION).map(([v, [l]]) => `<button class="btn ${c.decision === v ? "on" : ""}" data-dec="${v}">${l}</button>`).join("")}</div>
+      <textarea placeholder="Note interne (visible seulement ici)" data-note>${esc(d.note_staff)}</textarea>
+    </div>
+  </div>
+</details>`;
+}
+
+async function ouvrir(det){
+  const id = det.dataset.id, c = DATA.candidats.find(x => x.id === id);
+  const save = async (decision) => {
+    const note = det.querySelector("[data-note]").value;
+    await fetch("/api/admin/decision?cle=" + encodeURIComponent(CLE), {method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify({id, decision, note})});
+    c.decision = decision; c.data.note_staff = note;
+  };
+  det.querySelectorAll("[data-dec]").forEach(b => b.onclick = async () => {
+    await save(c.decision === b.dataset.dec ? "" : b.dataset.dec);
+    render(); const again = document.querySelector(`details[data-id="${id}"]`); if(again){ again.open = true }
+  });
+  det.querySelector("[data-note]").onchange = () => save(c.decision);
+
+  // ville réelle d'après le GPS (OpenStreetMap)
+  const v = det.querySelector(".geo-ville"); if(!v) return;
+  const key = v.dataset.lat + "," + v.dataset.lon;
+  try{
+    if(!geoCache[key]){
+      const r = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&zoom=10&accept-language=fr&lat=${v.dataset.lat}&lon=${v.dataset.lon}`);
+      const j = await r.json(), ad = j.address || {};
+      geoCache[key] = [ad.city || ad.town || ad.village || ad.municipality || ad.county, ad.country].filter(Boolean).join(", ");
+    }
+    v.textContent = "Position réelle : " + (geoCache[key] || "inconnue");
+  }catch(e){ v.textContent = "Ville introuvable (ouvre la carte)" }
+}
+
+if(CLE) charger(); else $("#lock").hidden = false;
+</script>
+</body>
+</html>

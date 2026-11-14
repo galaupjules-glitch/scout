@@ -15,7 +15,5 @@ dist/
 Vexa-macOS.zip
 Vexa.spec
 
-# bot discord chatters
-discord-chatters/.env
-discord-chatters/candidats.db
-discord-chatters/uploads/
+# site candidature chatters
+candidature/donnees/
