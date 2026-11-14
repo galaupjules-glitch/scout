@@ -1,9 +1,9 @@
 <!doctype html>
-<html lang="fr">
+<html lang="en">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>Candidature Chatter</title>
+<title>Vexa Chatter Application</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@500&display=swap">
 <style>
@@ -120,82 +120,82 @@ button{font:600 15px var(--body);border:0;border-radius:10px;padding:13px 20px;c
 <body>
 <div class="wrap">
   <header>
-    <div class="brand"><b id="agence">Aurivon</b><span>Recrutement chatters</span></div>
+    <div class="brand"><b id="agence">Vexa</b><span>Chatter recruitment</span></div>
     <div class="steps" id="steps"><i></i><i></i><i></i><i></i><i></i><i></i></div>
-    <div class="steplabel" id="steplabel">Bienvenue</div>
+    <div class="steplabel" id="steplabel">Welcome</div>
     <div class="adminbar" id="adminbar" hidden></div>
   </header>
 
   <!-- 0. Accueil -->
   <section data-s="accueil">
-    <h1>Deviens chatter dans l'équipe <span class="ag">Aurivon</span></h1>
-    <p class="lead">Six étapes, environ 10 minutes. Chaque étape doit être validée pour passer à la suivante. Tes réponses sont enregistrées au fur et à mesure.</p>
+    <h1>Join the <span class="ag">Vexa</span> chatting team</h1>
+    <p class="lead">Six steps, about 10 minutes. You need to complete each step to unlock the next one. Your answers are saved as you go.</p>
     <div class="card stack">
-      <div><h2>1 · Ton profil</h2><span class="muted">Qui tu es, d'où tu viens</span></div>
-      <div><h2>2 · Test de frappe</h2><span class="muted" id="acc-wpm">Minimum 40 mots par minute</span></div>
-      <div><h2>3 · Ton expérience</h2></div>
-      <div><h2>4 · Ton agence et tes chiffres</h2></div>
-      <div><h2>5 · Tes shifts</h2></div>
-      <div><h2>6 · Tes résultats</h2><span class="muted">Captures d'écran de tes stats</span></div>
+      <div><h2>1 · Your profile</h2><span class="muted">Who you are and where you're from</span></div>
+      <div><h2>2 · Typing test</h2><span class="muted" id="acc-wpm">At least 40 words per minute</span></div>
+      <div><h2>3 · Your experience</h2></div>
+      <div><h2>4 · Your agency and your numbers</h2></div>
+      <div><h2>5 · Your shifts</h2></div>
+      <div><h2>6 · Your results</h2><span class="muted">Screenshots of your stats</span></div>
     </div>
-    <div class="actions"><button class="btn" id="go">Commencer ma candidature</button></div>
+    <div class="actions"><button class="btn" id="go">Start my application</button></div>
   </section>
 
   <!-- 1. Identité -->
   <section data-s="identite">
-    <h1>Présente-toi</h1>
-    <p class="lead">Les champs marqués d'une étoile sont obligatoires.</p>
+    <h1>Introduce yourself</h1>
+    <p class="lead">Fields marked with a star are required.</p>
     <form class="card stack" id="f-identite" novalidate>
       <div class="row">
-        <label><span class="req">Prénom</span><input id="prenom" autocomplete="given-name"></label>
-        <label><span class="req">Nom de famille</span><input id="nom" autocomplete="family-name"></label>
+        <label><span class="req">First name</span><input id="prenom" autocomplete="given-name"></label>
+        <label><span class="req">Last name</span><input id="nom" autocomplete="family-name"></label>
       </div>
       <div class="row">
-        <label><span class="req">Âge</span><input id="age" inputmode="numeric" maxlength="3"></label>
-        <label><span class="req">Pays</span><input id="pays" autocomplete="country-name"></label>
+        <label><span class="req">Age</span><input id="age" inputmode="numeric" maxlength="3"></label>
+        <label><span class="req">Country</span><input id="pays" autocomplete="country-name"></label>
       </div>
-      <label><span class="req">Ville</span><input id="ville" autocomplete="address-level2"></label>
+      <label><span class="req">City</span><input id="ville" autocomplete="address-level2"></label>
       <div class="geo" id="geo">
-        <div class="txt"><b id="geo-t" class="req">Partager ma localisation</b><span id="geo-s">Obligatoire. Clique sur « Partager » puis sur « Autoriser » quand Chrome te le demande.</span></div>
-        <button type="button" class="ghost" id="geo-btn">📍 Partager</button>
+        <div class="txt"><b id="geo-t" class="req">Share my location</b><span id="geo-s">Required. Click "Share", then "Allow" when Chrome asks you.</span></div>
+        <button type="button" class="ghost" id="geo-btn">📍 Share</button>
         <div class="help" id="geo-help" hidden>
-          <b>Chrome bloque ta localisation ? Voici comment l'activer :</b>
+          <b>Chrome is blocking your location? Here's how to turn it on:</b>
           <ol>
-            <li>Clique sur l'icône à gauche de l'adresse du site (le cadenas ou les réglages).</li>
-            <li>Mets <b>Localisation</b> sur <b>Autoriser</b>, puis recharge la page.</li>
-            <li>Sur Mac, vérifie aussi : Réglages Système › Confidentialité et sécurité › Service de localisation › Google Chrome activé.</li>
-            <li>Sur téléphone : Réglages › Chrome › Position › Autoriser.</li>
+            <li>Click the icon to the left of the site address (the lock or settings icon).</li>
+            <li>Set <b>Location</b> to <b>Allow</b>, then reload the page.</li>
+            <li>On a Mac, also check: System Settings › Privacy &amp; Security › Location Services › Google Chrome turned on.</li>
+            <li>On a phone: Settings › Chrome › Location › Allow.</li>
           </ol>
         </div>
       </div>
-      <label><span class="req">Pseudo Discord</span><input id="contact" placeholder="ex : lina.chat" autocomplete="off"></label>
-      <label><span class="req">Langues parlées</span><small>et ton niveau d'anglais</small><input id="langues" placeholder="ex : français natif, anglais courant"></label>
+      <label><span class="req">Discord username</span><input id="contact" placeholder="e.g. lina.chat" autocomplete="off"></label>
+      <label><span class="req">Languages spoken</span><small>and your English level</small><input id="langues" placeholder="e.g. native French, fluent English"></label>
       <div class="err" id="e-identite"></div>
-      <div class="actions"><button class="btn" type="submit">Continuer</button></div>
+      <div class="actions"><button class="btn" type="submit">Continue</button></div>
     </form>
   </section>
 
   <!-- 2. Frappe -->
   <section data-s="frappe">
-    <h1>Test de frappe</h1>
-    <p class="lead">Recopie le texte le plus vite et le plus exactement possible. Le chrono démarre à ta première touche. Le copier-coller est désactivé.</p>
+    <h1>Typing test</h1>
+    <p class="lead">Type the text as fast and as accurately as you can. The timer starts on your first keystroke. Copy and paste is disabled.</p>
     <div class="rules">
-      <div><strong id="r-wpm">40</strong><span>mots / minute</span></div>
-      <div><strong id="r-prec">90 %</strong><span>de précision</span></div>
-      <div><strong id="r-ess">3</strong><span>essais</span></div>
+      <div><strong id="r-wpm">40</strong><span>words / minute</span></div>
+      <div><strong id="r-prec">90%</strong><span>accuracy</span></div>
+      <div><strong id="r-ess">3</strong><span>attempts</span></div>
     </div>
     <div class="card" id="frappe-intro">
-      <p style="margin-top:0">Le texte est en anglais, dans le style d'une conversation avec un fan. Les majuscules et la ponctuation comptent.</p>
-      <div class="actions" style="margin-top:8px"><button class="btn" id="frappe-go">Afficher le texte</button></div>
+      <p style="margin-top:0">The text is written like a chat with a fan. Capital letters and punctuation count.</p>
+      <div class="actions" style="margin-top:8px"><button class="btn" id="frappe-go">Show the text</button></div>
     </div>
     <div id="frappe-test" hidden>
-      <canvas id="cv" aria-label="Texte à recopier"></canvas>
-      <div class="meter"><span>Temps <b id="m-t">0,0 s</b></span><span>Vitesse <b id="m-w">0</b> mots/min</span><span>Avancement <b id="m-p">0 %</b></span></div>
-      <textarea id="tape" spellcheck="false" autocomplete="off" autocorrect="off" autocapitalize="off" placeholder="Commence à taper ici…"></textarea>
-      <div class="actions"><button class="btn" id="frappe-fin" disabled>J'ai terminé</button></div>
+      <canvas id="cv" aria-label="Text to type"></canvas>
+      <div class="meter"><span>Time <b id="m-t">0.0 s</b></span><span>Speed <b id="m-w">0</b> wpm</span><span>Progress <b id="m-p">0%</b></span></div>
+      <textarea id="tape" spellcheck="false" autocomplete="off" autocorrect="off" autocapitalize="off" placeholder="Start typing here…"></textarea>
+      <div class="actions"><button class="btn" id="frappe-fin" disabled>I'm done</button></div>
     </div>
     <div class="card result" id="frappe-res" hidden>
-      <div class="big" id="res-wpm">0 <small>mots/min</small></div>
+      <div class="big" id="res-wpm">0 <small>wpm</small></div>
       <div style="color:var(--muted);margin-top:8px" id="res-det"></div>
       <span class="pill" id="res-pill"></span>
       <div class="actions" style="justify-content:center" id="res-act"></div>
@@ -204,65 +204,65 @@ button{font:600 15px var(--body);border:0;border-radius:10px;padding:13px 20px;c
 
   <!-- 3. Expérience -->
   <section data-s="experience">
-    <h1>As-tu déjà travaillé comme chatter ?</h1>
-    <p class="lead">Réponds honnêtement.</p>
+    <h1>Have you worked as a chatter before?</h1>
+    <p class="lead">Be honest.</p>
     <div class="choices">
-      <button class="choice" data-exp="experimente"><span class="ico">💼</span><span><b>Oui, j'ai de l'expérience</b><span>J'ai déjà chatté pour une agence ou en freelance</span></span></button>
-      <button class="choice" data-exp="debutant"><span class="ico">🌱</span><span><b>Non, je débute</b><span>Je n'ai jamais été chatter</span></span></button>
+      <button class="choice" data-exp="experimente"><span class="ico">💼</span><span><b>Yes, I have experience</b><span>I've chatted for an agency or as a freelancer</span></span></button>
+      <button class="choice" data-exp="debutant"><span class="ico">🌱</span><span><b>No, I'm a beginner</b><span>I've never worked as a chatter</span></span></button>
     </div>
     <div class="err" id="e-experience"></div>
   </section>
 
   <!-- 4. Agence -->
   <section data-s="agence">
-    <h1>Ton agence et tes chiffres</h1>
-    <p class="lead">Avec qui tu as travaillé et ce que tu as généré. On vérifie à l'étape des captures.</p>
+    <h1>Your agency and your numbers</h1>
+    <p class="lead">Who you worked with and what you generated. We check this in the screenshots step.</p>
     <form class="card stack" id="f-agence" novalidate>
-      <label><span class="req">Nom de l'agence</span><small>Écris « freelance » si tu travaillais seul</small><input id="agence-nom"></label>
+      <label><span class="req">Agency name</span><small>Write "freelance" if you worked on your own</small><input id="agence-nom"></label>
       <div class="row">
-        <label><span class="req">Combien de temps ?</span><input id="duree" placeholder="ex : 8 mois"></label>
-        <label><span class="req">Créatrices gérées</span><input id="creatrices" placeholder="ex : 3 (top 1 %)"></label>
+        <label><span class="req">How long?</span><input id="duree" placeholder="e.g. 8 months"></label>
+        <label><span class="req">Creators managed</span><input id="creatrices" placeholder="e.g. 3 (top 1%)"></label>
       </div>
       <div class="row">
-        <label><span class="req">CA moyen par shift</span><input id="ca_shift" placeholder="ex : 350 $"></label>
-        <label>CA sur ton meilleur mois<input id="ca_mois" placeholder="ex : 9 000 $"></label>
+        <label><span class="req">Average revenue per shift</span><input id="ca_shift" placeholder="e.g. $350"></label>
+        <label>Revenue in your best month<input id="ca_mois" placeholder="e.g. $9,000"></label>
       </div>
-      <label>Ton meilleur résultat <small>une vente, un PPV, un record…</small><textarea id="meilleur"></textarea></label>
-      <label>Pourquoi tu cherches une nouvelle agence ?<textarea id="depart"></textarea></label>
+      <label>Your best result <small>a sale, a PPV, a record…</small><textarea id="meilleur"></textarea></label>
+      <label>Why are you looking for a new agency?<textarea id="depart"></textarea></label>
       <div class="err" id="e-agence"></div>
-      <div class="actions"><button class="btn" type="submit">Continuer</button></div>
+      <div class="actions"><button class="btn" type="submit">Continue</button></div>
     </form>
   </section>
 
   <!-- 5. Shifts -->
   <section data-s="shifts">
-    <h1>Quels shifts t'intéressent ?</h1>
-    <p class="lead">Horaires en heure de Paris. Tu peux en choisir plusieurs.</p>
+    <h1>Which shifts do you want?</h1>
+    <p class="lead">Times are in Paris time. You can pick more than one.</p>
     <div class="choices" id="shift-list"></div>
     <div class="card stack" style="margin-top:14px">
-      <label>Combien de shifts par semaine ?
-        <select id="par_semaine"><option value="">Choisir</option><option>3</option><option>4</option><option>5</option><option>6</option><option>7</option></select>
+      <label>How many shifts per week?
+        <select id="par_semaine"><option value="">Choose</option><option>3</option><option>4</option><option>5</option><option>6</option><option>7</option></select>
       </label>
-      <label>Disponibilités ou contraintes <small>optionnel</small><input id="dispo" placeholder="ex : pas le dimanche"></label>
+      <label>Availability or constraints <small>optional</small><input id="dispo" placeholder="e.g. not on Sundays"></label>
     </div>
     <div class="err" id="e-shifts"></div>
-    <div class="actions"><button class="btn" id="shifts-ok">Continuer</button></div>
+    <div class="actions"><button class="btn" id="shifts-ok">Continue</button></div>
   </section>
 
   <!-- 6. Résultats -->
   <section data-s="resultats">
-    <h1>Montre-nous tes résultats</h1>
-    <p class="lead">Ajoute des captures d'écran : dashboard de ventes, statistiques, conversations qui ont converti. Cache les noms des fans si tu veux.</p>
+    <h1>Show us your results</h1>
+    <p class="lead">Add screenshots: sales dashboard, stats, chats that converted. Feel free to hide fan names.</p>
     <div class="card stack">
-      <label class="drop" id="drop" for="file"><b>Ajouter des captures</b>Touche ici ou glisse tes images (10 max)</label>
+      <label class="drop" id="drop" for="file"><b>Add screenshots</b>Tap here or drop your images (10 max)</label>
       <input type="file" id="file" accept="image/*" multiple hidden>
       <div class="thumbs" id="thumbs"></div>
-      <label>Un commentaire sur tes résultats ? <small>optionnel</small><textarea id="note"></textarea></label>
+      <label>Anything to add about your results? <small>optional</small><textarea id="note"></textarea></label>
     </div>
     <div class="err" id="e-resultats"></div>
     <div class="actions">
-      <button class="linkbtn" id="no-shots">Je n'ai pas de captures</button>
-      <button class="btn" id="send">Envoyer ma candidature</button>
+      <button class="linkbtn" id="no-shots">I don't have screenshots</button>
+      <button class="btn" id="send">Submit my application</button>
     </div>
   </section>
 
@@ -276,10 +276,10 @@ button{font:600 15px var(--body);border:0;border-radius:10px;padding:13px 20px;c
 const $ = s => document.querySelector(s);
 const $$ = s => [...document.querySelectorAll(s)];
 const ORDRE = ["identite","frappe","experience","agence","shifts","resultats"];
-const LABELS = {accueil:"Bienvenue",identite:"Étape 1 / 6 · Profil",frappe:"Étape 2 / 6 · Test de frappe",
-  experience:"Étape 3 / 6 · Expérience",agence:"Étape 4 / 6 · Agence",shifts:"Étape 5 / 6 · Shifts",
-  resultats:"Étape 6 / 6 · Résultats",termine:"Terminé"};
-let CFG = {wpm_min:40, precision_min:90, essais:3, shifts:[], max_fichiers:10, agence:"Aurivon"};
+const LABELS = {accueil:"Welcome",identite:"Step 1 / 6 · Profile",frappe:"Step 2 / 6 · Typing test",
+  experience:"Step 3 / 6 · Experience",agence:"Step 4 / 6 · Agency",shifts:"Step 5 / 6 · Shifts",
+  resultats:"Step 6 / 6 · Results",termine:"Done"};
+let CFG = {wpm_min:40, precision_min:90, essais:3, shifts:[], max_fichiers:10, agence:"Vexa"};
 let ME = null;
 let geo = {statut:"non_demande"};
 
@@ -290,8 +290,8 @@ const store = {
 
 async function api(path, body){
   const r = await fetch(path, body ? {method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(body)} : {});
-  const j = await r.json().catch(()=>({erreur:"Erreur réseau"}));
-  if(!r.ok) throw new Error(j.erreur || "Erreur");
+  const j = await r.json().catch(()=>({erreur:"Network error"}));
+  if(!r.ok) throw new Error(j.erreur || "Something went wrong");
   return j;
 }
 
@@ -316,15 +316,15 @@ async function etape(nom, data){
 
 /* ---------- mode admin (lien spécial : #admin-<clé>) ---------- */
 const ADMIN = location.hash.startsWith("#admin") ? (location.hash.slice(7) || "apercu") : null;
-const PAGES = [["accueil","Accueil"],["identite","Profil"],["frappe","Frappe"],["experience","Expérience"],["agence","Agence"],["shifts","Shifts"],["resultats","Résultats"],
-  ["termine:complet","Fin"],["termine:stop_debutant","Fin débutant"],["termine:stop_frappe","Fin frappe ratée"]];
+const PAGES = [["accueil","Welcome"],["identite","Profile"],["frappe","Typing"],["experience","Experience"],["agence","Agency"],["shifts","Shifts"],["resultats","Results"],
+  ["termine:complet","End"],["termine:stop_debutant","End: beginner"],["termine:stop_frappe","End: typing failed"]];
 let vue = "accueil";
 function renderAdminbar(etape){
   vue = etape === "termine" ? "termine:" + (ME && ME.statut) : etape;
-  const bar = $("#adminbar"); bar.hidden = false; bar.innerHTML = "<b>Mode admin</b>";
+  const bar = $("#adminbar"); bar.hidden = false; bar.innerHTML = "<b>Admin mode</b>";
   PAGES.forEach(([k, l]) => { const b = document.createElement("button"); b.textContent = l; b.className = k === vue ? "on" : ""; b.onclick = () => aller(k); bar.append(b) });
   const i = PAGES.findIndex(([k]) => k === vue);
-  if(i >= 0 && i < 6){ const s = document.createElement("button"); s.className = "skip"; s.textContent = "Passer cette étape →"; s.onclick = () => aller(PAGES[i + 1][0]); bar.append(s) }
+  if(i >= 0 && i < 6){ const s = document.createElement("button"); s.className = "skip"; s.textContent = "Skip this step →"; s.onclick = () => aller(PAGES[i + 1][0]); bar.append(s) }
 }
 async function aller(k){
   if(k === "accueil") return show("accueil");
@@ -338,9 +338,9 @@ async function aller(k){
 (async function init(){
   try{ CFG = await api("/api/config") }catch(e){}
   $$(".ag, #agence").forEach(e => e.textContent = CFG.agence);
-  document.title = "Candidature Chatter · " + CFG.agence;
-  $("#r-wpm").textContent = CFG.wpm_min; $("#r-prec").textContent = CFG.precision_min + " %";
-  $("#r-ess").textContent = CFG.essais; $("#acc-wpm").textContent = `Minimum ${CFG.wpm_min} mots par minute`;
+  document.title = CFG.agence + " Chatter Application";
+  $("#r-wpm").textContent = CFG.wpm_min; $("#r-prec").textContent = CFG.precision_min + "%";
+  $("#r-ess").textContent = CFG.essais; $("#acc-wpm").textContent = `At least ${CFG.wpm_min} words per minute`;
   const id = store.get();
   if(id){ try{ ME = await api("/api/moi?id=" + encodeURIComponent(id)); return show(ME.etape) }catch(e){} }
   if(ADMIN) renderAdminbar("accueil");
@@ -356,17 +356,17 @@ function alertErr(sel, e){ const el = document.createElement("div"); el.classNam
 
 /* ---------- 1. identité + géoloc ---------- */
 $("#geo-btn").onclick = () => {
-  if(!navigator.geolocation){ geo = {statut:"indisponible"}; $("#geo-help").hidden = false; return geoMsg("Localisation indisponible", "Ouvre ce lien dans Google Chrome pour pouvoir la partager.") }
-  $("#geo-btn").disabled = true; geoMsg("Recherche de ta position…", "Accepte la demande de ton navigateur.");
+  if(!navigator.geolocation){ geo = {statut:"indisponible"}; $("#geo-help").hidden = false; return geoMsg("Location unavailable", "Open this link in Google Chrome to share it.") }
+  $("#geo-btn").disabled = true; geoMsg("Finding your location…", "Accept your browser's request.");
   navigator.geolocation.getCurrentPosition(p => {
     $("#geo").classList.remove("bad"); $("#geo-help").hidden = true;
     geo = {statut:"partagee", lat:+p.coords.latitude.toFixed(5), lon:+p.coords.longitude.toFixed(5), precision:Math.round(p.coords.accuracy)};
     $("#geo").classList.add("ok"); $("#geo-btn").hidden = true;
-    geoMsg("✓ Localisation partagée", `Précision environ ${geo.precision < 1000 ? geo.precision + " m" : Math.round(geo.precision/1000) + " km"}.`);
+    geoMsg("✓ Location shared", `Accuracy about ${geo.precision < 1000 ? geo.precision + " m" : Math.round(geo.precision/1000) + " km"}.`);
   }, err => {
     geo = {statut: err.code === 1 ? "refusee" : "erreur"}; $("#geo-btn").disabled = false;
-    $("#geo").classList.add("bad"); $("#geo-help").hidden = false; $("#geo-btn").textContent = "📍 Réessayer";
-    geoMsg(err.code === 1 ? "Localisation bloquée" : "Position introuvable", "Elle est obligatoire pour continuer. Suis les étapes ci-dessous puis réessaie.");
+    $("#geo").classList.add("bad"); $("#geo-help").hidden = false; $("#geo-btn").textContent = "📍 Try again";
+    geoMsg(err.code === 1 ? "Location blocked" : "Location not found", "It's required to continue. Follow the steps below, then try again.");
   }, {enableHighAccuracy:false, timeout:15000, maximumAge:60000});
 };
 function geoMsg(t,s){ $("#geo-t").textContent = t; $("#geo-s").textContent = s }
@@ -374,9 +374,9 @@ function geoMsg(t,s){ $("#geo-t").textContent = t; $("#geo-s").textContent = s }
 $("#f-identite").onsubmit = async ev => {
   ev.preventDefault();
   const v = Object.fromEntries(["prenom","nom","age","pays","ville","contact","langues"].map(k => [k, $("#"+k).value.trim()]));
-  for(const k of ["prenom","nom","age","pays","ville","contact","langues"]) if(!v[k]){ $("#"+k).focus(); return $("#e-identite").textContent = "Remplis tous les champs obligatoires." }
-  if(geo.statut !== "partagee"){ $("#geo").classList.add("bad"); $("#geo").scrollIntoView({block:"center"}); return $("#e-identite").textContent = "Partage ta localisation pour continuer." }
-  if(!/^\d{2}$/.test(v.age) || +v.age < 16){ $("#age").focus(); return $("#e-identite").textContent = "Indique un âge valide." }
+  for(const k of ["prenom","nom","age","pays","ville","contact","langues"]) if(!v[k]){ $("#"+k).focus(); return $("#e-identite").textContent = "Fill in all required fields." }
+  if(geo.statut !== "partagee"){ $("#geo").classList.add("bad"); $("#geo").scrollIntoView({block:"center"}); return $("#e-identite").textContent = "Share your location to continue." }
+  if(!/^\d{2}$/.test(v.age) || +v.age < 16){ $("#age").focus(); return $("#e-identite").textContent = "Enter a valid age." }
   let fuseau = ""; try{ fuseau = Intl.DateTimeFormat().resolvedOptions().timeZone }catch(e){}
   try{ await etape("identite", {...v, geo, fuseau}); show(ME.etape) }catch(e){ $("#e-identite").textContent = e.message }
 };
@@ -391,7 +391,7 @@ async function startFrappe(){
   T = {...t, debut:0, colle:false, fini:false};
   $("#frappe-intro").hidden = true; $("#frappe-res").hidden = true; $("#frappe-test").hidden = false;
   $("#tape").value = ""; $("#tape").disabled = false; $("#frappe-fin").disabled = true;
-  ["#m-t","#m-w","#m-p"].forEach((s,i) => $(s).textContent = ["0,0 s","0","0 %"][i]);
+  ["#m-t","#m-w","#m-p"].forEach((s,i) => $(s).textContent = ["0.0 s","0","0%"][i]);
   layoutText(); draw(""); $("#tape").focus();
 }
 function layoutText(){
@@ -446,9 +446,9 @@ tape.addEventListener("input", () => {
 function tick(){
   if(!T.debut) return;
   const s = (performance.now() - T.debut) / 1000, v = tape.value;
-  $("#m-t").textContent = s.toFixed(1).replace(".", ",") + " s";
+  $("#m-t").textContent = s.toFixed(1) + " s";
   $("#m-w").textContent = s > 1 ? Math.round((v.length / 5) / (s / 60)) : 0;
-  $("#m-p").textContent = Math.min(100, Math.round(v.length / T.texte.length * 100)) + " %";
+  $("#m-p").textContent = Math.min(100, Math.round(v.length / T.texte.length * 100)) + "%";
 }
 $("#frappe-fin").onclick = finFrappe;
 
@@ -466,15 +466,15 @@ function showRes(r){
   const act = $("#res-act"); act.innerHTML = "";
   if(r.erreur){ $("#res-wpm").textContent = "—"; $("#res-det").textContent = r.erreur; return }
   const x = r.resultat;
-  $("#res-wpm").innerHTML = `${Math.round(x.wpm)} <small>mots/min</small>`;
-  $("#res-det").textContent = `Précision ${String(x.precision).replace(".", ",")} % · ${String(x.secondes).replace(".", ",")} s`;
+  $("#res-wpm").innerHTML = `${Math.round(x.wpm)} <small>wpm</small>`;
+  $("#res-det").textContent = `Accuracy ${x.precision}% · ${x.secondes} s`;
   const pill = $("#res-pill");
   pill.className = "pill " + (x.reussi ? "ok" : "no");
-  pill.textContent = x.reussi ? "Test validé" : `Objectif : ${CFG.wpm_min} mots/min et ${CFG.precision_min} % de précision`;
+  pill.textContent = x.reussi ? "Test passed" : `Target: ${CFG.wpm_min} wpm and ${CFG.precision_min}% accuracy`;
   const b = document.createElement("button"); b.className = "btn";
-  if(r.avance){ b.textContent = "Étape suivante"; b.onclick = () => show(ME.etape) }
-  else if(r.stop){ b.textContent = "Continuer"; b.onclick = () => show("termine") }
-  else { b.textContent = `Réessayer (${r.reste} essai${r.reste > 1 ? "s" : ""} restant${r.reste > 1 ? "s" : ""})`; b.onclick = startFrappe }
+  if(r.avance){ b.textContent = "Next step"; b.onclick = () => show(ME.etape) }
+  else if(r.stop){ b.textContent = "Continue"; b.onclick = () => show("termine") }
+  else { b.textContent = `Try again (${r.reste} attempt${r.reste > 1 ? "s" : ""} left)`; b.onclick = startFrappe }
   act.append(b);
 }
 
@@ -490,7 +490,7 @@ $("#f-agence").onsubmit = async ev => {
   ev.preventDefault();
   const m = {agence:"agence-nom", duree:"duree", creatrices:"creatrices", ca_shift:"ca_shift", ca_mois:"ca_mois", meilleur:"meilleur", depart:"depart"};
   const v = Object.fromEntries(Object.entries(m).map(([k,id]) => [k, $("#"+id).value.trim()]));
-  for(const k of ["agence","duree","creatrices","ca_shift"]) if(!v[k]){ $("#"+m[k]).focus(); return $("#e-agence").textContent = "Remplis tous les champs obligatoires." }
+  for(const k of ["agence","duree","creatrices","ca_shift"]) if(!v[k]){ $("#"+m[k]).focus(); return $("#e-agence").textContent = "Fill in all required fields." }
   try{ await etape("agence", v); show(ME.etape) }catch(e){ $("#e-agence").textContent = e.message }
 };
 
@@ -508,7 +508,7 @@ function renderShifts(){
   });
 }
 $("#shifts-ok").onclick = async () => {
-  if(!choixShifts.size) return $("#e-shifts").textContent = "Choisis au moins un shift.";
+  if(!choixShifts.size) return $("#e-shifts").textContent = "Pick at least one shift.";
   try{ await etape("shifts", {shifts:[...choixShifts], par_semaine:$("#par_semaine").value, dispo:$("#dispo").value.trim()}); show(ME.etape) }
   catch(e){ $("#e-shifts").textContent = e.message }
 };
@@ -519,12 +519,12 @@ function renderThumbs(){
   const box = $("#thumbs"); box.innerHTML = "";
   (ME.fichiers || []).forEach(nom => {
     const f = document.createElement("figure");
-    f.innerHTML = `<div class="load" style="height:100%">✓ Capture<br>${nom.slice(0,2)}</div><button type="button" aria-label="Retirer">✕</button>`;
+    f.innerHTML = `<div class="load" style="height:100%">✓ Screenshot<br>${nom.slice(0,2)}</div><button type="button" aria-label="Remove">✕</button>`;
     const prev = previews.get(nom); if(prev){ f.firstChild.replaceWith(Object.assign(new Image(), {src:prev, alt:""})) }
     f.querySelector("button").onclick = async () => { try{ ME = {...ME, ...(await api("/api/fichier/supprimer", {id:ME.id, nom}))}; renderThumbs() }catch(e){} };
     box.append(f);
   });
-  enCours.forEach(() => { const f = document.createElement("figure"); f.innerHTML = `<div class="load" style="height:100%">Envoi…</div>`; box.append(f) });
+  enCours.forEach(() => { const f = document.createElement("figure"); f.innerHTML = `<div class="load" style="height:100%">Uploading…</div>`; box.append(f) });
 }
 const previews = new Map();
 function compresser(file){
@@ -536,7 +536,7 @@ function compresser(file){
       c.getContext("2d").drawImage(img, 0, 0, c.width, c.height); URL.revokeObjectURL(url);
       ok(c.toDataURL("image/jpeg", .85));
     };
-    img.onerror = () => ko(new Error("Image illisible : " + file.name));
+    img.onerror = () => ko(new Error("Can't read this image: " + file.name));
     img.src = url;
   });
 }
@@ -544,7 +544,7 @@ async function ajouter(files){
   $("#e-resultats").textContent = "";
   for(const file of [...files]){
     if(!file.type.startsWith("image/")) continue;
-    if((ME.fichiers || []).length + enCours.size >= CFG.max_fichiers){ $("#e-resultats").textContent = `${CFG.max_fichiers} captures maximum.`; break }
+    if((ME.fichiers || []).length + enCours.size >= CFG.max_fichiers){ $("#e-resultats").textContent = `${CFG.max_fichiers} screenshots maximum.`; break }
     const tok = Symbol(); enCours.add(tok); renderThumbs();
     try{
       const data = await compresser(file);
@@ -562,21 +562,21 @@ drop.addEventListener("dragleave", () => drop.classList.remove("over"));
 drop.addEventListener("drop", e => { e.preventDefault(); drop.classList.remove("over"); ajouter(e.dataTransfer.files) });
 
 async function envoyer(){
-  if(enCours.size) return $("#e-resultats").textContent = "Attends la fin de l'envoi des captures.";
+  if(enCours.size) return $("#e-resultats").textContent = "Wait until your screenshots finish uploading.";
   try{ await etape("resultats", {note:$("#note").value.trim()}); show("termine") }
   catch(e){ $("#e-resultats").textContent = e.message }
 }
-$("#send").onclick = () => (ME.fichiers || []).length ? envoyer() : ($("#e-resultats").textContent = "Ajoute au moins une capture, ou clique sur « Je n'ai pas de captures ».");
+$("#send").onclick = () => (ME.fichiers || []).length ? envoyer() : ($("#e-resultats").textContent = "Add at least one screenshot, or click \"I don't have screenshots\".");
 $("#no-shots").onclick = envoyer;
 
 /* ---------- fin ---------- */
 function renderEnd(){
-  const e = $("#end"), p = ME.prenom ? " " + ME.prenom : "";
+  const e = $("#end"), p = ME.prenom ? ", " + ME.prenom : "";
   const msg = {
-    complet:["🎉", `Merci${p}, ta candidature est envoyée`, "L'équipe étudie ton profil et te recontacte sur le contact que tu as donné."],
-    stop_debutant:["🌱", `Merci${p} pour ton intérêt`, `Pour le moment, ${CFG.agence} recrute uniquement des chatters qui ont déjà de l'expérience. Reviens vers nous quand ce sera ton cas.`],
-    stop_frappe:["⌨️", `Merci${p} pour ton temps`, `Le poste demande au moins ${CFG.wpm_min} mots par minute. Entraîne-toi et repostule dans quelques semaines.`],
-  }[ME.statut] || ["✓", "Candidature enregistrée", ""];
+    complet:["🎉", `Thanks${p}, your application is in`, "The team will review your profile and reach out to you on Discord."],
+    stop_debutant:["🌱", `Thanks for your interest${p}`, `Right now, ${CFG.agence} is only hiring chatters with experience. Come back to us once you have some.`],
+    stop_frappe:["⌨️", `Thanks for your time${p}`, `This role needs at least ${CFG.wpm_min} words per minute. Keep practicing and apply again in a few weeks.`],
+  }[ME.statut] || ["✓", "Application saved", ""];
   e.innerHTML = `<div class="ico"></div><h1></h1><p class="lead" style="margin:0"></p>`;
   e.querySelector(".ico").textContent = msg[0]; e.querySelector("h1").textContent = msg[1]; e.querySelector("p").textContent = msg[2];
 }

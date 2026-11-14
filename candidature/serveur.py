@@ -34,7 +34,7 @@ DB = DONNEES / "candidats.db"
 PORT = int(os.environ.get("PORT", 8790))
 
 # ---------------------------------------------------------------- réglages
-NOM_AGENCE = os.environ.get("NOM_AGENCE", "Aurivon")
+NOM_AGENCE = os.environ.get("NOM_AGENCE", "Vexa")
 WPM_MIN = int(os.environ.get("WPM_MIN", 40))          # mots / minute minimum
 PRECISION_MIN = int(os.environ.get("PRECISION_MIN", 90))
 ESSAIS_FRAPPE = 3
@@ -142,17 +142,17 @@ def nettoyer(d, cles, n=600):
 def enregistrer_etape(c, etape, d):
     """Valide et enregistre une étape. Renvoie (ok, message_erreur)."""
     if c["statut"] != "en_cours":
-        return False, "Ta candidature est déjà terminée."
+        return False, "Your application is already finished."
     if etape != c["etape"]:
-        return False, "Étape inattendue, recharge la page."
+        return False, "Unexpected step, please reload the page."
 
     if etape == "identite":
         v = nettoyer(d, ["prenom", "nom", "age", "pays", "ville", "contact", "langues"])
         if not all(v.values()):
-            return False, "Remplis tous les champs obligatoires."
+            return False, "Fill in all required fields."
         geo = d.get("geo") or {}
         if not (isinstance(geo, dict) and geo.get("statut") == "partagee" and geo.get("lat") is not None):
-            return False, "Partage ta localisation pour continuer."
+            return False, "Share your location to continue."
         v["geo"] = {k: geo.get(k) for k in ("lat", "lon", "precision", "statut")} if isinstance(geo, dict) else {}
         v["fuseau"] = str(d.get("fuseau", ""))[:60]
         c["data"]["identite"] = v
@@ -160,7 +160,7 @@ def enregistrer_etape(c, etape, d):
     elif etape == "frappe":
         f = c["data"].setdefault("frappe", {"essais": []})
         if len(f["essais"]) >= ESSAIS_FRAPPE:
-            return False, "Tu as utilisé tous tes essais."
+            return False, "You've used all your attempts."
         idx = int(d.get("texte", 0)) % len(TEXTES_FRAPPE)
         res = noter_frappe(TEXTES_FRAPPE[idx], str(d.get("tape", ""))[:3000], d.get("secondes", 1))
         res["colle"] = bool(d.get("colle"))
@@ -182,7 +182,7 @@ def enregistrer_etape(c, etape, d):
     elif etape == "experience":
         exp = d.get("experience")
         if exp not in ("debutant", "experimente"):
-            return False, "Choisis une réponse."
+            return False, "Pick an answer."
         c["data"]["experience"] = exp
         if exp == "debutant":
             c["statut"], c["etape"] = "stop_debutant", "termine"
@@ -192,14 +192,14 @@ def enregistrer_etape(c, etape, d):
     elif etape == "agence":
         v = nettoyer(d, ["agence", "duree", "creatrices", "ca_shift", "ca_mois", "meilleur", "depart"])
         if not all(v[k] for k in ("agence", "duree", "creatrices", "ca_shift")):
-            return False, "Remplis tous les champs obligatoires."
+            return False, "Fill in all required fields."
         c["data"]["agence"] = v
 
     elif etape == "shifts":
         ids = {s["id"] for s in SHIFTS}
         choix = [s for s in d.get("shifts", []) if s in ids]
         if not choix:
-            return False, "Choisis au moins un shift."
+            return False, "Pick at least one shift."
         c["data"]["shifts"] = choix
         c["data"]["shifts_semaine"] = str(d.get("par_semaine", ""))[:10]
         c["data"]["dispo"] = str(d.get("dispo", ""))[:200]
@@ -305,7 +305,7 @@ class H(BaseHTTPRequestHandler):
         p = u.path
         d = self._json()
         if d is None:
-            return self._send(400, {"erreur": "requête invalide"})
+            return self._send(400, {"erreur": "Invalid request"})
 
         if p == "/api/start":
             c = {"id": str(uuid.uuid4()), "etape": "identite", "statut": "en_cours", "data": {},
@@ -316,7 +316,7 @@ class H(BaseHTTPRequestHandler):
         if p == "/api/etape":
             c = lire(str(d.get("id", "")))
             if not c:
-                return self._send(404, {"erreur": "Candidature introuvable, recharge la page."})
+                return self._send(404, {"erreur": "Application not found, please reload the page."})
             ok, info = enregistrer_etape(c, str(d.get("etape", "")), d.get("data") or {})
             if not ok:
                 return self._send(400, {"erreur": info})
@@ -325,16 +325,16 @@ class H(BaseHTTPRequestHandler):
         if p == "/api/fichier":
             c = lire(str(d.get("id", "")))
             if not c or c["etape"] != "resultats" or c["statut"] != "en_cours":
-                return self._send(400, {"erreur": "Envoi impossible pour le moment."})
+                return self._send(400, {"erreur": "Upload isn't available right now."})
             fichiers = c["data"].setdefault("fichiers", [])
             if len(fichiers) >= MAX_FICHIERS:
-                return self._send(400, {"erreur": f"{MAX_FICHIERS} captures maximum."})
+                return self._send(400, {"erreur": f"{MAX_FICHIERS} screenshots maximum."})
             m = re.match(r"data:image/(png|jpeg);base64,(.+)", str(d.get("data", "")), re.S)
             if not m:
-                return self._send(400, {"erreur": "Format d'image non reconnu."})
+                return self._send(400, {"erreur": "Image format not recognized."})
             brut = base64.b64decode(m.group(2))
             if len(brut) > MAX_OCTETS:
-                return self._send(400, {"erreur": "Image trop lourde."})
+                return self._send(400, {"erreur": "Image is too large."})
             dossier = FICHIERS / c["id"]
             dossier.mkdir(parents=True, exist_ok=True)
             nom = f"{len(fichiers) + 1:02d}_{secrets.token_hex(3)}.{'png' if m.group(1) == 'png' else 'jpg'}"
@@ -351,7 +351,7 @@ class H(BaseHTTPRequestHandler):
                 (FICHIERS / c["id"] / nom).unlink(missing_ok=True)
                 ecrire(c)
                 return self._send(200, public(c))
-            return self._send(400, {"erreur": "Impossible."})
+            return self._send(400, {"erreur": "Not possible."})
 
         if p == "/api/admin/aller":  # mode admin : aller sur n'importe quelle page
             if not self._admin_ok(q):
@@ -359,7 +359,7 @@ class H(BaseHTTPRequestHandler):
             c = lire(str(d.get("id", "")))
             etape = str(d.get("etape", ""))
             if not c or etape not in ORDRE:
-                return self._send(400, {"erreur": "Étape inconnue."})
+                return self._send(400, {"erreur": "Unknown step."})
             c["etape"] = etape
             c["statut"] = str(d.get("statut") or "en_cours") if etape == "termine" else "en_cours"
             c["data"]["test"] = True

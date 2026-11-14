@@ -1,11 +1,13 @@
-# Site de candidature chatters
+# Site de candidature chatters Vexa
 
 Un lien que tu envoies au candidat. Une page par étape, il ne passe à la suivante que si l'étape est validée.
 Toi, tu as une page **rapport** avec tous les dossiers.
 
 ## Le parcours du candidat
 
-1. **Profil** : prénom, nom, âge, pays, ville, puis le bouton **« Partager ma localisation »** (position GPS du téléphone ou de l'ordi), contact Telegram/WhatsApp/Discord, langues.
+Le site candidat est en anglais. Ton rapport reste en français.
+
+1. **Profil** : prénom, nom, âge, pays, ville, **partage de localisation obligatoire**, pseudo Discord, langues.
 2. **Test de frappe** : un texte en anglais s'affiche (impossible à copier), il le recopie. Le chrono part à la première touche, les lettres deviennent vertes ou rouges en direct. Il faut **40 mots/min** et **90 % de précision**. 3 essais ; s'il rate les 3, la candidature s'arrête.
 3. **Expérience** : s'il répond **débutant, on arrête** (message poli).
 4. **Agence** : nom, durée, créatrices gérées, CA moyen par shift, meilleur mois, meilleur résultat, pourquoi il part.
@@ -21,6 +23,10 @@ S'il ferme la page, il reprend là où il s'était arrêté en rouvrant le lien 
 - Chaque dossier : profil, **lieu déclaré vs position GPS réelle** (lien carte + ville trouvée automatiquement), fuseau horaire et IP, scores de frappe avec alertes (vitesse anormale, tentative de collage), agence et chiffres, shifts, captures (clic pour agrandir).
 - Boutons **Retenu / À revoir / Refusé** + note interne.
 - **Exporter (CSV)** pour Excel / Numbers.
+
+## Mode admin
+
+Le lien `/#admin-<ta clé>` (affiché au lancement) ouvre la page candidat avec un bandeau pour aller sur n'importe quelle étape et passer le test de frappe.
 
 ## Lancer
 
