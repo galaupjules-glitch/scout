@@ -43,9 +43,9 @@ MAX_FICHIERS = 10
 MAX_OCTETS = 8 * 1024 * 1024
 
 SHIFTS = [
-    {"id": "matin", "nom": "Matin", "heures": "06h – 14h"},
-    {"id": "aprem", "nom": "Après-midi", "heures": "14h – 22h"},
-    {"id": "nuit", "nom": "Nuit", "heures": "22h – 06h"},
+    {"id": "matin", "nom": "Morning", "heures": "06:00 – 14:00"},
+    {"id": "aprem", "nom": "Afternoon", "heures": "14:00 – 22:00"},
+    {"id": "nuit", "nom": "Night", "heures": "22:00 – 06:00"},
 ]
 
 TEXTES_FRAPPE = [
