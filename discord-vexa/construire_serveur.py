@@ -132,7 +132,7 @@ def main():
         "**1.** Be professional and respectful with everyone in the team.",
         "**2.** Everything you see here is confidential. Never share content, screenshots or fan information outside Vexa.",
         "**3.** Show up on time for your shifts. If you can't make it, warn management at least 24 hours before.",
-        "**4.** Never ask fans for personal information and never move a conversation off the platform.",
+        "**4.** Be online **15 minutes before your shift** for the handover with the previous chatter.",
         "**5.** Follow the scripts and pricing from training. Ask before improvising on prices.",
         "**6.** One account per person. Never share your logins.",
         "**7.** Breaking these rules means removal from the team."])))
