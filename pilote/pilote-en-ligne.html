@@ -70,6 +70,17 @@ th,td{text-align:left;padding:8px;border-bottom:1px solid var(--line);vertical-a
 th{font:600 11px/1.2 var(--f-mono);letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
 td.n{font-family:var(--f-mono);font-variant-numeric:tabular-nums;white-space:nowrap}
 .tag{display:inline-block;font:600 11px/1.6 var(--f-mono);padding:0 7px;border-radius:5px;background:var(--surface2);color:var(--muted)}
+.pday{display:grid;grid-template-columns:110px minmax(0,1fr);gap:12px;padding:12px 0;border-bottom:1px solid var(--line)}
+.pday h3{margin:0;font:600 13px/1.3 var(--f-mono);text-transform:capitalize}
+.pday h3 small{display:block;color:var(--muted);font-weight:400}
+.pcards{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:10px}
+.pcard{border:1px solid var(--line);border-radius:10px;padding:10px 12px;background:var(--surface);display:grid;gap:4px;min-width:0}
+.pcard .hd{display:flex;gap:8px;align-items:center;justify-content:space-between}
+.pcard .rank{font:700 12px var(--f-mono);color:var(--onair)}
+.pcard .big{font:700 20px var(--f-display);font-variant-numeric:tabular-nums}
+.star{border:1px solid var(--line);background:var(--surface2);border-radius:7px;padding:3px 8px;cursor:pointer;font-size:12px}
+.star[aria-pressed="true"]{background:var(--onair);color:#1d1100;border-color:var(--onair)}
+@media(max-width:600px){.pday{grid-template-columns:minmax(0,1fr)}#clock{display:none}}
 .tag.new{color:var(--good)}.tag.rc{color:var(--onair)}.tag.err{color:var(--bad)}
 .heat{display:grid;grid-template-columns:38px repeat(24,minmax(22px,1fr));gap:2px;font:10px/1 var(--f-mono);min-width:640px}
 .heat div{height:26px;border-radius:4px;display:grid;place-items:center;font-variant-numeric:tabular-nums}
@@ -113,6 +124,7 @@ section[hidden]{display:none!important}
   <div class="brand"><span class="dot" aria-hidden="true"></span>Pilote</div>
   <nav class="tabs" role="tablist">
     <button role="tab" id="t-ana" aria-selected="true" data-v="ana">Super analyse</button>
+    <button role="tab" id="t-pep" aria-selected="false" data-v="pep">Pépites</button>
     <button role="tab" id="t-plan" aria-selected="false" data-v="plan">Planning</button>
     <button role="tab" id="t-lib" aria-selected="false" data-v="lib">Vidéos Drive</button>
     <button role="tab" id="t-set" aria-selected="false" data-v="set">Réglages</button>
@@ -134,6 +146,20 @@ section[hidden]{display:none!important}
     <span class="mut" id="aStatus" style="align-self:flex-end"></span>
   </div>
   <div id="anaBody"></div>
+</section>
+
+<!-- ================= PEPITES ================= -->
+<section id="v-pep" hidden>
+  <h1>Pépites du jour</h1>
+  <p class="lede">Chaque jour, Pilote met de côté automatiquement les <b>2 meilleures vidéos</b> de chaque compte (jour compté en heure de New York). Les chiffres des 7 derniers jours se mettent à jour à chaque ouverture, car les vues continuent de monter.</p>
+  <div class="panel row" style="margin-bottom:14px">
+    <label class="f" style="flex:1 1 200px"><span>Compte</span><select id="pepAcc"><option value="">Tous les comptes</option></select></label>
+    <label class="check" style="align-self:flex-end"><input type="checkbox" id="pepStar"> Seulement les « à refaire »</label>
+    <button class="btn ghost" id="pepGo" style="align-self:flex-end">Mettre à jour maintenant</button>
+    <span class="mut" id="pepStatus" style="align-self:flex-end"></span>
+  </div>
+  <div id="pepSummary"></div>
+  <div id="pepList" style="margin-top:14px"></div>
 </section>
 
 <!-- ================= PLANNING ================= -->
@@ -221,6 +247,7 @@ const DAYKEYS={lundi:0,mardi:1,mercredi:2,jeudi:3,vendredi:4,samedi:5,dimanche:6
 const MONTHS={jan:0,feb:1,mar:2,apr:3,may:4,jun:5,jul:6,aug:7,sep:8,oct:9,nov:10,dec:11};
 const US_PRIOR=[.35,.25,.15,.1,.1,.15,.35,.55,.65,.6,.55,.6,.75,.7,.6,.6,.65,.75,.85,.95,1,.95,.8,.55];
 const DEFAULTS={accounts:[],folder:"",order:"oldest",tz:"America/New_York",gap:2,w0:7,w1:23,jitter:12,manual:[19,21,23],captions:"",hashtags:"",recycle:true,recycleDays:21,perDay:3,horizon:7,mode:"auto",dist:"split"};
+let RAW={}, PEP=[], PEP_LOCAL=[];
 let CFG={...DEFAULTS}, ACCS=[], POSTS=[], VIDEOS=null, ANA={}, PLAN=null, MCP=null, DB=null, EXAMPLE=false;
 const P="Publer", G="Google Drive";
 
@@ -239,6 +266,7 @@ function parseWhen(s,endYear,endMonth){const m=/(\w{3}) (\d{1,2}) at (\d{1,2}):(
 $$(".tabs button").forEach(b=>b.onclick=()=>show(b.dataset.v));
 function show(v){$$(".tabs button").forEach(b=>b.setAttribute("aria-selected",b.dataset.v===v));$$("main section").forEach(s=>s.hidden=s.id!=="v-"+v);
   try{localStorage.setItem("pilote.tab",v)}catch(e){}
+  if(v==="pep")renderPep();
   if(v==="plan")renderCalendar(); if(v==="lib")loadLib(); if(v==="set")fillSettings();}
 setInterval(()=>{$("#clock").textContent=inTz(new Date(),{hour:"2-digit",minute:"2-digit"})+" "+tzS()+" · "+loc(new Date(),{hour:"2-digit",minute:"2-digit"})+" chez toi"},1000);
 function errText(e,server){const c=e&&e.code;
@@ -274,7 +302,7 @@ async function fetchInsights(acc,days){
   return {posts:all,best,off:off??1}}
 async function runAnalysis(acc,days){
   if(!acc)return;$("#aGo").disabled=true;
-  try{const raw=EXAMPLE?exampleData():await fetchInsights(acc,days);ANA[acc]=analyse(raw,acc);
+  try{const raw=EXAMPLE?exampleData():await fetchInsights(acc,days);RAW[acc]={at:Date.now(),raw};ANA[acc]=analyse(raw,acc);
     try{localStorage.setItem("pilote.ana."+acc,JSON.stringify({at:Date.now(),days,raw:{...raw,posts:raw.posts.map(p=>({...p,date:+p.date}))}}))}catch(e){}
     $("#aStatus").textContent=`${raw.posts.length} vidéos analysées · ${loc(new Date(),{dateStyle:"short",timeStyle:"short"})}`;renderAnalysis(ANA[acc])}
   catch(e){$("#aStatus").textContent="";$("#anaBody").innerHTML=`<div class="note bad">${esc(errText(e,P))}</div>`}
@@ -481,6 +509,69 @@ function renderCalendar(){
     const lab=new Date(k+"T12:00:00Z").toLocaleDateString("fr-FR",{weekday:"long",day:"2-digit",month:"2-digit",timeZone:"UTC"});
     return `<div class="day"><h3>${lab} · ${ps.length}</h3>${ps.map(p=>`<div class="slot ${+new Date(p.at)<Date.now()?"done":""}"><b>${inTz(p.at,{hour:"2-digit",minute:"2-digit"})}</b> ${esc(p.account)}<div class="fn">${p.recycled?"♻ ":""}${esc(p.file_name)}</div></div>`).join("")||'<span class="hint">Rien</span>'}</div>`}).join("")}
 
+/* ---------- PEPITES ---------- */
+function dayTops(raw,acc){
+  const now=Date.now(), today=zparts(new Date(),CFG.tz).key;
+  const posts=raw.posts.map(p=>({...p,date:new Date(p.date)})).filter(p=>+p.date<=now).map(p=>({...p,m:p.views||p.reach}));
+  const med=median(posts.map(p=>p.m))||1, by={};
+  posts.forEach(p=>{const z=zparts(p.date,CFG.tz);(by[z.key]=by[z.key]||[]).push({...p,h:z.h})});
+  const out=[];
+  for(const [day,ps] of Object.entries(by)){
+    if(day===today)continue; // la journée n'est pas finie
+    const top=ps.sort((a,b)=>b.m-a.m).slice(0,2).map(p=>{
+      const s=POSTS.find(x=>x.account_id===acc&&Math.abs(new Date(x.at)-p.date)<=5*60e3);
+      return {at:p.date.toISOString(),hour:p.h,views:p.views,reach:p.reach,likes:p.likes,comments:p.comments,shares:p.shares,saves:p.saves,er:p.er,
+        index:Math.round(100*p.m/med)/100,url:p.url||"",caption:(p.caption||"").slice(0,200),file:s?s.file_name:"",file_id:s?s.file_id:""}});
+    out.push({day,acc,count:ps.length,top})}
+  return out}
+async function autoPepites(force){
+  const accs=ACCS.filter(a=>CFG.accounts.includes(a.id));if(!accs.length)return;
+  $("#pepStatus").textContent="Mise à jour des pépites…";let n=0;
+  for(const a of accs){
+    try{
+      let r=RAW[a.id];
+      if(!r||force||Date.now()-r.at>6*3600e3){r={at:Date.now(),raw:EXAMPLE?exampleData():await fetchInsights(a.id,30)};RAW[a.id]=r}
+      const days=dayTops(r.raw,a.id);const recent=new Date(Date.now()-8*864e5).toISOString().slice(0,10);
+      for(const d of days){
+        const id=`${a.id}_${d.day}`;const old=PEP.find(x=>x.id===id);
+        const row={day:d.day,account_id:a.id,account:a.name,provider:a.provider,count:d.count,top:d.top,stars:old?.stars||[false,false],updated:new Date().toISOString()};
+        if(EXAMPLE||!DB){const i=PEP_LOCAL.findIndex(x=>x.id===id);if(i>=0)PEP_LOCAL[i]={id,...row};else PEP_LOCAL.push({id,...row});continue}
+        if(old&&d.day<recent)continue; // jour ancien déjà archivé : on n'y touche plus
+        await DB.collection("pepites").doc(id).set(row);n++}
+    }catch(e){$("#pepStatus").innerHTML=`<span class="down">${esc(errText(e,P))}</span>`;return}}
+  if(DB&&!EXAMPLE){try{await DB.doc("meta/pepites").set({lastRun:new Date().toISOString()})}catch(e){}}
+  $("#pepStatus").textContent=`À jour · ${loc(new Date(),{dateStyle:"short",timeStyle:"short"})}`;renderPep()}
+$("#pepGo").onclick=()=>autoPepites(true);
+$("#pepAcc").onchange=renderPep;$("#pepStar").onchange=renderPep;
+function pepRows(){return (EXAMPLE||!DB?PEP_LOCAL:PEP).filter(r=>!$("#pepAcc").value||r.account_id===$("#pepAcc").value)}
+function renderPep(){
+  const rows=pepRows().sort((a,b)=>b.day.localeCompare(a.day)||a.account.localeCompare(b.account));
+  const onlyStar=$("#pepStar").checked;
+  const items=rows.flatMap(r=>r.top.map((t,i)=>({...t,r,i,star:!!(r.stars||[])[i]}))).filter(t=>!onlyStar||t.star);
+  if(!items.length){$("#pepSummary").innerHTML="";$("#pepList").innerHTML=`<div class="note">${onlyStar?"Aucune pépite marquée « à refaire » pour l'instant.":"Les pépites apparaissent ici après la première mise à jour (quelques secondes après l'ouverture)."}</div>`;return}
+  // points communs des pépites
+  const hours={};items.forEach(t=>hours[t.hour]=(hours[t.hour]||0)+1);const topH=Object.entries(hours).sort((a,b)=>b[1]-a[1]).slice(0,3);
+  const wd={};items.forEach(t=>{const d=zparts(new Date(t.at),CFG.tz).wd;wd[d]=(wd[d]||0)+1});const topD=Object.entries(wd).sort((a,b)=>b[1]-a[1])[0];
+  const share=avg(items.map(t=>t.views?t.shares/t.views*1000:0)), saves=avg(items.map(t=>t.views?t.saves/t.views*1000:0));
+  $("#pepSummary").innerHTML=`<div class="grid c4">
+    <div class="panel kpi"><div class="l">Pépites gardées</div><div class="v">${items.length}</div><div class="d">sur ${rows.length} jours</div></div>
+    <div class="panel kpi"><div class="l">Vues médianes d'une pépite</div><div class="v">${fmt(median(items.map(t=>t.views||t.reach)))}</div><div class="d">${x2(median(items.map(t=>t.index)))} la médiane du compte</div></div>
+    <div class="panel kpi"><div class="l">Heures qui reviennent</div><div class="v">${topH.map(([h])=>h+"h").join(" · ")}</div><div class="d">${tzS()} · ${topH.map(([,c])=>c).join(" / ")} pépites</div></div>
+    <div class="panel kpi"><div class="l">Partages / 1 000 vues</div><div class="v">${share.toFixed(1).replace(".",",")}</div><div class="d">${saves.toFixed(1).replace(".",",")} enreg. / 1 000 · meilleur jour : ${topD?JOURS_L[topD[0]]:"—"}</div></div>
+  </div>`;
+  const byDay={};items.forEach(t=>(byDay[t.r.day]=byDay[t.r.day]||[]).push(t));
+  $("#pepList").innerHTML=`<div class="panel">${Object.entries(byDay).map(([day,ts])=>{const d=new Date(day+"T12:00:00Z");
+    return `<div class="pday"><h3>${d.toLocaleDateString("fr-FR",{weekday:"long",timeZone:"UTC"})}<small>${d.toLocaleDateString("fr-FR",{day:"2-digit",month:"long",timeZone:"UTC"})}</small></h3><div class="pcards">${ts.map(t=>`
+      <div class="pcard"><div class="hd"><span class="rank">N°${t.i+1} · ${esc(t.r.account)}</span><button class="star" id="star-${esc(t.r.id)}-${t.i}" data-id="${esc(t.r.id)}" data-i="${t.i}" aria-pressed="${t.star}">${t.star?"★ À refaire":"☆ À refaire"}</button></div>
+      <div class="big">${fmt(t.views||t.reach)} vues <span class="${t.index>=1?"up":"down"}" style="font-size:14px">${x2(t.index)}</span></div>
+      <div class="m mut" style="font-size:12px">${inTz(t.at,{hour:"2-digit",minute:"2-digit"})} ${tzS()} · ${fmt(t.likes)} j'aime · ${fmt(t.shares)} partages · ${fmt(t.saves)} enreg.</div>
+      ${t.file?`<div><span class="tag">${esc(t.file)}</span></div>`:""}${t.caption?`<div style="font-size:12px">${esc(t.caption.slice(0,90))}</div>`:""}
+      ${t.url?`<a href="${esc(t.url)}" target="_blank" rel="noopener">Voir la vidéo</a>`:""}</div>`).join("")}</div></div>`}).join("")}</div>`;
+  $$(".star").forEach(b=>b.onclick=async()=>{const row=pepRows().find(r=>r.id===b.dataset.id);if(!row)return;
+    const stars=[...(row.stars||[false,false])];stars[+b.dataset.i]=!stars[+b.dataset.i];
+    if(EXAMPLE||!DB){row.stars=stars;renderPep();return}
+    try{await DB.collection("pepites").doc(row.id).update({stars})}catch(e){$("#pepStatus").innerHTML=`<span class="down">Pas enregistré : ${esc(e.message||e.code)}</span>`}})}
+
 /* ---------- stockage partagé ---------- */
 async function recordPost(p){const row={account_id:p.account_id,account:p.account,file_id:p.file_id,file_name:p.file_name,at:p.at,status:p.status,recycled:!!p.recycled,caption:p.caption||"",created:new Date().toISOString(),example:EXAMPLE};
   if(DB&&!EXAMPLE){await DB.collection("posts").doc(p.uid).set(row)}else{POSTS.push({...row,uid:p.uid})}}
@@ -501,7 +592,8 @@ $("#saveBtn").onclick=async()=>{
     manual:$("#sManual").value.split(/[,; ]+/).map(Number).filter(n=>Number.isInteger(n)&&n>=0&&n<24),captions:$("#sCaps").value,hashtags:$("#sTags").value,
     recycle:$("#sRecycle").checked,recycleDays:+$("#sRecDays").value||21});
   VIDEOS=null;await saveCfg();fillAccSelect()};
-function fillAccSelect(){const cur=$("#aAcc").value;$("#aAcc").innerHTML=ACCS.map(a=>`<option value="${esc(a.id)}">${esc(a.name)} · ${esc(a.channel||a.provider)}</option>`).join("");
+function fillAccSelect(){const pc=$("#pepAcc").value;$("#pepAcc").innerHTML='<option value="">Tous les comptes</option>'+ACCS.map(a=>`<option value="${esc(a.id)}">${esc(a.name)} · ${esc(a.channel||a.provider)}</option>`).join("");$("#pepAcc").value=pc;
+  const cur=$("#aAcc").value;$("#aAcc").innerHTML=ACCS.map(a=>`<option value="${esc(a.id)}">${esc(a.name)} · ${esc(a.channel||a.provider)}</option>`).join("");
   if(cur)$("#aAcc").value=cur;else if(CFG.accounts[0])$("#aAcc").value=CFG.accounts[0]}
 async function loadFolders(){
   if(EXAMPLE){$("#sFolderPick").innerHTML='<option value="">Exemple</option>';return}
@@ -515,15 +607,17 @@ async function loadFolders(){
   $("#anaBody").innerHTML='<div class="note">Connexion à Publer…</div>';
   const cl=window.claude;MCP=cl?await cl.use("mcp"):null;DB=cl?await cl.use("db"):null;
   if(!MCP){EXAMPLE=true;$("#conn").textContent="aperçu · données d'exemple";$("#conn").className="chip ex";
-    ACCS=[{id:"ex1",name:"Compte exemple",provider:"instagram",channel:"Instagram"}];CFG.accounts=["ex1"];fillAccSelect();fillSettings();runAnalysis("ex1",60);return}
+    ACCS=[{id:"ex1",name:"Compte exemple",provider:"instagram",channel:"Instagram"}];CFG.accounts=["ex1"];fillAccSelect();fillSettings();await runAnalysis("ex1",60);autoPepites();return}
   if(DB){try{const c=await DB.doc("config/main").get();if(c.exists)CFG={...DEFAULTS,...c.data()}}catch(e){}
+    DB.collection("pepites").onSnapshot(s=>{PEP=s.docs.map(d=>({id:d.id,...d.data()}));if(!$("#v-pep").hidden)renderPep()},()=>{});
     DB.collection("posts").onSnapshot(s=>{POSTS=s.docs.map(d=>({uid:d.id,...d.data()}));if(!$("#v-plan").hidden)renderCalendar()},()=>{})}
   try{const r=await call(P,"lookup_publer_accounts",{});ACCS=(r.accounts||[]).map(a=>({id:a.id,name:a.name,provider:a.provider,channel:a.channel,avatar:a.avatar}));
     $("#conn").textContent=`● Publer · ${r.workspace||"connecté"}`;$("#conn").className="chip live";
     if(!CFG.accounts.length)CFG.accounts=ACCS.map(a=>a.id);fillAccSelect();fillSettings();
     let cached=null;try{cached=JSON.parse(localStorage.getItem("pilote.ana."+$("#aAcc").value)||"null")}catch(e){}
-    if(cached&&Date.now()-cached.at<6*3600e3){ANA[$("#aAcc").value]=analyse(cached.raw,$("#aAcc").value);renderAnalysis(ANA[$("#aAcc").value]);$("#aStatus").textContent=`Analyse du ${loc(cached.at,{dateStyle:"short",timeStyle:"short"})}`}
-    else runAnalysis($("#aAcc").value,+$("#aDays").value)}
+    if(cached&&Date.now()-cached.at<6*3600e3){RAW[$("#aAcc").value]={at:cached.at,raw:cached.raw};ANA[$("#aAcc").value]=analyse(cached.raw,$("#aAcc").value);renderAnalysis(ANA[$("#aAcc").value]);$("#aStatus").textContent=`Analyse du ${loc(cached.at,{dateStyle:"short",timeStyle:"short"})}`}
+    else await runAnalysis($("#aAcc").value,+$("#aDays").value);
+    autoPepites()}
   catch(e){$("#conn").textContent="Publer non connecté";$("#conn").className="chip ex";$("#anaBody").innerHTML=`<div class="note bad">${esc(errText(e,P))}</div>`}
   loadFolders()})();
 </script>
