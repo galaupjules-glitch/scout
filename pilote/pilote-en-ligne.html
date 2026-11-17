@@ -1,0 +1,529 @@
+<title>Pilote</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;600&display=swap">
+<style>
+/* Layout: régie de diffusion — barre d'antenne en haut, onglets, panneaux de contrôle. Signal teal = action, ambre = à l'antenne. */
+:root{
+  --bg:#f3f5f7; --surface:#ffffff; --surface2:#eaeef2; --line:#d5dbe2; --fg:#14202b; --muted:#5d6b78;
+  --accent:#0e8a7e; --accent-ink:#ffffff; --onair:#c77700; --good:#14864f; --bad:#c23b3b;
+  --heat0:#e3e8ed; --heat1:#0e8a7e;
+  --f-display:"Space Grotesk",ui-sans-serif,system-ui,sans-serif;
+  --f-body:"Inter",ui-sans-serif,system-ui,-apple-system,sans-serif;
+  --f-mono:"JetBrains Mono",ui-monospace,Menlo,monospace;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#0d141b; --surface:#131d26; --surface2:#1a2632; --line:#263544; --fg:#e6edf3; --muted:#8b9aa8;
+  --accent:#2ec4b2; --accent-ink:#04201c; --onair:#f0a830; --good:#3ecf8e; --bad:#f07575;
+  --heat0:#1a2632; --heat1:#2ec4b2; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#0d141b; --surface:#131d26; --surface2:#1a2632; --line:#263544; --fg:#e6edf3; --muted:#8b9aa8;
+  --accent:#2ec4b2; --accent-ink:#04201c; --onair:#f0a830; --good:#3ecf8e; --bad:#f07575;
+  --heat0:#1a2632; --heat1:#2ec4b2; color-scheme:dark}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--fg);font:14px/1.5 var(--f-body)}
+button,input,select,textarea{font:inherit;color:inherit}
+a{color:var(--accent)}
+body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);z-index:10;background:var(--surface)}
+.top{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;background:var(--surface);border-bottom:1px solid var(--line)}
+.wrap{max-width:1240px;margin:0 auto;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+.bar{display:flex;align-items:center;gap:14px;flex-wrap:wrap;padding-block:12px}
+.brand{font:700 20px/1 var(--f-display);letter-spacing:-.02em;display:flex;align-items:center;gap:8px}
+.brand .dot{width:10px;height:10px;border-radius:50%;background:var(--onair);box-shadow:0 0 0 4px color-mix(in srgb,var(--onair) 25%,transparent)}
+.tabs{display:flex;gap:2px;flex-wrap:wrap}
+.tabs button{border:0;background:none;padding:8px 12px;border-radius:8px;color:var(--muted);font-weight:600;cursor:pointer}
+.tabs button[aria-selected="true"]{background:var(--surface2);color:var(--fg)}
+.tabs button:focus-visible,.btn:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.sp{flex:1}
+.chip{font:600 12px/1 var(--f-mono);padding:6px 10px;border-radius:99px;background:var(--surface2);color:var(--muted);white-space:nowrap}
+.chip.live{color:var(--good)} .chip.ex{color:var(--onair)}
+main{padding-block:22px 48px}
+h1{font:700 26px/1.15 var(--f-display);letter-spacing:-.02em;margin:0 0 4px;text-wrap:balance}
+h2{font:700 16px/1.3 var(--f-display);margin:0 0 12px}
+.lede{color:var(--muted);margin:0 0 18px;max-width:72ch}
+.grid{display:grid;gap:14px}
+.c4{grid-template-columns:repeat(4,minmax(0,1fr))}.c3{grid-template-columns:repeat(3,minmax(0,1fr))}.c2{grid-template-columns:repeat(2,minmax(0,1fr))}
+@media(max-width:900px){.c4{grid-template-columns:repeat(2,minmax(0,1fr))}.c3,.c2{grid-template-columns:minmax(0,1fr)}}
+@media(max-width:480px){.c4{grid-template-columns:minmax(0,1fr)}}
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:16px;min-width:0}
+.panel.key{border-color:var(--accent)}
+.kpi .l{font:600 11px/1 var(--f-mono);letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+.kpi .v{font:700 30px/1.1 var(--f-display);margin-top:8px;font-variant-numeric:tabular-nums}
+.kpi .d{font-size:12px;color:var(--muted);margin-top:2px}
+.up{color:var(--good)}.down{color:var(--bad)}.mut{color:var(--muted)}
+.row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.btn{border:0;background:var(--accent);color:var(--accent-ink);font-weight:700;padding:10px 16px;border-radius:9px;cursor:pointer}
+.btn.ghost{background:var(--surface2);color:var(--fg);border:1px solid var(--line)}
+.btn.warn{background:var(--onair);color:#1d1100}
+.btn.sm{padding:6px 10px;font-size:12px}
+.btn:disabled{opacity:.5;cursor:default}
+label.f{display:flex;flex-direction:column;gap:5px;min-width:0}
+label.f span{font-size:12px;font-weight:600;color:var(--muted)}
+input[type=text],input[type=number],select,textarea{width:100%;background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:9px 10px}
+input:focus,select:focus,textarea:focus{outline:2px solid var(--accent);outline-offset:-1px}
+textarea{min-height:84px;resize:vertical}
+.check{display:flex;gap:8px;align-items:center;cursor:pointer}
+.hint{font-size:12px;color:var(--muted);margin:0}
+.scroll{overflow-x:auto}
+table{width:100%;border-collapse:collapse}
+th,td{text-align:left;padding:8px;border-bottom:1px solid var(--line);vertical-align:top}
+th{font:600 11px/1.2 var(--f-mono);letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
+td.n{font-family:var(--f-mono);font-variant-numeric:tabular-nums;white-space:nowrap}
+.tag{display:inline-block;font:600 11px/1.6 var(--f-mono);padding:0 7px;border-radius:5px;background:var(--surface2);color:var(--muted)}
+.tag.new{color:var(--good)}.tag.rc{color:var(--onair)}.tag.err{color:var(--bad)}
+.heat{display:grid;grid-template-columns:38px repeat(24,minmax(22px,1fr));gap:2px;font:10px/1 var(--f-mono);min-width:640px}
+.heat div{height:26px;border-radius:4px;display:grid;place-items:center;font-variant-numeric:tabular-nums}
+.heat .hd{color:var(--muted);background:none}
+.hours{display:flex;align-items:flex-end;gap:3px;height:150px;border-bottom:1px solid var(--line);background:repeating-linear-gradient(to top,transparent 0 37px,var(--line) 37px 38px)}
+.hours div{flex:1;border-radius:3px 3px 0 0;background:var(--surface2);min-height:2px}
+.hours div.best{background:var(--accent)}
+.hlab{display:flex;gap:3px;font:9px/1.6 var(--f-mono);color:var(--muted)}.hlab span{flex:1;text-align:center}
+.bars{display:grid;gap:7px}
+.bars .b{display:grid;grid-template-columns:88px minmax(0,1fr) 80px;gap:8px;align-items:center;font-size:12px}
+.bars .t{height:10px;border-radius:5px;background:var(--surface2);overflow:hidden}
+.bars .t i{display:block;height:100%;background:var(--accent)}
+.bars .b span:last-child{font-family:var(--f-mono);text-align:right}
+.rec{margin:0;padding-left:18px;display:grid;gap:7px}
+.post{display:grid;grid-template-columns:22px minmax(0,1fr) auto;gap:10px;padding:9px 0;border-bottom:1px solid var(--line);align-items:center}
+.post .rk{font:600 12px var(--f-mono);color:var(--muted)}
+.post .t{font-size:13px}
+.post .m{font-size:12px;color:var(--muted)}
+.post .ix{font:700 16px var(--f-mono)}
+.week{display:grid;grid-template-columns:repeat(7,minmax(140px,1fr));gap:8px;min-width:1000px}
+.day{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:10px;min-height:120px}
+.day h3{margin:0 0 8px;font:600 12px var(--f-mono);color:var(--muted);text-transform:capitalize}
+.slot{background:var(--surface2);border-radius:7px;padding:6px 8px;margin-bottom:6px;font-size:12px;border-left:3px solid var(--onair)}
+.slot.done{border-left-color:var(--good);opacity:.65}
+.slot b{font-family:var(--f-mono)}
+.slot .fn{color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.progress{height:8px;border-radius:5px;background:var(--surface2);overflow:hidden}
+.progress i{display:block;height:100%;background:var(--good);width:0;transition:width .3s}
+.note{padding:10px 12px;border-radius:9px;background:var(--surface2);font-size:13px}
+.note.bad{color:var(--bad)}
+.accs{display:grid;gap:6px}
+.acc{display:flex;gap:10px;align-items:center;padding:8px 10px;border:1px solid var(--line);border-radius:9px;cursor:pointer}
+.acc:has(input:checked){border-color:var(--accent)}
+.acc img{width:26px;height:26px;border-radius:50%;object-fit:cover}
+.log{font:12px/1.55 var(--f-mono);max-height:220px;overflow:auto;white-space:pre-wrap;color:var(--muted)}
+section[hidden]{display:none!important}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+
+<header class="top"><div class="wrap bar">
+  <div class="brand"><span class="dot" aria-hidden="true"></span>Pilote</div>
+  <nav class="tabs" role="tablist">
+    <button role="tab" id="t-ana" aria-selected="true" data-v="ana">Super analyse</button>
+    <button role="tab" id="t-plan" aria-selected="false" data-v="plan">Planning</button>
+    <button role="tab" id="t-lib" aria-selected="false" data-v="lib">Vidéos Drive</button>
+    <button role="tab" id="t-set" aria-selected="false" data-v="set">Réglages</button>
+  </nav>
+  <div class="sp"></div>
+  <span class="chip" id="conn">connexion…</span>
+  <span class="chip" id="clock"></span>
+</div></header>
+
+<main class="wrap">
+<!-- ================= ANALYSE ================= -->
+<section id="v-ana">
+  <h1>Super analyse</h1>
+  <p class="lede">Toutes les heures sont en <b>heure de New York (ET)</b>. L'indice compare chaque vidéo à la médiane du compte : 2,0x = deux fois plus de vues que d'habitude.</p>
+  <div class="panel row" style="margin-bottom:14px">
+    <label class="f" style="flex:1 1 200px"><span>Compte</span><select id="aAcc"></select></label>
+    <label class="f" style="flex:0 1 140px"><span>Période</span><select id="aDays"><option value="30">30 jours</option><option value="60" selected>60 jours</option><option value="90">90 jours</option></select></label>
+    <button class="btn" id="aGo" style="align-self:flex-end">Analyser</button>
+    <span class="mut" id="aStatus" style="align-self:flex-end"></span>
+  </div>
+  <div id="anaBody"></div>
+</section>
+
+<!-- ================= PLANNING ================= -->
+<section id="v-plan" hidden>
+  <h1>Planning de la semaine</h1>
+  <p class="lede">Pilote prend les vidéos de ton Drive pas encore publiées, les place aux meilleures heures US et les programme sur Publer. Ensuite c'est Publer qui publie : tu peux fermer la page une fois l'envoi terminé.</p>
+  <div class="panel">
+    <div class="grid c4">
+      <label class="f"><span>Posts par jour et par compte</span><input type="number" id="pN" min="1" max="24"></label>
+      <label class="f"><span>Jours à programmer</span><input type="number" id="pH" min="1" max="21"></label>
+      <label class="f"><span>Choix des heures</span><select id="pMode"><option value="auto">Auto : tes stats + audience US</option><option value="manual">Mes heures (Réglages)</option></select></label>
+      <label class="f"><span>Répartition</span><select id="pDist"><option value="split">Vidéo différente par compte</option><option value="mirror">Même vidéo sur chaque compte</option></select></label>
+    </div>
+    <div class="row" style="margin-top:14px">
+      <button class="btn" id="genBtn">Préparer la semaine</button>
+      <button class="btn warn" id="sendBtn" hidden>Programmer sur Publer</button>
+      <button class="btn ghost" id="cancelBtn" hidden>Annuler</button>
+      <span id="planInfo" class="mut"></span>
+    </div>
+    <div id="sendBox" hidden style="margin-top:12px">
+      <div class="row" style="justify-content:space-between"><span id="sendLabel"></span><span class="mut" id="sendCount"></span></div>
+      <div class="progress" style="margin-top:6px"><i id="sendBar"></i></div>
+      <div class="log" id="sendLog" style="margin-top:8px"></div>
+    </div>
+  </div>
+  <div id="planPreview" style="margin-top:14px"></div>
+  <h2 style="margin-top:24px">Déjà programmé par Pilote</h2>
+  <div class="scroll"><div id="calendar" class="week"></div></div>
+</section>
+
+<!-- ================= DRIVE ================= -->
+<section id="v-lib" hidden>
+  <h1>Vidéos Drive</h1>
+  <p class="lede">Les vidéos du dossier choisi dans Réglages. Chaque vidéo doit être partagée en « Tous les utilisateurs disposant du lien » pour que Publer puisse la récupérer.</p>
+  <div class="row" style="margin-bottom:12px"><button class="btn ghost" id="libGo">Actualiser</button><span id="libInfo" class="mut"></span></div>
+  <div class="panel scroll"><table id="libTable"></table></div>
+</section>
+
+<!-- ================= REGLAGES ================= -->
+<section id="v-set" hidden>
+  <h1>Réglages</h1>
+  <p class="lede">Enregistrés en ligne : tu retrouves les mêmes réglages sur ton ordi et ton téléphone.</p>
+  <div class="grid c2">
+    <div class="panel grid">
+      <h2 style="margin:0">Comptes à piloter</h2>
+      <div id="accList" class="accs"><p class="hint">Chargement des comptes Publer…</p></div>
+      <h2 style="margin:8px 0 0">Dossier Google Drive</h2>
+      <label class="f"><span>Choisis un dossier ou colle son lien</span><select id="sFolderPick"><option value="">Chargement…</option></select></label>
+      <label class="f"><span>Lien ou ID du dossier</span><input type="text" id="sFolder" placeholder="https://drive.google.com/drive/folders/…"></label>
+      <label class="f"><span>Ordre des vidéos</span><select id="sOrder"><option value="oldest">Plus anciennes d'abord</option><option value="newest">Plus récentes d'abord</option><option value="random">Aléatoire</option></select></label>
+    </div>
+    <div class="panel grid">
+      <h2 style="margin:0">Stratégie horaire</h2>
+      <div class="grid c2">
+        <label class="f"><span>Fuseau cible</span><select id="sTz">
+          <option value="America/New_York">USA Est · New York</option><option value="America/Chicago">USA Centre · Chicago</option>
+          <option value="America/Denver">USA Montagnes · Denver</option><option value="America/Los_Angeles">USA Ouest · Los Angeles</option></select></label>
+        <label class="f"><span>Écart mini entre 2 posts (h)</span><input type="number" id="sGap" min="0" max="12" step="0.5"></label>
+        <label class="f"><span>Plage autorisée : début (h)</span><input type="number" id="sW0" min="0" max="23"></label>
+        <label class="f"><span>Plage autorisée : fin (h)</span><input type="number" id="sW1" min="0" max="23"></label>
+        <label class="f"><span>Décalage aléatoire ± (min)</span><input type="number" id="sJit" min="0" max="29"></label>
+        <label class="f"><span>Mes heures (mode manuel)</span><input type="text" id="sManual" placeholder="19, 21, 23"></label>
+      </div>
+      <p class="hint">La plage peut passer minuit : début 18 et fin 3 = de 18 h à 3 h du matin ET.</p>
+      <h2 style="margin:8px 0 0">Légendes</h2>
+      <label class="f"><span>Banque de légendes, une par ligne (tirée au hasard)</span><textarea id="sCaps" placeholder="wait for the end 😳&#10;rate me 1-10"></textarea></label>
+      <label class="f"><span>Hashtags ajoutés à chaque post</span><input type="text" id="sTags" placeholder="#fyp #usa"></label>
+      <label class="check"><input type="checkbox" id="sRecycle"> Stock vide : reposter les vidéos gagnantes (indice ≥ 1,3) après</label>
+      <label class="f"><span>Jours minimum avant de reposter sur le même compte</span><input type="number" id="sRecDays" min="3" max="120"></label>
+      <div class="row"><button class="btn" id="saveBtn">Enregistrer</button><span id="saveInfo" class="mut"></span></div>
+    </div>
+  </div>
+</section>
+</main>
+
+<script>
+"use strict";
+const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
+const esc=s=>String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const fmt=n=>{n=+n||0;return n>=1e6?(n/1e6).toFixed(1).replace(".",",")+"M":n>=1e4?Math.round(n/1e3)+"k":n>=1e3?(n/1e3).toFixed(1).replace(".",",")+"k":String(Math.round(n))};
+const x2=v=>(Math.round(v*100)/100).toString().replace(".",",")+"x";
+const JOURS=["Lun","Mar","Mer","Jeu","Ven","Sam","Dim"];
+const JOURS_L=["lundi","mardi","mercredi","jeudi","vendredi","samedi","dimanche"];
+const DAYKEYS={lundi:0,mardi:1,mercredi:2,jeudi:3,vendredi:4,samedi:5,dimanche:6,monday:0,tuesday:1,wednesday:2,thursday:3,friday:4,saturday:5,sunday:6};
+const MONTHS={jan:0,feb:1,mar:2,apr:3,may:4,jun:5,jul:6,aug:7,sep:8,oct:9,nov:10,dec:11};
+const US_PRIOR=[.35,.25,.15,.1,.1,.15,.35,.55,.65,.6,.55,.6,.75,.7,.6,.6,.65,.75,.85,.95,1,.95,.8,.55];
+const DEFAULTS={accounts:[],folder:"",order:"oldest",tz:"America/New_York",gap:2,w0:7,w1:23,jitter:12,manual:[19,21,23],captions:"",hashtags:"",recycle:true,recycleDays:21,perDay:3,horizon:7,mode:"auto",dist:"split"};
+let CFG={...DEFAULTS}, ACCS=[], POSTS=[], VIDEOS=null, ANA={}, PLAN=null, MCP=null, DB=null, EXAMPLE=false;
+const P="Publer", G="Google Drive";
+
+/* ---------- temps ---------- */
+function zparts(date,tz){const p={};new Intl.DateTimeFormat("en-US",{timeZone:tz,year:"numeric",month:"2-digit",day:"2-digit",hour:"2-digit",minute:"2-digit",weekday:"short",hourCycle:"h23"}).formatToParts(date).forEach(x=>p[x.type]=x.value);
+  return {y:+p.year,m:+p.month,d:+p.day,h:+p.hour%24,min:+p.minute,wd:["Mon","Tue","Wed","Thu","Fri","Sat","Sun"].indexOf(p.weekday),key:`${p.year}-${p.month}-${p.day}`}}
+function zonedToUtc(y,m,d,h,min,tz){let t=Date.UTC(y,m-1,d,h,min);for(let i=0;i<3;i++){const z=zparts(new Date(t),tz);const diff=Date.UTC(z.y,z.m-1,z.d,z.h,z.min)-Date.UTC(y,m-1,d,h,min);t-=diff}return new Date(t)}
+const tzS=()=>({"America/New_York":"ET","America/Chicago":"CT","America/Denver":"MT","America/Los_Angeles":"PT"})[CFG.tz]||"";
+const inTz=(d,o)=>new Date(d).toLocaleString("fr-FR",{timeZone:CFG.tz,...o});
+const loc=(d,o)=>new Date(d).toLocaleString("fr-FR",o);
+function parseWhen(s,endYear,endMonth){const m=/(\w{3}) (\d{1,2}) at (\d{1,2}):(\d{2}) (AM|PM) UTC([+-]\d{1,2})(?::?(\d{2}))?/i.exec(s||"");if(!m)return null;
+  const mon=MONTHS[m[1].toLowerCase()];let y=endYear;if(mon>endMonth)y--;let h=+m[3]%12+(m[5].toUpperCase()==="PM"?12:0);
+  const off=+m[6]+(m[6].startsWith("-")?-1:1)*(+(m[7]||0))/60;return {date:new Date(Date.UTC(y,mon,+m[2],h,+m[4])-off*3600e3),off}}
+
+/* ---------- UI de base ---------- */
+$$(".tabs button").forEach(b=>b.onclick=()=>show(b.dataset.v));
+function show(v){$$(".tabs button").forEach(b=>b.setAttribute("aria-selected",b.dataset.v===v));$$("main section").forEach(s=>s.hidden=s.id!=="v-"+v);
+  try{localStorage.setItem("pilote.tab",v)}catch(e){}
+  if(v==="plan")renderCalendar(); if(v==="lib")loadLib(); if(v==="set")fillSettings();}
+setInterval(()=>{$("#clock").textContent=inTz(new Date(),{hour:"2-digit",minute:"2-digit"})+" "+tzS()+" · "+loc(new Date(),{hour:"2-digit",minute:"2-digit"})+" chez toi"},1000);
+function errText(e,server){const c=e&&e.code;
+  if(c==="server_not_connected")return `${server} n'est pas connecté : ajoute-le dans claude.ai → Réglages → Connecteurs.`;
+  if(c==="needs_reauth")return `Reconnecte ${server} dans claude.ai → Réglages → Connecteurs.`;
+  if(c==="not_in_manifest"||c==="approval_required")return `Autorise ${server} pour cette page (menu Autorisations de l'artefact), puis réessaie.`;
+  if(c==="selection_required")return `Choisis quel compte ${server} utiliser dans la fenêtre proposée.`;
+  if(c==="server_unavailable")return `${server} ne répond pas pour l'instant, réessaie dans une minute.`;
+  if(c==="tool_error")return `${server} a refusé : ${String(e.message||"").slice(0,240)}`;
+  return `${server} : ${String((e&&e.message)||e).slice(0,240)}`}
+async function call(server,tool,input){const r=await MCP.callTool(server,tool,input);return r.payload??r}
+
+/* ---------- données exemple (aperçu sans connecteurs) ---------- */
+function exampleData(){let s=7;const rnd=()=>(s=(s*16807)%2147483647)/2147483647;const posts=[];const now=Date.now();
+  const boost={21:2,22:2.4,23:1.8,20:1.6,19:1.2,0:1.3,1:1,12:.9,9:.7};
+  for(let d=0;d<60;d++)for(let k=0;k<4;k++){const h=[9,12,19,20,21,22,23,0,1,3][Math.floor(rnd()*10)];const z=zparts(new Date(now-d*864e5),"America/New_York");
+    const dt=zonedToUtc(z.y,z.m,z.d,h,Math.floor(rnd()*60),"America/New_York");if(dt>now)continue;const v=Math.round(3000*(boost[h]||.6)*Math.exp((rnd()-.5)*2.2));
+    posts.push({date:dt,caption:rnd()>.5?"exemple de légende #fyp":"",views:v,reach:v*.7,likes:v*.03,comments:v*.002,shares:v*.01,saves:v*.006,er:3+rnd()*3,url:""})}
+  return {posts,best:null,off:1}}
+
+/* ---------- ANALYSE ---------- */
+$("#aGo").onclick=()=>runAnalysis($("#aAcc").value,+$("#aDays").value);
+async function fetchInsights(acc,days){
+  const all=[];let total=Infinity,end=null,off=null;
+  for(let page=0;page<40&&all.length<total;page++){
+    $("#aStatus").textContent=`Récupération des stats… ${all.length}${isFinite(total)?" / "+total:""}`;
+    const r=await call(P,"get_post_insights",{account:acc,days,page,sort_by:"scheduled_at",sort_type:"DESC"});
+    if(!end){const m=/– (\w{3}) (\d{1,2}), (\d{4})/.exec(r.period||"");end=m?{y:+m[3],mo:MONTHS[m[1].toLowerCase()]}:{y:new Date().getFullYear(),mo:new Date().getMonth()}}
+    total=r.total??0;const ps=r.posts||[];if(!ps.length)break;
+    for(const p of ps){const w=parseWhen(p.when,end.y,end.mo);if(!w)continue;off=off??w.off;const m=p.metrics||{};
+      all.push({date:w.date,caption:p.caption||"",format:p.format||"",views:+m.video_views||0,reach:+m.reach||0,likes:+m.likes||0,comments:+m.comments||0,shares:+m.shares||0,saves:+m.saves||0,er:+m.engagement_rate||0,url:p.published_url||""})}}
+  let best=null;try{const b=await call(P,"get_best_times_to_post",{account:acc,days,include_heatmap:true});best=b.heatmap||null}catch(e){}
+  return {posts:all,best,off:off??1}}
+async function runAnalysis(acc,days){
+  if(!acc)return;$("#aGo").disabled=true;
+  try{const raw=EXAMPLE?exampleData():await fetchInsights(acc,days);ANA[acc]=analyse(raw,acc);
+    try{localStorage.setItem("pilote.ana."+acc,JSON.stringify({at:Date.now(),days,raw:{...raw,posts:raw.posts.map(p=>({...p,date:+p.date}))}}))}catch(e){}
+    $("#aStatus").textContent=`${raw.posts.length} vidéos analysées · ${loc(new Date(),{dateStyle:"short",timeStyle:"short"})}`;renderAnalysis(ANA[acc])}
+  catch(e){$("#aStatus").textContent="";$("#anaBody").innerHTML=`<div class="note bad">${esc(errText(e,P))}</div>`}
+  $("#aGo").disabled=false}
+function avg(a){return a.length?a.reduce((s,x)=>s+x,0)/a.length:0}
+function median(a){if(!a.length)return 0;const s=[...a].sort((x,y)=>x-y),m=s.length>>1;return s.length%2?s[m]:(s[m-1]+s[m])/2}
+function analyse(raw,acc){
+  const tz=CFG.tz, now=Date.now();
+  const posts=raw.posts.map(p=>({...p,date:new Date(p.date)})).filter(p=>+p.date<=now).map(p=>({...p,m:p.views||p.reach}));
+  if(!posts.length)return {empty:true};
+  const med=median(posts.map(p=>p.m))||1;
+  posts.forEach(p=>{p.i=Math.min(20,p.m/med);const z=zparts(p.date,tz);p.wd=z.wd;p.h=z.h;p.key=z.key;
+    const s=POSTS.find(x=>x.account_id===acc&&Math.abs(new Date(x.at)-p.date)<=5*60e3);if(s){p.file=s.file_name;p.file_id=s.file_id}});
+  const span=Math.max(1,(now-Math.min(...posts.map(p=>+p.date)))/864e5), cut=now-span/2*864e5;
+  const rec=posts.filter(p=>+p.date>=cut), old=posts.filter(p=>+p.date<cut);
+  const delta=(a,b)=>b?Math.round(1000*(a-b)/b)/10:null;
+  const kp={posts:posts.length,views:posts.reduce((s,p)=>s+p.m,0),avg:avg(posts.map(p=>p.m)),med,er:avg(posts.map(p=>p.er)),perDay:posts.length/span,
+    avgDelta:delta(avg(rec.map(p=>p.m)),avg(old.map(p=>p.m))),viral:posts.filter(p=>p.i>=5).length};
+  const cells=[...Array(7)].map(()=>[...Array(24)].map(()=>[]));posts.forEach(p=>cells[p.wd][p.h].push(p.i));
+  const heat=cells.map(r=>r.map(c=>({v:c.length?median(c):null,n:c.length})));
+  // best times Publer -> fuseau cible
+  let pub=null;if(raw.best){pub=[...Array(7)].map(()=>Array(24).fill(0));let mx=0;
+    Object.values(raw.best).forEach(a=>(a||[]).forEach(v=>mx=Math.max(mx,+v||0)));mx=mx||1;
+    for(const [k,arr] of Object.entries(raw.best)){const di=DAYKEYS[k.toLowerCase()];if(di==null)continue;(arr||[]).forEach((v,h)=>{
+      const base=Date.UTC(2026,0,5+di,h)-raw.off*3600e3;const z=zparts(new Date(base),tz);pub[z.wd][z.h]+=(+v||0)/mx})}}
+  // score par heure : médiane lissée (peu de données -> profil US)
+  const K=5, byH=[...Array(24)].map(()=>[]);posts.forEach(p=>byH[p.h].push(Math.min(p.i,6)));
+  const g=avg(posts.map(p=>Math.min(p.i,6)))||1, priorMean=avg(US_PRIOR);
+  const hour=byH.map((xs,h)=>{const prior=US_PRIOR[h]/priorMean*g;let own=(prior*K+xs.reduce((s,x)=>s+x,0))/(K+xs.length);
+    const pb=pub?avg(pub.map(r=>r[h])):null;const pbMax=pub?Math.max(...[...Array(24).keys()].map(hh=>avg(pub.map(r=>r[hh])))):1;
+    const score=pb==null?own:own*(.75+.5*(pbMax?pb/pbMax:0));return {h,score,n:xs.length,raw:xs.length?median(xs):null}});
+  const ranked=[...hour].sort((a,b)=>b.score-a.score);
+  const bestHours=ranked.slice(0,5).map(x=>({...x,up:Math.round(100*(x.score/g-1))}));
+  const days=[...Array(7).keys()].map(d=>{const xs=posts.filter(p=>p.wd===d).map(p=>p.i);return {label:JOURS[d],d,v:median(xs),n:xs.length}});
+  const dayMap={};posts.forEach(p=>(dayMap[p.key]=dayMap[p.key]||[]).push(p.i));
+  const fq={};Object.values(dayMap).forEach(xs=>{const k=xs.length<=2?"1-2":xs.length<=4?"3-4":xs.length<=7?"5-7":xs.length<=10?"8-10":"11+";(fq[k]=fq[k]||[]).push(median(xs))});
+  const freq=["1-2","3-4","5-7","8-10","11+"].filter(k=>fq[k]).map(k=>({label:k+"/jour",v:median(fq[k]),n:fq[k].length}));
+  // écart entre posts : un post trop proche du précédent est-il pénalisé ?
+  const sorted=[...posts].sort((a,b)=>a.date-b.date);const gaps={};for(let i=1;i<sorted.length;i++){const gmin=(sorted[i].date-sorted[i-1].date)/6e4;
+    const k=gmin<30?"< 30 min":gmin<60?"30-60 min":gmin<120?"1-2 h":gmin<240?"2-4 h":"4 h +";(gaps[k]=gaps[k]||[]).push(sorted[i].i)}
+  const gapStats=["< 30 min","30-60 min","1-2 h","2-4 h","4 h +"].filter(k=>gaps[k]).map(k=>({label:k,v:median(gaps[k]),n:gaps[k].length}));
+  const tags={};posts.forEach(p=>new Set((p.caption.match(/#[\p{L}\p{N}_]+/gu)||[]).map(t=>t.toLowerCase())).forEach(t=>(tags[t]=tags[t]||[]).push(p.i)));
+  const topTags=Object.entries(tags).filter(([,x])=>x.length>=3).map(([t,x])=>({label:t,v:median(x),n:x.length})).sort((a,b)=>b.v-a.v).slice(0,10);
+  const withCap=posts.filter(p=>p.caption.trim()), noCap=posts.filter(p=>!p.caption.trim());
+  const capStats=withCap.length>=3&&noCap.length>=3?[{label:"Avec légende",v:median(withCap.map(p=>p.i)),n:withCap.length},{label:"Sans légende",v:median(noCap.map(p=>p.i)),n:noCap.length}]:null;
+  const srt=[...posts].sort((a,b)=>b.i-a.i);
+  const files={};posts.forEach(p=>{if(p.file_id)(files[p.file_id]=files[p.file_id]||{file_id:p.file_id,file:p.file,xs:[]}).xs.push(p.i)});
+  const winFiles=Object.values(files).map(f=>({file_id:f.file_id,file:f.file,v:avg(f.xs),n:f.xs.length})).sort((a,b)=>b.v-a.v);
+  // recommandations
+  const R=[];const top3=bestHours.slice(0,3).map(x=>x.h+" h").join(", ");
+  R.push(`Publie en priorité à ${top3} ${tzS()} : ce sont tes créneaux les plus forts (jusqu'à ${bestHours[0].up>0?"+"+bestHours[0].up+" %":"ta moyenne"}).`);
+  const weak=hour.filter(x=>x.n>=4).sort((a,b)=>a.score-b.score).slice(0,2);if(weak.length)R.push(`Évite ${weak.map(x=>x.h+" h").join(" et ")} ${tzS()} : tes vidéos y font nettement moins.`);
+  const dd=days.filter(d=>d.n>=3).sort((a,b)=>b.v-a.v);if(dd.length>1)R.push(`Meilleur jour : ${JOURS_L[dd[0].d]} (${x2(dd[0].v)}). Plus faible : ${JOURS_L[dd[dd.length-1].d]} (${x2(dd[dd.length-1].v)}).`);
+  const fOk=freq.filter(f=>f.n>=3);if(fOk.length>1){const bf=fOk.reduce((a,b)=>b.v>a.v?b:a);R.push(`Rythme le plus rentable observé : ${bf.label} (${x2(bf.v)} par vidéo). Au-delà, chaque vidéo se partage l'audience.`)}
+  const gOk=gapStats.filter(x=>x.n>=4);if(gOk.length>1){const w=gOk.reduce((a,b)=>b.v<a.v?b:a),b=gOk.reduce((a,c)=>c.v>a.v?c:a);if(w.label!==b.label)R.push(`Les vidéos postées à « ${w.label} » de la précédente font ${x2(w.v)}, contre ${x2(b.v)} avec « ${b.label} » d'écart.`)}
+  if(capStats)R.push(`Avec légende : ${x2(capStats[0].v)} · sans légende : ${x2(capStats[1].v)}.`);
+  if(kp.viral)R.push(`${kp.viral} vidéo${kp.viral>1?"s ont":" a"} dépassé 5x ta médiane. Regarde leurs 3 premières secondes et refais le même type d'accroche.`);
+  if(kp.avgDelta!=null)R.push(`${kp.avgDelta>=0?"En hausse":"En baisse"} : ${kp.avgDelta>0?"+":""}${String(kp.avgDelta).replace(".",",")} % de vues moyennes sur la période récente.`);
+  return {empty:false,kp,heat,hour,bestHours,days,freq,gapStats,topTags,capStats,top:srt.slice(0,12),flop:srt.slice(-8).reverse(),winFiles,R}}
+function bars(list){const mx=Math.max(...list.map(x=>x.v),.01);return `<div class="bars">${list.map(x=>`<div class="b"><span>${esc(x.label)}</span><div class="t"><i style="width:${100*x.v/mx}%"></i></div><span>${x2(x.v)} <span class="mut">(${x.n})</span></span></div>`).join("")}</div>`}
+function heatBg(v,mx){if(v==null)return "var(--heat0)";const t=Math.min(1,v/mx);return `color-mix(in srgb,var(--heat1) ${Math.round(12+88*t)}%,var(--heat0))`}
+function postRows(list){return list.map((p,i)=>`<div class="post"><span class="rk">${i+1}</span><div style="min-width:0"><div class="t">${p.url?`<a href="${esc(p.url)}" target="_blank" rel="noopener">${esc(inTz(p.date,{weekday:"short",day:"2-digit",month:"2-digit",hour:"2-digit",minute:"2-digit"}))} ${tzS()}</a>`:esc(inTz(p.date,{weekday:"short",day:"2-digit",month:"2-digit",hour:"2-digit",minute:"2-digit"}))+" "+tzS()}${p.file?` · <span class="tag">${esc(p.file)}</span>`:""}</div>
+  <div class="m">${fmt(p.views)} vues · ${fmt(p.likes)} j'aime · ${fmt(p.shares)} partages · ${fmt(p.saves)} enreg.${p.caption?" · "+esc(p.caption.slice(0,60)):""}</div></div><span class="ix ${p.i>=1?"up":"down"}">${x2(p.i)}</span></div>`).join("")}
+function renderAnalysis(a){
+  if(!a||a.empty){$("#anaBody").innerHTML=`<div class="note">Aucune vidéo publiée sur cette période pour ce compte.</div>`;return}
+  const k=a.kp, mxH=Math.max(...a.hour.map(x=>x.score)), best=new Set(a.bestHours.slice(0,3).map(x=>x.h));
+  const hv=a.heat.flat().filter(c=>c.n>=2).map(c=>c.v);const mxHeat=Math.max(1,...hv.sort((x,y)=>x-y).slice(Math.floor(hv.length*.1),Math.ceil(hv.length*.9)));
+  $("#anaBody").innerHTML=`${EXAMPLE?`<div class="note" style="margin-bottom:14px">Données d'exemple : ouvre cette page sur claude.ai avec Publer connecté pour voir tes vrais chiffres.</div>`:""}
+  <div class="grid c4">
+    <div class="panel kpi"><div class="l">Vues totales</div><div class="v">${fmt(k.views)}</div><div class="d">${k.posts} vidéos · ${String(k.perDay.toFixed(1)).replace(".",",")} par jour</div></div>
+    <div class="panel kpi"><div class="l">Médiane par vidéo</div><div class="v">${fmt(k.med)}</div><div class="d">moyenne ${fmt(k.avg)} (tirée par les virales)</div></div>
+    <div class="panel kpi"><div class="l">Engagement moyen</div><div class="v">${String(k.er.toFixed(2)).replace(".",",")} %</div><div class="d">${k.viral} vidéo${k.viral>1?"s":""} à plus de 5x</div></div>
+    <div class="panel kpi"><div class="l">Meilleure heure</div><div class="v">${a.bestHours[0].h} h ${tzS()}</div><div class="d">soit ${loc(zonedToUtc(2026,6,1,a.bestHours[0].h,0,CFG.tz),{hour:"2-digit",minute:"2-digit"})} chez toi</div></div>
+  </div>
+  <div class="panel key" style="margin-top:14px"><h2>Ce qu'il faut reproduire</h2><ul class="rec">${a.R.map(r=>`<li>${esc(r)}</li>`).join("")}</ul></div>
+  <div class="panel" style="margin-top:14px"><h2>Score par heure (${tzS()}), utilisé pour choisir tes créneaux</h2>
+    <div class="hours" role="img" aria-label="Score de performance par heure">${a.hour.map(x=>`<div class="${best.has(x.h)?"best":""}" style="height:${Math.max(2,100*x.score/mxH)}%" title="${x.h} h : ${x.n} vidéos${x.raw!=null?", médiane "+x2(x.raw):""}"></div>`).join("")}</div>
+    <div class="hlab">${a.hour.map(x=>`<span>${x.h}</span>`).join("")}</div>
+    <p class="hint" style="margin-top:8px">Mélange de tes vraies stats, des meilleures heures calculées par Publer et d'un profil type de l'audience US quand une heure a peu de données.</p></div>
+  <div class="panel" style="margin-top:14px"><h2>Jour × heure (${tzS()}) · indice médian</h2><div class="scroll"><div class="heat">
+    <div class="hd"></div>${[...Array(24).keys()].map(h=>`<div class="hd">${h}</div>`).join("")}
+    ${a.heat.map((r,d)=>`<div class="hd">${JOURS[d]}</div>`+r.map((c,h)=>`<div style="background:${heatBg(c.n?c.v:null,mxHeat)}" title="${JOURS[d]} ${h} h : ${c.n?x2(c.v)+" · "+c.n+" vidéos":"aucune vidéo"}">${c.n?String(Math.round(c.v*10)/10).replace(".",","):""}</div>`).join("")).join("")}
+  </div></div></div>
+  <div class="grid c2" style="margin-top:14px">
+    <div class="panel"><h2>Top vidéos</h2>${postRows(a.top)}</div>
+    <div class="panel"><h2>Flops</h2>${postRows(a.flop)}</div>
+  </div>
+  <div class="grid c3" style="margin-top:14px">
+    <div class="panel"><h2>Jours de la semaine</h2>${bars(a.days.filter(d=>d.n))}</div>
+    <div class="panel"><h2>Vidéos par jour</h2>${a.freq.length?bars(a.freq):'<p class="hint">Pas assez de données.</p>'}<p class="hint" style="margin-top:8px">Indice médian selon le nombre de vidéos postées le même jour.</p></div>
+    <div class="panel"><h2>Écart avec la vidéo précédente</h2>${a.gapStats.length?bars(a.gapStats):'<p class="hint">Pas assez de données.</p>'}</div>
+    ${a.capStats?`<div class="panel"><h2>Légende</h2>${bars(a.capStats)}</div>`:""}
+    ${a.topTags.length?`<div class="panel"><h2>Hashtags</h2>${bars(a.topTags)}</div>`:""}
+    ${a.winFiles.length?`<div class="panel"><h2>Vidéos Drive gagnantes</h2>${bars(a.winFiles.map(w=>({label:w.file,v:w.v,n:w.n})))}</div>`:""}
+  </div>`}
+
+/* ---------- DRIVE ---------- */
+function folderId(v){v=String(v||"").trim();const m=v.match(/folders\/([\w-]+)/)||v.match(/[?&]id=([\w-]+)/);return m?m[1]:v}
+async function driveVideos(force){
+  if(VIDEOS&&!force)return VIDEOS;
+  if(EXAMPLE){VIDEOS=[...Array(30)].map((_,i)=>({id:"ex"+i,title:`VID_exemple_${String(i+1).padStart(2,"0")}.mp4`,createdTime:new Date(Date.now()-(30-i)*864e5).toISOString(),fileSize:String((15+i)*1e6),visibility:"UNLISTED"}));return VIDEOS}
+  if(!CFG.folder)throw new Error("Choisis ton dossier Drive dans Réglages.");
+  let out=[],token=null;
+  for(let i=0;i<20;i++){const r=await call(G,"search_files",{query:`parentId = '${CFG.folder}' and mimeType contains 'video/' and trashed = false`,pageSize:100,excludeContentSnippets:true,includeRichMetadata:true,...(token?{pageToken:token}:{})});
+    out=out.concat(r.files||[]);token=r.nextPageToken;if(!token||!(r.files||[]).length)break}
+  const seen=new Set();out=out.filter(f=>!seen.has(f.id)&&seen.add(f.id));
+  out.sort((a,b)=>String(a.createdTime).localeCompare(String(b.createdTime)));
+  if(CFG.order==="newest")out.reverse();
+  if(CFG.order==="random"){for(let i=out.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[out[i],out[j]]=[out[j],out[i]]}}
+  VIDEOS=out;return out}
+const isPrivate=f=>String(f.visibility||"").toLowerCase()==="limited";
+$("#libGo").onclick=()=>loadLib(true);
+async function loadLib(force){
+  $("#libInfo").textContent="Chargement…";
+  try{const vids=await driveVideos(force);const used=usage();const fresh=vids.filter(v=>!used[v.id]).length;const priv=vids.filter(isPrivate).length;
+    $("#libInfo").innerHTML=`${vids.length} vidéos · <b class="${fresh<CFG.perDay*7?"down":"up"}">${fresh} jamais publiées</b>${priv?` · <span class="down">${priv} privées (Publer ne pourra pas les lire)</span>`:""}`;
+    $("#libTable").innerHTML=`<tr><th>Vidéo</th><th>Ajoutée</th><th>Taille</th><th>Partage</th><th>Utilisation</th></tr>`+vids.map(v=>`<tr><td>${esc(v.title)}</td><td class="n">${v.createdTime?loc(v.createdTime,{dateStyle:"short"}):""}</td><td class="n">${v.fileSize?Math.round(v.fileSize/1e6)+" Mo":""}</td>
+      <td>${isPrivate(v)?'<span class="tag err">privé</span>':'<span class="tag">par lien</span>'}</td>
+      <td>${(used[v.id]||[]).map(u=>`<span class="tag">${esc(u.account)} · ${loc(u.at,{day:"2-digit",month:"2-digit"})}</span>`).join(" ")||'<span class="tag new">nouvelle</span>'}</td></tr>`).join("")}
+  catch(e){$("#libInfo").innerHTML=`<span class="down">${esc(e.code?errText(e,G):e.message)}</span>`}}
+function usage(){const u={};POSTS.forEach(p=>(u[p.file_id]=u[p.file_id]||[]).push(p));return u}
+
+/* ---------- PLANNING ---------- */
+function slotHours(n,wd){
+  const lo=+CFG.w0,hi=+CFG.w1,gap=+CFG.gap;const allowed=[...Array(24).keys()].filter(h=>lo<=hi?(h>=lo&&h<=hi):(h>=lo||h<=hi));
+  const pref=CFG.mode==="manual"?[...new Set(CFG.manual)].slice(0,n):[];
+  const a=ANA[CFG.accounts[0]]||Object.values(ANA)[0];const score={};
+  for(let h=0;h<24;h++){score[h]=a&&!a.empty?a.hour[h].score:US_PRIOR[h];if(a&&!a.empty&&wd!=null){const c=a.heat[wd][h];if(c.n>=3)score[h]=.7*score[h]+.3*Math.min(c.v,6)}}
+  const order=allowed.filter(h=>!pref.includes(h)).sort((x,y)=>score[y]-score[x]);const ch=[...pref];
+  const dist=(x,y)=>Math.min(Math.abs(x-y),24-Math.abs(x-y));
+  for(const h of order){if(ch.length>=n)break;if(ch.every(x=>dist(x,h)>=gap))ch.push(h)}
+  for(const h of order){if(ch.length>=n)break;if(!ch.includes(h))ch.push(h)}
+  // tri dans l'ordre de la journée, en tenant compte d'une plage qui passe minuit
+  return ch.sort((x,y)=>((x-lo+24)%24)-((y-lo+24)%24))}
+async function buildPlan(){
+  const accs=ACCS.filter(a=>CFG.accounts.includes(a.id));if(!accs.length)throw new Error("Choisis au moins un compte dans Réglages.");
+  const vids=(await driveVideos(true)).filter(v=>!isPrivate(v));const n=+CFG.perDay;const now=Date.now();
+  const live=POSTS.filter(p=>p.status!=="error");const usedAny=new Set(live.map(p=>p.file_id));
+  const usedBy={};live.forEach(p=>(usedBy[p.account_id]=usedBy[p.account_id]||new Set()).add(p.file_id));
+  const winners=Object.values(ANA).flatMap(a=>a&&!a.empty?a.winFiles.filter(w=>w.v>=1.3).map(w=>w.file_id):[]);
+  const lastUse=(acc,fid)=>Math.max(0,...live.filter(p=>p.account_id===acc&&p.file_id===fid).map(p=>+new Date(p.at)));
+  const taken=new Set(), items=[];let missing=0;const bank=CFG.captions.split("\n").map(s=>s.trim()).filter(Boolean);
+  const today=zparts(new Date(),CFG.tz);
+  for(let d=0;d<+CFG.horizon;d++){
+    const dayUtc=new Date(Date.UTC(today.y,today.m-1,today.d+d,12));const z={y:dayUtc.getUTCFullYear(),m:dayUtc.getUTCMonth()+1,d:dayUtc.getUTCDate()};
+    const wd=(dayUtc.getUTCDay()+6)%7;const hours=slotHours(n,wd);let mirrorPick={};
+    for(const acc of accs){
+      const existing=live.filter(p=>p.account_id===acc.id&&zparts(new Date(p.at),CFG.tz).key===`${z.y}-${String(z.m).padStart(2,"0")}-${String(z.d).padStart(2,"0")}`);
+      let need=n-existing.length;if(need<=0)continue;
+      const exH=existing.map(p=>zparts(new Date(p.at),CFG.tz).h);
+      for(const h of hours.filter(h=>!exH.includes(h))){if(need<=0)break;
+        const night=CFG.w0>CFG.w1&&h<=CFG.w1; // créneau après minuit = lendemain
+        const j=Math.round((Math.random()*2-1)*CFG.jitter);
+        const at=new Date(+zonedToUtc(z.y,z.m,z.d+(night?1:0),h,30,CFG.tz)+(j-30)*60e3);
+        if(+at<now+20*60e3)continue;
+        let v=null,rec=false;
+        if(CFG.dist==="mirror"&&mirrorPick[h]&&!usedBy[acc.id]?.has(mirrorPick[h].id))v=mirrorPick[h];
+        if(!v)v=vids.find(f=>CFG.dist==="split"?!usedAny.has(f.id)&&!taken.has(f.id):!(usedBy[acc.id]?.has(f.id))&&!taken.has(f.id+acc.id)&&!Object.values(mirrorPick).includes(f));
+        if(!v&&CFG.recycle){const fid=winners.find(fid=>!taken.has("r"+fid+acc.id)&&(+at-lastUse(acc.id,fid))>CFG.recycleDays*864e5);v=fid&&vids.find(f=>f.id===fid);rec=!!v}
+        if(!v){missing++;continue}
+        taken.add(CFG.dist==="split"?v.id:v.id+acc.id);if(rec)taken.add("r"+v.id+acc.id);if(CFG.dist==="mirror")mirrorPick[h]=v;
+        items.push({uid:Math.random().toString(36).slice(2,10),account_id:acc.id,account:acc.name,provider:acc.provider,file_id:v.id,file_name:v.title,at:at.toISOString(),recycled:rec,
+          caption:[bank.length?bank[Math.floor(Math.random()*bank.length)]:"",CFG.hashtags.trim()].filter(Boolean).join("\n\n")});need--}}}
+  items.sort((a,b)=>a.at.localeCompare(b.at));return {items,missing,hours:slotHours(n,null)}}
+$("#genBtn").onclick=async()=>{
+  Object.assign(CFG,{perDay:+$("#pN").value||1,horizon:+$("#pH").value||7,mode:$("#pMode").value,dist:$("#pDist").value});saveCfg(true);
+  $("#genBtn").disabled=true;$("#planInfo").textContent="Calcul en cours…";
+  try{PLAN=await buildPlan();renderPlan()}catch(e){$("#planInfo").innerHTML=`<span class="down">${esc(e.code?errText(e,G):e.message)}</span>`}
+  $("#genBtn").disabled=false};
+function renderPlan(){const it=PLAN.items;
+  $("#planInfo").innerHTML=`${it.length} vidéos à programmer · créneaux : <b>${PLAN.hours.map(h=>h+" h").join(", ")}</b> ${tzS()}${PLAN.missing?` · <span class="down">${PLAN.missing} créneaux vides : ajoute des vidéos dans ton Drive</span>`:""}`;
+  $("#sendBtn").hidden=!it.length;$("#sendBtn").textContent=`Programmer ${it.length} vidéos sur Publer`;$("#sendBtn").dataset.armed="";$("#cancelBtn").hidden=!it.length;
+  if(!it.length){$("#planPreview").innerHTML=`<div class="note">${PLAN.missing?"Plus aucune vidéo disponible dans ton Drive.":"Ta semaine est déjà pleine."}</div>`;return}
+  $("#planPreview").innerHTML=`<div class="panel scroll"><table><tr><th>Quand (${tzS()})</th><th>Chez toi</th><th>Compte</th><th>Vidéo</th><th>Légende</th><th></th></tr>${it.map((p,i)=>`<tr>
+    <td class="n"><b>${esc(inTz(p.at,{weekday:"short",day:"2-digit",month:"2-digit",hour:"2-digit",minute:"2-digit"}))}</b></td>
+    <td class="n mut">${esc(loc(p.at,{weekday:"short",hour:"2-digit",minute:"2-digit"}))}</td>
+    <td>${esc(p.account)} <span class="tag">${esc(p.provider)}</span></td>
+    <td>${esc(p.file_name)} ${p.recycled?'<span class="tag rc">gagnante reprise</span>':""}</td>
+    <td style="min-width:200px"><input type="text" id="cap-${p.uid}" data-i="${i}" value="${esc(p.caption)}" aria-label="Légende"></td>
+    <td><button class="btn ghost sm" data-del="${i}" aria-label="Retirer">Retirer</button></td></tr>`).join("")}</table></div>`;
+  $$("[data-del]").forEach(b=>b.onclick=()=>{PLAN.items.splice(+b.dataset.del,1);renderPlan()});
+  $$("#planPreview input").forEach(x=>x.oninput=()=>PLAN.items[+x.dataset.i].caption=x.value)}
+$("#cancelBtn").onclick=()=>{PLAN=null;$("#planPreview").innerHTML="";$("#sendBtn").hidden=true;$("#cancelBtn").hidden=true;$("#planInfo").textContent=""};
+$("#sendBtn").onclick=async()=>{
+  const b=$("#sendBtn");if(!b.dataset.armed){b.dataset.armed="1";b.textContent=EXAMPLE?"Confirmer (exemple, rien ne sera publié)":`Confirmer : programmer ${PLAN.items.length} vidéos`;return}
+  b.hidden=true;$("#cancelBtn").hidden=true;$("#genBtn").disabled=true;const items=[...PLAN.items];PLAN=null;$("#planPreview").innerHTML="";
+  $("#sendBox").hidden=false;$("#sendLog").textContent="";let ok=0,ko=0;
+  const logl=t=>{$("#sendLog").textContent=t+"\n"+$("#sendLog").textContent};
+  for(let i=0;i<items.length;i++){const p=items[i];
+    $("#sendLabel").textContent=`Envoi de ${p.file_name} → ${p.account}`;$("#sendCount").textContent=`${i+1} / ${items.length}`;
+    try{
+      if(!EXAMPLE){const r=await call(P,"submit_publer_posts",{when:"schedule",posts:[{account:p.account_id,platform:p.provider,caption:p.caption||" ",
+          media_url:`https://drive.usercontent.google.com/download?id=${p.file_id}&export=download&confirm=t`,media_filename:p.file_name,
+          post_type:p.provider==="instagram"?"reel":p.provider==="youtube"?"short":"video",scheduled_for:p.at}]});
+        const txt=JSON.stringify(r||{});if(/"(error|errors|failures)"\s*:\s*(?!null|\[\]|\{\})/i.test(txt)&&!/"success"\s*:\s*true/.test(txt))throw {code:"tool_error",message:txt.slice(0,300)}}
+      await recordPost({...p,status:"scheduled"});ok++;logl(`✓ ${inTz(p.at,{weekday:"short",hour:"2-digit",minute:"2-digit"})} ${tzS()} · ${p.account} · ${p.file_name}`)}
+    catch(e){ko++;logl(`✗ ${p.file_name} → ${p.account} : ${errText(e,P)}`);if(e.code==="server_unavailable"||e.code==="upstream_error")logl("  (vérifie dans Publer avant de relancer : le post a peut-être été créé)")}
+    $("#sendBar").style.width=(100*(i+1)/items.length)+"%"}
+  $("#sendLabel").innerHTML=`<b>Terminé</b> : ${ok} programmées${ko?`, <span class="down">${ko} en erreur</span>`:""}.`;$("#genBtn").disabled=false;renderCalendar()};
+function renderCalendar(){
+  $("#pN").value=CFG.perDay;$("#pH").value=CFG.horizon;$("#pMode").value=CFG.mode;$("#pDist").value=CFG.dist;
+  const t=zparts(new Date(),CFG.tz);const keys=[];for(let d=0;d<7;d++){const u=new Date(Date.UTC(t.y,t.m-1,t.d+d,12));keys.push(u.toISOString().slice(0,10))}
+  $("#calendar").innerHTML=keys.map(k=>{const ps=POSTS.filter(p=>zparts(new Date(p.at),CFG.tz).key===k).sort((a,b)=>a.at.localeCompare(b.at));
+    const lab=new Date(k+"T12:00:00Z").toLocaleDateString("fr-FR",{weekday:"long",day:"2-digit",month:"2-digit",timeZone:"UTC"});
+    return `<div class="day"><h3>${lab} · ${ps.length}</h3>${ps.map(p=>`<div class="slot ${+new Date(p.at)<Date.now()?"done":""}"><b>${inTz(p.at,{hour:"2-digit",minute:"2-digit"})}</b> ${esc(p.account)}<div class="fn">${p.recycled?"♻ ":""}${esc(p.file_name)}</div></div>`).join("")||'<span class="hint">Rien</span>'}</div>`}).join("")}
+
+/* ---------- stockage partagé ---------- */
+async function recordPost(p){const row={account_id:p.account_id,account:p.account,file_id:p.file_id,file_name:p.file_name,at:p.at,status:p.status,recycled:!!p.recycled,caption:p.caption||"",created:new Date().toISOString(),example:EXAMPLE};
+  if(DB&&!EXAMPLE){await DB.collection("posts").doc(p.uid).set(row)}else{POSTS.push({...row,uid:p.uid})}}
+async function saveCfg(quiet){try{if(DB&&!EXAMPLE)await DB.doc("config/main").set({...CFG});if(!quiet)$("#saveInfo").textContent="Enregistré"}catch(e){$("#saveInfo").innerHTML=`<span class="down">Pas enregistré : ${esc(e.message||e.code)}</span>`}}
+
+/* ---------- réglages ---------- */
+function fillSettings(){
+  $("#sFolder").value=CFG.folder;$("#sOrder").value=CFG.order;$("#sTz").value=CFG.tz;$("#sGap").value=CFG.gap;$("#sW0").value=CFG.w0;$("#sW1").value=CFG.w1;$("#sJit").value=CFG.jitter;
+  $("#sManual").value=(CFG.manual||[]).join(", ");$("#sCaps").value=CFG.captions;$("#sTags").value=CFG.hashtags;$("#sRecycle").checked=CFG.recycle;$("#sRecDays").value=CFG.recycleDays;
+  renderAccounts()}
+function renderAccounts(){
+  if(!ACCS.length){$("#accList").innerHTML='<p class="hint">Aucun compte Publer trouvé.</p>';return}
+  $("#accList").innerHTML=ACCS.map(a=>`<label class="acc"><input type="checkbox" id="acc-${esc(a.id)}" value="${esc(a.id)}" ${CFG.accounts.includes(a.id)?"checked":""}>${a.avatar?`<img src="${esc(a.avatar)}" alt="">`:""}<b>${esc(a.name)}</b><span class="tag">${esc(a.channel||a.provider)}</span></label>`).join("")}
+$("#sFolderPick").onchange=e=>{if(e.target.value)$("#sFolder").value=e.target.value};
+$("#saveBtn").onclick=async()=>{
+  Object.assign(CFG,{accounts:$$("#accList input:checked").map(x=>x.value),folder:folderId($("#sFolder").value),order:$("#sOrder").value,tz:$("#sTz").value,
+    gap:+$("#sGap").value||0,w0:+$("#sW0").value||0,w1:+$("#sW1").value||0,jitter:+$("#sJit").value||0,
+    manual:$("#sManual").value.split(/[,; ]+/).map(Number).filter(n=>Number.isInteger(n)&&n>=0&&n<24),captions:$("#sCaps").value,hashtags:$("#sTags").value,
+    recycle:$("#sRecycle").checked,recycleDays:+$("#sRecDays").value||21});
+  VIDEOS=null;await saveCfg();fillAccSelect()};
+function fillAccSelect(){const cur=$("#aAcc").value;$("#aAcc").innerHTML=ACCS.map(a=>`<option value="${esc(a.id)}">${esc(a.name)} · ${esc(a.channel||a.provider)}</option>`).join("");
+  if(cur)$("#aAcc").value=cur;else if(CFG.accounts[0])$("#aAcc").value=CFG.accounts[0]}
+async function loadFolders(){
+  if(EXAMPLE){$("#sFolderPick").innerHTML='<option value="">Exemple</option>';return}
+  try{const r=await call(G,"search_files",{query:"mimeType = 'application/vnd.google-apps.folder' and trashed = false",pageSize:60,orderBy:"modifiedTime desc",excludeContentSnippets:true});
+    $("#sFolderPick").innerHTML='<option value="">Choisir un dossier récent…</option>'+(r.files||[]).map(f=>`<option value="${esc(f.id)}" ${f.id===CFG.folder?"selected":""}>${esc(f.title)}</option>`).join("")}
+  catch(e){$("#sFolderPick").innerHTML=`<option value="">${esc(errText(e,G))}</option>`}}
+
+/* ---------- démarrage ---------- */
+(async function boot(){
+  try{const t=localStorage.getItem("pilote.tab");if(t&&t!=="ana")show(t)}catch(e){}
+  $("#anaBody").innerHTML='<div class="note">Connexion à Publer…</div>';
+  const cl=window.claude;MCP=cl?await cl.use("mcp"):null;DB=cl?await cl.use("db"):null;
+  if(!MCP){EXAMPLE=true;$("#conn").textContent="aperçu · données d'exemple";$("#conn").className="chip ex";
+    ACCS=[{id:"ex1",name:"Compte exemple",provider:"instagram",channel:"Instagram"}];CFG.accounts=["ex1"];fillAccSelect();fillSettings();runAnalysis("ex1",60);return}
+  if(DB){try{const c=await DB.doc("config/main").get();if(c.exists)CFG={...DEFAULTS,...c.data()}}catch(e){}
+    DB.collection("posts").onSnapshot(s=>{POSTS=s.docs.map(d=>({uid:d.id,...d.data()}));if(!$("#v-plan").hidden)renderCalendar()},()=>{})}
+  try{const r=await call(P,"lookup_publer_accounts",{});ACCS=(r.accounts||[]).map(a=>({id:a.id,name:a.name,provider:a.provider,channel:a.channel,avatar:a.avatar}));
+    $("#conn").textContent=`● Publer · ${r.workspace||"connecté"}`;$("#conn").className="chip live";
+    if(!CFG.accounts.length)CFG.accounts=ACCS.map(a=>a.id);fillAccSelect();fillSettings();
+    let cached=null;try{cached=JSON.parse(localStorage.getItem("pilote.ana."+$("#aAcc").value)||"null")}catch(e){}
+    if(cached&&Date.now()-cached.at<6*3600e3){ANA[$("#aAcc").value]=analyse(cached.raw,$("#aAcc").value);renderAnalysis(ANA[$("#aAcc").value]);$("#aStatus").textContent=`Analyse du ${loc(cached.at,{dateStyle:"short",timeStyle:"short"})}`}
+    else runAnalysis($("#aAcc").value,+$("#aDays").value)}
+  catch(e){$("#conn").textContent="Publer non connecté";$("#conn").className="chip ex";$("#anaBody").innerHTML=`<div class="note bad">${esc(errText(e,P))}</div>`}
+  loadFolders()})();
+</script>
