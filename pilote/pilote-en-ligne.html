@@ -125,7 +125,7 @@ section[hidden]{display:none!important}
   <nav class="tabs" role="tablist">
     <button role="tab" id="t-ana" aria-selected="true" data-v="ana">Super analyse</button>
     <button role="tab" id="t-pep" aria-selected="false" data-v="pep">Pépites</button>
-    <button role="tab" id="t-plan" aria-selected="false" data-v="plan">Planning</button>
+    <button role="tab" id="t-plan" aria-selected="false" data-v="plan">Planning Publer</button>
     <button role="tab" id="t-lib" aria-selected="false" data-v="lib">Vidéos Drive</button>
     <button role="tab" id="t-set" aria-selected="false" data-v="set">Réglages</button>
   </nav>
@@ -164,9 +164,28 @@ section[hidden]{display:none!important}
 
 <!-- ================= PLANNING ================= -->
 <section id="v-plan" hidden>
-  <h1>Planning de la semaine</h1>
+  <h1>Planning Publer</h1>
   <p class="lede"><b>Reel d'essai</b> = montré d'abord seulement aux gens qui ne te suivent pas. En « partage auto », Instagram le montre ensuite à tes abonnés s'il marche bien. Pilote prend les vidéos de ton Drive pas encore publiées, les place aux meilleures heures US et les programme sur Publer. Ensuite c'est Publer qui publie : tu peux fermer la page une fois l'envoi terminé.</p>
+  <div class="panel" style="margin-bottom:14px">
+    <h2>Ajouter une publication</h2>
+    <p class="hint" style="margin-bottom:12px">Elle part directement dans la file de Publer, et c'est Publer qui la publie.</p>
+    <div class="grid c3">
+      <label class="f"><span>Vidéo du Drive</span><select id="mVid"><option value="">Chargement…</option></select></label>
+      <label class="f"><span>Date et heure (heure de New York)</span><input type="datetime-local" id="mWhen"></label>
+      <label class="f"><span>Format Instagram</span><select id="mIg"><option value="">Reel normal</option><option value="SS_PERFORMANCE">Reel d'essai · partage auto</option><option value="MANUAL">Reel d'essai · partage manuel</option></select></label>
+    </div>
+    <div class="grid c2" style="margin-top:12px">
+      <div class="f"><span style="font-size:12px;font-weight:600;color:var(--muted)">Comptes</span><div id="mAccs" class="row"></div></div>
+      <label class="f"><span>Légende</span><textarea id="mCap" style="min-height:60px" placeholder="Vide = légende tirée de ta banque"></textarea></label>
+    </div>
+    <div class="row" style="margin-top:12px">
+      <button class="btn" id="mSched">Programmer dans Publer</button>
+      <button class="btn ghost" id="mNow">Publier tout de suite</button>
+      <span id="mInfo" class="mut"></span>
+    </div>
+  </div>
   <div class="panel">
+    <h2>Remplir la semaine automatiquement</h2>
     <div class="grid c3">
       <label class="f"><span>Instagram : reels par jour</span><input type="number" id="pN" min="0" max="24"></label>
       <label class="f"><span>X : vidéos par jour</span><input type="number" id="pNX" min="0" max="24"></label>
@@ -192,7 +211,9 @@ section[hidden]{display:none!important}
     </div>
   </div>
   <div id="planPreview" style="margin-top:14px"></div>
-  <h2 style="margin-top:24px">Déjà programmé par Pilote</h2>
+  <div class="row" style="margin-top:24px;justify-content:space-between"><h2 style="margin:0">File d'attente Publer, en direct</h2><div class="row"><span class="mut" id="qInfo"></span><button class="btn ghost sm" id="qGo">Actualiser</button></div></div>
+  <p class="hint" style="margin:4px 0 10px">Lu directement dans Publer : tout ce qui est programmé, y compris ce que tu ajoutes dans Publer lui-même. Pilote en tient compte pour ne jamais surcharger une journée.</p>
+  <div id="failed"></div>
   <div class="scroll"><div id="calendar" class="week"></div></div>
 </section>
 
@@ -255,7 +276,7 @@ const DAYKEYS={lundi:0,mardi:1,mercredi:2,jeudi:3,vendredi:4,samedi:5,dimanche:6
 const MONTHS={jan:0,feb:1,mar:2,apr:3,may:4,jun:5,jul:6,aug:7,sep:8,oct:9,nov:10,dec:11};
 const US_PRIOR=[.35,.25,.15,.1,.1,.15,.35,.55,.65,.6,.55,.6,.75,.7,.6,.6,.65,.75,.85,.95,1,.95,.8,.55];
 const DEFAULTS={accounts:[],folder:"",order:"oldest",tz:"America/New_York",gap:2,w0:7,w1:23,jitter:12,manual:[19,21,23],captions:"",hashtags:"",recycle:true,recycleDays:21,perDay:3,perDayIG:3,perDayX:3,igMode:"mix",capsX:"",horizon:7,mode:"auto",dist:"split"};
-let RAW={}, PEP=[], PEP_LOCAL=[];
+let RAW={}, PEP=[], PEP_LOCAL=[], QUEUE=[], FAILED=[], QUEUE_AT=0;
 let CFG={...DEFAULTS}, ACCS=[], POSTS=[], VIDEOS=null, ANA={}, PLAN=null, MCP=null, DB=null, EXAMPLE=false;
 const P="Publer", G="Google Drive";
 
@@ -275,7 +296,7 @@ $$(".tabs button").forEach(b=>b.onclick=()=>show(b.dataset.v));
 function show(v){$$(".tabs button").forEach(b=>b.setAttribute("aria-selected",b.dataset.v===v));$$("main section").forEach(s=>s.hidden=s.id!=="v-"+v);
   try{localStorage.setItem("pilote.tab",v)}catch(e){}
   if(v==="pep")renderPep();
-  if(v==="plan")renderCalendar(); if(v==="lib")loadLib(); if(v==="set")fillSettings();}
+  if(v==="plan"){renderCalendar();fillManual();refreshQueue()} if(v==="lib")loadLib(); if(v==="set")fillSettings();}
 setInterval(()=>{$("#clock").textContent=inTz(new Date(),{hour:"2-digit",minute:"2-digit"})+" "+tzS()+" · "+loc(new Date(),{hour:"2-digit",minute:"2-digit"})+" chez toi"},1000);
 function errText(e,server){const c=e&&e.code;
   if(c==="server_not_connected")return `${server} n'est pas connecté : ajoute-le dans claude.ai → Réglages → Connecteurs.`;
@@ -453,6 +474,7 @@ function slotHours(n,wd,accId){
   return ch.sort((x,y)=>((x-lo+24)%24)-((y-lo+24)%24))}
 async function buildPlan(){
   const accs=ACCS.filter(a=>CFG.accounts.includes(a.id));if(!accs.length)throw new Error("Choisis au moins un compte dans Réglages.");
+  await loadQueue();
   const vids=(await driveVideos(true)).filter(v=>!isPrivate(v));const now=Date.now();
   const perDay=a=>a.provider==="instagram"?+CFG.perDayIG:a.provider==="twitter"?+CFG.perDayX:+CFG.perDay;
   accs.forEach(a=>{if(!ANA[a.id]&&RAW[a.id])ANA[a.id]=analyse(RAW[a.id].raw,a.id)});
@@ -467,7 +489,8 @@ async function buildPlan(){
     const dayUtc=new Date(Date.UTC(today.y,today.m-1,today.d+d,12));const z={y:dayUtc.getUTCFullYear(),m:dayUtc.getUTCMonth()+1,d:dayUtc.getUTCDate()};
     const wd=(dayUtc.getUTCDay()+6)%7;let mirrorPick={};
     for(const acc of accs){const n=perDay(acc);if(!n)continue;const hours=slotHours(n,wd,acc.id);
-      const existing=live.filter(p=>p.account_id===acc.id&&zparts(new Date(p.at),CFG.tz).key===`${z.y}-${String(z.m).padStart(2,"0")}-${String(z.d).padStart(2,"0")}`);
+      const qa=QUEUE.filter(q=>q.account_id===acc.id);
+      const existing=[...qa,...live.filter(p=>p.account_id===acc.id&&+new Date(p.at)>now&&!qa.some(q=>Math.abs(new Date(q.at)-new Date(p.at))<=5*60e3))].filter(p=>zparts(new Date(p.at),CFG.tz).key===`${z.y}-${String(z.m).padStart(2,"0")}-${String(z.d).padStart(2,"0")}`);
       let need=n-existing.length;if(need<=0)continue;
       const exH=existing.map(p=>zparts(new Date(p.at),CFG.tz).h);
       for(const h of hours.filter(h=>!exH.includes(h))){if(need<=0)break;
@@ -515,21 +538,66 @@ $("#sendBtn").onclick=async()=>{
   for(let i=0;i<items.length;i++){const p=items[i];
     $("#sendLabel").textContent=`Envoi de ${p.file_name} → ${p.account}`;$("#sendCount").textContent=`${i+1} / ${items.length}`;
     try{
-      if(!EXAMPLE){const r=await call(P,"submit_publer_posts",{when:"schedule",posts:[{account:p.account_id,platform:p.provider,caption:p.caption||" ",
-          media_url:`https://drive.usercontent.google.com/download?id=${p.file_id}&export=download&confirm=t`,media_filename:p.file_name,
-          post_type:p.provider==="instagram"?"reel":p.provider==="youtube"?"short":"video",scheduled_for:p.at,
-          ...(p.provider==="instagram"&&p.trial?{network_options:{details:{type:"reel",trial_reel:p.trial}}}:{})}]});
-        const txt=JSON.stringify(r||{});if(/"(error|errors|failures)"\s*:\s*(?!null|\[\]|\{\})/i.test(txt)&&!/"success"\s*:\s*true/.test(txt))throw {code:"tool_error",message:txt.slice(0,300)}}
-      await recordPost({...p,status:"scheduled"});ok++;logl(`✓ ${inTz(p.at,{weekday:"short",hour:"2-digit",minute:"2-digit"})} ${tzS()} · ${p.account}${p.trial?" (essai)":""} · ${p.file_name}`)}
+      await pushToPubler(p,"schedule");ok++;logl(`✓ ${inTz(p.at,{weekday:"short",hour:"2-digit",minute:"2-digit"})} ${tzS()} · ${p.account}${p.trial?" (essai)":""} · ${p.file_name}`)}
     catch(e){ko++;logl(`✗ ${p.file_name} → ${p.account} : ${errText(e,P)}`);if(e.code==="server_unavailable"||e.code==="upstream_error")logl("  (vérifie dans Publer avant de relancer : le post a peut-être été créé)")}
     $("#sendBar").style.width=(100*(i+1)/items.length)+"%"}
-  $("#sendLabel").innerHTML=`<b>Terminé</b> : ${ok} programmées${ko?`, <span class="down">${ko} en erreur</span>`:""}.`;$("#genBtn").disabled=false;renderCalendar()};
+  $("#sendLabel").innerHTML=`<b>Terminé</b> : ${ok} envoyées dans Publer${ko?`, <span class="down">${ko} en erreur</span>`:""}.`;$("#genBtn").disabled=false;refreshQueue()};
+/* envoi d'une publication dans Publer (c'est Publer qui publie) */
+async function pushToPubler(p,when){
+  if(!EXAMPLE){const r=await call(P,"submit_publer_posts",{when,posts:[{account:p.account_id,platform:p.provider,caption:p.caption||" ",
+      media_url:`https://drive.usercontent.google.com/download?id=${p.file_id}&export=download&confirm=t`,media_filename:p.file_name,
+      post_type:p.provider==="instagram"?"reel":p.provider==="youtube"?"short":"video",...(when==="schedule"?{scheduled_for:p.at}:{}),
+      ...(p.provider==="instagram"&&p.trial?{network_options:{details:{type:"reel",trial_reel:p.trial}}}:{})}]});
+    const txt=JSON.stringify(r||{});if(/"(error|errors|failures)"\s*:\s*(?!null|\[\]|\{\})/i.test(txt)&&!/"success"\s*:\s*true/.test(txt))throw {code:"tool_error",message:txt.slice(0,300)}}
+  await recordPost({...p,status:"scheduled"})}
+/* file d'attente lue dans Publer */
+function periodEnd(r){const m=/– (\w{3}) (\d{1,2}), (\d{4})/.exec(r.period||"");return m?{y:+m[3],mo:MONTHS[m[1].toLowerCase()]}:{y:new Date().getFullYear(),mo:new Date().getMonth()}}
+function accIdOf(name,channel){const a=ACCS.find(a=>a.name===name&&(!channel||a.channel===channel))||ACCS.find(a=>a.name===name);return a?a.id:""}
+async function loadQueue(){
+  if(EXAMPLE){QUEUE=POSTS.filter(p=>+new Date(p.at)>Date.now()).map(p=>({...p,channel:"",format:"Video"}));FAILED=[];QUEUE_AT=Date.now();return}
+  const out=[];const days=Math.max(8,+CFG.horizon+2);
+  for(let page=0;page<10;page++){const r=await call(P,"list_publer_posts",{state:"scheduled",days,limit:100,page});const end=periodEnd(r);const ps=r.posts||[];
+    ps.forEach(q=>{const w=parseWhen(q.when,end.y,end.mo);if(w)out.push({account:q.account,channel:q.channel,account_id:accIdOf(q.account,q.channel),at:w.date.toISOString(),caption:q.caption||"",format:q.format||"",status:q.status||""})});
+    if(ps.length<100)break}
+  QUEUE=out;QUEUE_AT=Date.now();
+  try{const r=await call(P,"list_publer_posts",{state:"failed",days:7,limit:50});const end=periodEnd(r);
+    FAILED=(r.posts||[]).map(q=>{const w=parseWhen(q.when,end.y,end.mo);return {account:q.account,channel:q.channel,at:w?w.date.toISOString():"",caption:q.caption||""}})}catch(e){FAILED=[]}}
+async function refreshQueue(){$("#qInfo").textContent="Lecture de Publer…";
+  try{await loadQueue();$("#qInfo").textContent=`${QUEUE.length} publications en attente · lu à ${loc(new Date(QUEUE_AT),{hour:"2-digit",minute:"2-digit"})}`}
+  catch(e){$("#qInfo").innerHTML=`<span class="down">${esc(errText(e,P))}</span>`}
+  renderCalendar()}
+$("#qGo").onclick=refreshQueue;
+/* ajout manuel */
+async function fillManual(){
+  $("#mAccs").innerHTML=ACCS.map(a=>`<label class="check acc" style="padding:6px 10px"><input type="checkbox" id="m-acc-${esc(a.id)}" value="${esc(a.id)}" ${CFG.accounts.includes(a.id)?"checked":""}> ${esc(a.name)} <span class="tag">${esc(a.channel||a.provider)}</span></label>`).join("");
+  if(!$("#mWhen").value){const z=zparts(new Date(Date.now()+3600e3),CFG.tz);$("#mWhen").value=`${z.key}T${String(z.h).padStart(2,"0")}:00`}
+  try{const vids=await driveVideos();const used=usage();const sorted=[...vids.filter(v=>!used[v.id]),...vids.filter(v=>used[v.id])];
+    const cur=$("#mVid").value;$("#mVid").innerHTML=sorted.filter(v=>!isPrivate(v)).map(v=>`<option value="${esc(v.id)}">${used[v.id]?"(déjà utilisée) ":"● "}${esc(v.title)}</option>`).join("")||'<option value="">Aucune vidéo partagée par lien</option>';if(cur)$("#mVid").value=cur}
+  catch(e){$("#mVid").innerHTML=`<option value="">${esc(e.code?errText(e,G):e.message)}</option>`}}
+async function manualSend(when){
+  const vid=(VIDEOS||[]).find(v=>v.id===$("#mVid").value);const accs=ACCS.filter(a=>$("#m-acc-"+CSS.escape(a.id))?.checked);
+  if(!vid){$("#mInfo").textContent="Choisis une vidéo.";return}if(!accs.length){$("#mInfo").textContent="Coche au moins un compte.";return}
+  let at=new Date();if(when==="schedule"){const m=/(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})/.exec($("#mWhen").value);if(!m){$("#mInfo").textContent="Indique la date et l'heure.";return}
+    at=zonedToUtc(+m[1],+m[2],+m[3],+m[4],+m[5],CFG.tz);if(+at<Date.now()+5*60e3){$("#mInfo").textContent="Choisis une heure dans le futur (au moins 5 min).";return}}
+  const bank=CFG.captions.split("\n").map(s=>s.trim()).filter(Boolean), bankX=CFG.capsX.split("\n").map(s=>s.trim()).filter(Boolean);
+  $("#mSched").disabled=$("#mNow").disabled=true;let ok=0;const errs=[];
+  for(const a of accs){const isX=a.provider==="twitter";const b=isX&&bankX.length?bankX:bank;
+    let cap=$("#mCap").value.trim()||[b.length?b[Math.floor(Math.random()*b.length)]:"",CFG.hashtags.trim()].filter(Boolean).join(isX?" ":"\n\n");if(isX)cap=cap.slice(0,280);
+    $("#mInfo").textContent=`Envoi vers ${a.name}…`;
+    try{await pushToPubler({uid:Math.random().toString(36).slice(2,10),account_id:a.id,account:a.name,provider:a.provider,file_id:vid.id,file_name:vid.title,at:at.toISOString(),
+      trial:a.provider==="instagram"?$("#mIg").value:"",caption:cap},when);ok++}catch(e){errs.push(`${a.name} : ${errText(e,P)}`)}}
+  $("#mInfo").innerHTML=(ok?`<span class="up">${ok} envoyée${ok>1?"s":""} dans Publer${when==="now"?", publication immédiate":" pour le "+esc(inTz(at,{weekday:"short",day:"2-digit",month:"2-digit",hour:"2-digit",minute:"2-digit"}))+" "+tzS()}.</span> `:"")+errs.map(esc).join(" · ");
+  $("#mSched").disabled=$("#mNow").disabled=false;$("#mNow").dataset.armed="";$("#mNow").textContent="Publier tout de suite";fillManual();refreshQueue()}
+$("#mSched").onclick=()=>manualSend("schedule");
+$("#mNow").onclick=()=>{const b=$("#mNow");if(!b.dataset.armed){b.dataset.armed="1";b.textContent=EXAMPLE?"Confirmer (exemple, rien ne part)":"Confirmer : publier maintenant";return}manualSend("now")};
 function renderCalendar(){
   $("#pN").value=CFG.perDayIG;$("#pNX").value=CFG.perDayX;$("#pIg").value=CFG.igMode;$("#pH").value=CFG.horizon;$("#pMode").value=CFG.mode;$("#pDist").value=CFG.dist;
-  const t=zparts(new Date(),CFG.tz);const keys=[];for(let d=0;d<7;d++){const u=new Date(Date.UTC(t.y,t.m-1,t.d+d,12));keys.push(u.toISOString().slice(0,10))}
-  $("#calendar").innerHTML=keys.map(k=>{const ps=POSTS.filter(p=>zparts(new Date(p.at),CFG.tz).key===k).sort((a,b)=>a.at.localeCompare(b.at));
+  $("#failed").innerHTML=FAILED.length?`<div class="note bad" style="margin-bottom:10px"><b>${FAILED.length} publication${FAILED.length>1?"s":""} en échec dans Publer (7 derniers jours)</b> : ${FAILED.slice(0,6).map(f=>`${esc(f.account)} ${f.at?esc(inTz(f.at,{weekday:"short",hour:"2-digit",minute:"2-digit"})):""}`).join(" · ")}. Ouvre Publer pour voir la raison et relancer.</div>`:"";
+  const t=zparts(new Date(),CFG.tz);const keys=[];for(let d=0;d<Math.max(7,+CFG.horizon);d++){const u=new Date(Date.UTC(t.y,t.m-1,t.d+d,12));keys.push(u.toISOString().slice(0,10))}
+  $("#calendar").innerHTML=keys.map(k=>{const ps=QUEUE.filter(p=>zparts(new Date(p.at),CFG.tz).key===k).sort((a,b)=>a.at.localeCompare(b.at));
     const lab=new Date(k+"T12:00:00Z").toLocaleDateString("fr-FR",{weekday:"long",day:"2-digit",month:"2-digit",timeZone:"UTC"});
-    return `<div class="day"><h3>${lab} · ${ps.length}</h3>${ps.map(p=>`<div class="slot ${+new Date(p.at)<Date.now()?"done":""}"><b>${inTz(p.at,{hour:"2-digit",minute:"2-digit"})}</b> ${esc(p.account)}<div class="fn">${p.trial?"essai · ":""}${p.recycled?"♻ ":""}${esc(p.file_name)}</div></div>`).join("")||'<span class="hint">Rien</span>'}</div>`}).join("")}
+    return `<div class="day"><h3>${lab} · ${ps.length}</h3>${ps.map(p=>{const mine=POSTS.find(x=>x.account_id===p.account_id&&Math.abs(new Date(x.at)-new Date(p.at))<=5*60e3);
+      return `<div class="slot"><b>${inTz(p.at,{hour:"2-digit",minute:"2-digit"})}</b> ${esc(p.account)} <span class="tag">${esc(p.channel||"")}</span><div class="fn">${mine?(mine.trial?"essai · ":"")+esc(mine.file_name):"ajouté dans Publer"}</div></div>`}).join("")||'<span class="hint">Rien</span>'}</div>`}).join("")}
 
 /* ---------- PEPITES ---------- */
 function dayTops(raw,acc){
