@@ -165,10 +165,10 @@ section[hidden]{display:none!important}
 <!-- ================= PLANNING ================= -->
 <section id="v-plan" hidden>
   <h1>Planning Publer</h1>
-  <p class="lede"><b>Reel d'essai</b> = montré d'abord seulement aux gens qui ne te suivent pas. En « partage auto », Instagram le montre ensuite à tes abonnés s'il marche bien. Pilote prend les vidéos de ton Drive pas encore publiées, les place aux meilleures heures US et les programme sur Publer. Ensuite c'est Publer qui publie : tu peux fermer la page une fois l'envoi terminé.</p>
+  <p class="lede"><b>Reel d'essai</b> = montré d'abord seulement aux gens qui ne te suivent pas. En « partage auto », Instagram le montre ensuite à tes abonnés s'il marche bien. Pilote prend les vidéos de ton Drive pas encore utilisées, choisit les meilleures heures US et les dépose dans la file programmée de Publer. Pilote ne publie rien lui-même : c'est Publer qui publie. Tu peux fermer la page une fois l'envoi terminé.</p>
   <div class="panel" style="margin-bottom:14px">
-    <h2>Ajouter une publication</h2>
-    <p class="hint" style="margin-bottom:12px">Elle part directement dans la file de Publer, et c'est Publer qui la publie.</p>
+    <h2>Planifier une vidéo dans Publer</h2>
+    <p class="hint" style="margin-bottom:12px">Pilote ne publie jamais lui-même : il dépose la vidéo dans la file programmée de Publer, et c'est Publer qui la publiera à l'heure choisie.</p>
     <div class="grid c3">
       <label class="f"><span>Vidéo du Drive</span><select id="mVid"><option value="">Chargement…</option></select></label>
       <label class="f"><span>Date et heure (heure de New York)</span><input type="datetime-local" id="mWhen"></label>
@@ -179,8 +179,7 @@ section[hidden]{display:none!important}
       <label class="f"><span>Légende</span><textarea id="mCap" style="min-height:60px" placeholder="Vide = légende tirée de ta banque"></textarea></label>
     </div>
     <div class="row" style="margin-top:12px">
-      <button class="btn" id="mSched">Programmer dans Publer</button>
-      <button class="btn ghost" id="mNow">Publier tout de suite</button>
+      <button class="btn" id="mSched">Planifier dans Publer</button>
       <span id="mInfo" class="mut"></span>
     </div>
   </div>
@@ -200,7 +199,7 @@ section[hidden]{display:none!important}
     </div>
     <div class="row" style="margin-top:14px">
       <button class="btn" id="genBtn">Préparer la semaine</button>
-      <button class="btn warn" id="sendBtn" hidden>Programmer sur Publer</button>
+      <button class="btn warn" id="sendBtn" hidden>Planifier dans Publer</button>
       <button class="btn ghost" id="cancelBtn" hidden>Annuler</button>
       <span id="planInfo" class="mut"></span>
     </div>
@@ -516,7 +515,7 @@ $("#genBtn").onclick=async()=>{
   $("#genBtn").disabled=false};
 function renderPlan(){const it=PLAN.items;
   $("#planInfo").innerHTML=`${it.length} vidéos à programmer · ${PLAN.hours.map(x=>`${esc(x.name)} : <b>${x.hours.map(h=>h+" h").join(", ")}</b>`).join(" · ")} ${tzS()}${PLAN.missing?` · <span class="down">${PLAN.missing} créneaux vides : ajoute des vidéos dans ton Drive</span>`:""}`;
-  $("#sendBtn").hidden=!it.length;$("#sendBtn").textContent=`Programmer ${it.length} vidéos sur Publer`;$("#sendBtn").dataset.armed="";$("#cancelBtn").hidden=!it.length;
+  $("#sendBtn").hidden=!it.length;$("#sendBtn").textContent=`Planifier ${it.length} vidéos dans Publer`;$("#sendBtn").dataset.armed="";$("#cancelBtn").hidden=!it.length;
   if(!it.length){$("#planPreview").innerHTML=`<div class="note">${PLAN.missing?"Plus aucune vidéo disponible dans ton Drive.":"Ta semaine est déjà pleine."}</div>`;return}
   $("#planPreview").innerHTML=`<div class="panel scroll"><table><tr><th>Quand (${tzS()})</th><th>Chez toi</th><th>Compte</th><th>Format</th><th>Vidéo</th><th>Légende</th><th></th></tr>${it.map((p,i)=>`<tr>
     <td class="n"><b>${esc(inTz(p.at,{weekday:"short",day:"2-digit",month:"2-digit",hour:"2-digit",minute:"2-digit"}))}</b></td>
@@ -531,22 +530,23 @@ function renderPlan(){const it=PLAN.items;
   $$("#planPreview select[data-t]").forEach(x=>x.onchange=()=>PLAN.items[+x.dataset.t].trial=x.value)}
 $("#cancelBtn").onclick=()=>{PLAN=null;$("#planPreview").innerHTML="";$("#sendBtn").hidden=true;$("#cancelBtn").hidden=true;$("#planInfo").textContent=""};
 $("#sendBtn").onclick=async()=>{
-  const b=$("#sendBtn");if(!b.dataset.armed){b.dataset.armed="1";b.textContent=EXAMPLE?"Confirmer (exemple, rien ne sera publié)":`Confirmer : programmer ${PLAN.items.length} vidéos`;return}
+  const b=$("#sendBtn");if(!b.dataset.armed){b.dataset.armed="1";b.textContent=EXAMPLE?"Confirmer (exemple, rien ne sera publié)":`Confirmer : planifier ${PLAN.items.length} vidéos dans Publer`;return}
   b.hidden=true;$("#cancelBtn").hidden=true;$("#genBtn").disabled=true;const items=[...PLAN.items];PLAN=null;$("#planPreview").innerHTML="";
   $("#sendBox").hidden=false;$("#sendLog").textContent="";let ok=0,ko=0;
   const logl=t=>{$("#sendLog").textContent=t+"\n"+$("#sendLog").textContent};
   for(let i=0;i<items.length;i++){const p=items[i];
     $("#sendLabel").textContent=`Envoi de ${p.file_name} → ${p.account}`;$("#sendCount").textContent=`${i+1} / ${items.length}`;
     try{
-      await pushToPubler(p,"schedule");ok++;logl(`✓ ${inTz(p.at,{weekday:"short",hour:"2-digit",minute:"2-digit"})} ${tzS()} · ${p.account}${p.trial?" (essai)":""} · ${p.file_name}`)}
+      await pushToPubler(p);ok++;logl(`✓ ${inTz(p.at,{weekday:"short",hour:"2-digit",minute:"2-digit"})} ${tzS()} · ${p.account}${p.trial?" (essai)":""} · ${p.file_name}`)}
     catch(e){ko++;logl(`✗ ${p.file_name} → ${p.account} : ${errText(e,P)}`);if(e.code==="server_unavailable"||e.code==="upstream_error")logl("  (vérifie dans Publer avant de relancer : le post a peut-être été créé)")}
     $("#sendBar").style.width=(100*(i+1)/items.length)+"%"}
-  $("#sendLabel").innerHTML=`<b>Terminé</b> : ${ok} envoyées dans Publer${ko?`, <span class="down">${ko} en erreur</span>`:""}.`;$("#genBtn").disabled=false;refreshQueue()};
+  $("#sendLabel").innerHTML=`<b>Terminé</b> : ${ok} planifiées dans Publer (c'est Publer qui publiera)${ko?`, <span class="down">${ko} en erreur</span>`:""}.`;$("#genBtn").disabled=false;refreshQueue()};
 /* envoi d'une publication dans Publer (c'est Publer qui publie) */
-async function pushToPubler(p,when){
-  if(!EXAMPLE){const r=await call(P,"submit_publer_posts",{when,posts:[{account:p.account_id,platform:p.provider,caption:p.caption||" ",
+async function pushToPubler(p){
+  if(+new Date(p.at)<Date.now()+5*60e3)throw new Error("heure déjà passée : choisis une heure dans le futur");
+  if(!EXAMPLE){const r=await call(P,"submit_publer_posts",{when:"schedule",posts:[{account:p.account_id,platform:p.provider,caption:p.caption||" ",
       media_url:`https://drive.usercontent.google.com/download?id=${p.file_id}&export=download&confirm=t`,media_filename:p.file_name,
-      post_type:p.provider==="instagram"?"reel":p.provider==="youtube"?"short":"video",...(when==="schedule"?{scheduled_for:p.at}:{}),
+      post_type:p.provider==="instagram"?"reel":p.provider==="youtube"?"short":"video",scheduled_for:p.at,
       ...(p.provider==="instagram"&&p.trial?{network_options:{details:{type:"reel",trial_reel:p.trial}}}:{})}]});
     const txt=JSON.stringify(r||{});if(/"(error|errors|failures)"\s*:\s*(?!null|\[\]|\{\})/i.test(txt)&&!/"success"\s*:\s*true/.test(txt))throw {code:"tool_error",message:txt.slice(0,300)}}
   await recordPost({...p,status:"scheduled"})}
@@ -574,22 +574,21 @@ async function fillManual(){
   try{const vids=await driveVideos();const used=usage();const sorted=[...vids.filter(v=>!used[v.id]),...vids.filter(v=>used[v.id])];
     const cur=$("#mVid").value;$("#mVid").innerHTML=sorted.filter(v=>!isPrivate(v)).map(v=>`<option value="${esc(v.id)}">${used[v.id]?"(déjà utilisée) ":"● "}${esc(v.title)}</option>`).join("")||'<option value="">Aucune vidéo partagée par lien</option>';if(cur)$("#mVid").value=cur}
   catch(e){$("#mVid").innerHTML=`<option value="">${esc(e.code?errText(e,G):e.message)}</option>`}}
-async function manualSend(when){
+async function manualSend(){
   const vid=(VIDEOS||[]).find(v=>v.id===$("#mVid").value);const accs=ACCS.filter(a=>$("#m-acc-"+CSS.escape(a.id))?.checked);
   if(!vid){$("#mInfo").textContent="Choisis une vidéo.";return}if(!accs.length){$("#mInfo").textContent="Coche au moins un compte.";return}
-  let at=new Date();if(when==="schedule"){const m=/(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})/.exec($("#mWhen").value);if(!m){$("#mInfo").textContent="Indique la date et l'heure.";return}
-    at=zonedToUtc(+m[1],+m[2],+m[3],+m[4],+m[5],CFG.tz);if(+at<Date.now()+5*60e3){$("#mInfo").textContent="Choisis une heure dans le futur (au moins 5 min).";return}}
+  const m=/(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})/.exec($("#mWhen").value);if(!m){$("#mInfo").textContent="Indique la date et l'heure.";return}
+  const at=zonedToUtc(+m[1],+m[2],+m[3],+m[4],+m[5],CFG.tz);if(+at<Date.now()+5*60e3){$("#mInfo").textContent="Choisis une heure dans le futur (au moins 5 min).";return}
   const bank=CFG.captions.split("\n").map(s=>s.trim()).filter(Boolean), bankX=CFG.capsX.split("\n").map(s=>s.trim()).filter(Boolean);
-  $("#mSched").disabled=$("#mNow").disabled=true;let ok=0;const errs=[];
+  $("#mSched").disabled=true;let ok=0;const errs=[];
   for(const a of accs){const isX=a.provider==="twitter";const b=isX&&bankX.length?bankX:bank;
     let cap=$("#mCap").value.trim()||[b.length?b[Math.floor(Math.random()*b.length)]:"",CFG.hashtags.trim()].filter(Boolean).join(isX?" ":"\n\n");if(isX)cap=cap.slice(0,280);
     $("#mInfo").textContent=`Envoi vers ${a.name}…`;
     try{await pushToPubler({uid:Math.random().toString(36).slice(2,10),account_id:a.id,account:a.name,provider:a.provider,file_id:vid.id,file_name:vid.title,at:at.toISOString(),
-      trial:a.provider==="instagram"?$("#mIg").value:"",caption:cap},when);ok++}catch(e){errs.push(`${a.name} : ${errText(e,P)}`)}}
-  $("#mInfo").innerHTML=(ok?`<span class="up">${ok} envoyée${ok>1?"s":""} dans Publer${when==="now"?", publication immédiate":" pour le "+esc(inTz(at,{weekday:"short",day:"2-digit",month:"2-digit",hour:"2-digit",minute:"2-digit"}))+" "+tzS()}.</span> `:"")+errs.map(esc).join(" · ");
-  $("#mSched").disabled=$("#mNow").disabled=false;$("#mNow").dataset.armed="";$("#mNow").textContent="Publier tout de suite";fillManual();refreshQueue()}
-$("#mSched").onclick=()=>manualSend("schedule");
-$("#mNow").onclick=()=>{const b=$("#mNow");if(!b.dataset.armed){b.dataset.armed="1";b.textContent=EXAMPLE?"Confirmer (exemple, rien ne part)":"Confirmer : publier maintenant";return}manualSend("now")};
+      trial:a.provider==="instagram"?$("#mIg").value:"",caption:cap});ok++}catch(e){errs.push(`${a.name} : ${errText(e,P)}`)}}
+  $("#mInfo").innerHTML=(ok?`<span class="up">${ok} planifiée${ok>1?"s":""} dans Publer pour le ${esc(inTz(at,{weekday:"short",day:"2-digit",month:"2-digit",hour:"2-digit",minute:"2-digit"}))} ${tzS()}. Publer s'occupe de la publication.</span> `:"")+errs.map(esc).join(" · ");
+  $("#mSched").disabled=false;fillManual();refreshQueue()}
+$("#mSched").onclick=manualSend;
 function renderCalendar(){
   $("#pN").value=CFG.perDayIG;$("#pNX").value=CFG.perDayX;$("#pIg").value=CFG.igMode;$("#pH").value=CFG.horizon;$("#pMode").value=CFG.mode;$("#pDist").value=CFG.dist;
   $("#failed").innerHTML=FAILED.length?`<div class="note bad" style="margin-bottom:10px"><b>${FAILED.length} publication${FAILED.length>1?"s":""} en échec dans Publer (7 derniers jours)</b> : ${FAILED.slice(0,6).map(f=>`${esc(f.account)} ${f.at?esc(inTz(f.at,{weekday:"short",hour:"2-digit",minute:"2-digit"})):""}`).join(" · ")}. Ouvre Publer pour voir la raison et relancer.</div>`:"";
