@@ -3,224 +3,261 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@500&display=swap">
 <style>
-/* Layout : barre de réglages repliable, puis une carte par nuit (frise 22:40→06:37 + lignes éditables), barre d'envoi collante en bas. */
+/* Layout : barre du haut (semaine + envoi), réglages repliables, puis calendrier horizontal en 7 colonnes façon Publer ; un clic sur une carte ouvre l'éditeur latéral. */
 :root{
-  --bg:#F3F4F8; --surface:#FFFFFF; --sunk:#E9EBF2; --line:#D9DCE6;
-  --fg:#151B33; --muted:#5D6482; --accent:#3F45C9; --accent-fg:#FFFFFF;
-  --trial:#B86A0E; --trial-bg:#FBEFDD; --normal:#0E7C6B; --normal-bg:#DDF3EE; --post:#8A3FB8; --post-bg:#F1E4F9;
-  --ok:#1B7F3B; --warn:#A35A00; --err:#B42318; --err-bg:#FDECEA;
+  --bg:#F2F3F7; --surface:#FFFFFF; --sunk:#E8EAF1; --line:#D8DBE6; --card:#FFFFFF;
+  --fg:#151B33; --muted:#5E6583; --accent:#2E7D74; --accent-fg:#FFFFFF; --today:#2F6FEB;
+  --trial:#B4650C; --trial-bg:#FCEFDC; --normal:#127A6A; --normal-bg:#DDF2EE; --post:#7E3BB0; --post-bg:#F0E4F8; --story:#B0386A; --story-bg:#FBE4EE;
+  --ok:#1B7F3B; --warn:#A35A00; --err:#B42318; --err-bg:#FDECEA; --shade:rgba(12,14,28,.5);
   --f-display:"Bricolage Grotesque",ui-sans-serif,system-ui,sans-serif;
   --f-body:"Inter",ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif;
   --f-mono:"JetBrains Mono",ui-monospace,SFMono-Regular,Menlo,monospace;
 }
 @media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
-  --bg:#0E1222; --surface:#161B30; --sunk:#1D233C; --line:#2B3253;
-  --fg:#E7E9F5; --muted:#9AA1C2; --accent:#8C90FF; --accent-fg:#0E1222;
-  --trial:#F2A94B; --trial-bg:#33260F; --normal:#4FD1B8; --normal-bg:#0F2E2A; --post:#CD95F2; --post-bg:#2A1A38;
-  --ok:#5BD08A; --warn:#F2B04B; --err:#FF8A80; --err-bg:#3A1716; color-scheme:dark}}
+  --bg:#15161B; --surface:#1D1F26; --sunk:#24262F; --line:#30333F; --card:#22242C;
+  --fg:#ECEDF2; --muted:#9EA2B3; --accent:#3BA595; --accent-fg:#0F1114; --today:#4C8DFF;
+  --trial:#F3A84A; --trial-bg:#3A2A12; --normal:#4CCFB7; --normal-bg:#123029; --post:#C996EE; --post-bg:#2D1E3A; --story:#F08BB7; --story-bg:#3A1A28;
+  --ok:#5BD08A; --warn:#F2B04B; --err:#FF8A80; --err-bg:#3A1716; --shade:rgba(0,0,0,.6); color-scheme:dark}}
 :root[data-theme="dark"]{
-  --bg:#0E1222; --surface:#161B30; --sunk:#1D233C; --line:#2B3253;
-  --fg:#E7E9F5; --muted:#9AA1C2; --accent:#8C90FF; --accent-fg:#0E1222;
-  --trial:#F2A94B; --trial-bg:#33260F; --normal:#4FD1B8; --normal-bg:#0F2E2A; --post:#CD95F2; --post-bg:#2A1A38;
-  --ok:#5BD08A; --warn:#F2B04B; --err:#FF8A80; --err-bg:#3A1716; color-scheme:dark}
+  --bg:#15161B; --surface:#1D1F26; --sunk:#24262F; --line:#30333F; --card:#22242C;
+  --fg:#ECEDF2; --muted:#9EA2B3; --accent:#3BA595; --accent-fg:#0F1114; --today:#4C8DFF;
+  --trial:#F3A84A; --trial-bg:#3A2A12; --normal:#4CCFB7; --normal-bg:#123029; --post:#C996EE; --post-bg:#2D1E3A; --story:#F08BB7; --story-bg:#3A1A28;
+  --ok:#5BD08A; --warn:#F2B04B; --err:#FF8A80; --err-bg:#3A1716; --shade:rgba(0,0,0,.6); color-scheme:dark}
 *{box-sizing:border-box}
 [hidden]{display:none!important}
 body{background:var(--bg);color:var(--fg);font-family:var(--f-body);font-size:14px;line-height:1.45;
-  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:20px 120px}
-.wrap{max-width:1080px;margin:0 auto;display:flex;flex-direction:column;gap:18px}
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:16px 40px}
+.wrap{max-width:1680px;margin:0 auto;display:flex;flex-direction:column;gap:14px}
 h1,h2,h3{font-family:var(--f-display);margin:0;text-wrap:balance;letter-spacing:-.01em}
-h1{font-size:28px} h2{font-size:18px} h3{font-size:15px}
+h1{font-size:24px} h2{font-size:17px} h3{font-size:14px}
 .mono{font-family:var(--f-mono);font-variant-numeric:tabular-nums}
 .muted{color:var(--muted)}
 .lbl{font-size:11px;text-transform:uppercase;letter-spacing:.07em;color:var(--muted);font-weight:600}
 button,select,input,textarea{font:inherit;color:inherit}
 button{cursor:pointer;border:1px solid var(--line);background:var(--surface);border-radius:8px;padding:7px 12px;font-weight:500}
 button:hover{border-color:var(--accent)}
-button:focus-visible,select:focus-visible,input:focus-visible,textarea:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
-button.primary{background:var(--accent);color:var(--accent-fg);border-color:var(--accent)}
+button:focus-visible,select:focus-visible,input:focus-visible,textarea:focus-visible,.card:focus-visible{outline:2px solid var(--today);outline-offset:1px}
+button.primary{background:var(--accent);color:var(--accent-fg);border-color:var(--accent);font-weight:600}
 button.ghost{background:transparent;border-color:transparent;color:var(--muted)}
 button.ghost:hover{color:var(--fg)}
+button.icon{padding:5px 9px;line-height:1}
 button:disabled{opacity:.5;cursor:not-allowed}
 input,select,textarea{background:var(--surface);border:1px solid var(--line);border-radius:7px;padding:6px 8px;min-width:0}
-input[type=number]{width:70px} input[type=time]{width:110px} .slot input[type=time]{flex:1;width:auto}
+input[type=number]{width:68px} input[type=time]{width:110px}
+.row{display:flex;flex-wrap:wrap;align-items:center;gap:8px}
+.row label{color:var(--muted);font-size:13px}
 
-header.top{display:flex;flex-wrap:wrap;align-items:flex-end;justify-content:space-between;gap:12px}
-.conn{display:flex;gap:8px;flex-wrap:wrap}
+/* barre du haut */
+.topbar{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:12px}
+.topbar .l{display:flex;flex-wrap:wrap;align-items:center;gap:14px}
+.weeknav{display:flex;align-items:center;gap:6px}
+.weeknav h2{min-width:150px;text-align:center}
 .chip{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--line);border-radius:999px;padding:3px 10px;font-size:12px;background:var(--surface);white-space:nowrap}
 .dot{width:7px;height:7px;border-radius:50%;background:var(--muted)}
 .dot.ok{background:var(--ok)} .dot.err{background:var(--err)} .dot.wait{background:var(--warn)}
+.counts{display:flex;gap:10px;flex-wrap:wrap;font-size:13px;color:var(--muted)}
+.counts b{font-family:var(--f-mono);color:var(--fg)}
+.progress{height:4px;background:var(--sunk);border-radius:2px;overflow:hidden}
+.progress>i{display:block;height:100%;background:var(--accent);width:0;transition:width .3s}
 .banner{border:1px solid var(--line);background:var(--sunk);border-radius:10px;padding:10px 14px}
-.banner.err{background:var(--err-bg);border-color:var(--err);color:var(--fg)}
+.banner.err{background:var(--err-bg);border-color:var(--err)}
 
-.panel{background:var(--surface);border:1px solid var(--line);border-radius:12px}
-details.panel>summary{list-style:none;cursor:pointer;padding:14px 16px;display:flex;justify-content:space-between;align-items:center;gap:10px}
+/* réglages */
+details.panel{background:var(--surface);border:1px solid var(--line);border-radius:12px}
+details.panel>summary{list-style:none;cursor:pointer;padding:12px 16px;display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap}
 details.panel>summary::-webkit-details-marker{display:none}
 details.panel[open]>summary{border-bottom:1px solid var(--line)}
-.settings{padding:16px;display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:18px}
+.settings{padding:16px;display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:18px}
 .group{display:flex;flex-direction:column;gap:9px;min-width:0}
 .group h3{display:flex;align-items:center;gap:8px}
-.row{display:flex;flex-wrap:wrap;align-items:center;gap:8px}
-.row label{color:var(--muted);font-size:13px}
 .sw{width:10px;height:10px;border-radius:3px;display:inline-block}
 
-.weekbar{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:10px}
-.weekbar .row{gap:6px}
+/* calendrier */
+.board-scroll{overflow-x:auto;border:1px solid var(--line);border-radius:12px;background:var(--surface);scroll-snap-type:x proximity}
+.board{display:grid;grid-template-columns:repeat(7,minmax(200px,1fr));min-width:1400px}
+.col{border-right:1px solid var(--line);display:flex;flex-direction:column;min-width:0;scroll-snap-align:start}
+.col:last-child{border-right:0}
+.col-head{padding:10px 10px 8px;border-bottom:1px solid var(--line);display:flex;flex-direction:column;gap:6px;position:sticky;top:0;background:var(--surface)}
+.col-head .dname{font-size:12px;color:var(--muted)}
+.col-head .ddate{font-family:var(--f-display);font-weight:600;font-size:15px;align-self:flex-start;padding:1px 8px;border-radius:999px;margin-left:-8px}
+.col-head .ddate.today{background:var(--today);color:#fff}
+.col-tools{display:flex;gap:6px}
+.col-tools button{flex:1;padding:5px 6px;font-size:12px}
+.col-tools button.plus{flex:0 0 34px;font-size:16px;font-weight:600}
+.fold{font-size:11px;color:var(--muted);display:flex;gap:4px;align-items:center;min-width:0}
+.fold span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.fold button{padding:0 5px;font-size:11px;border:0;background:transparent;color:var(--muted)}
+.col-body{padding:10px;display:flex;flex-direction:column;gap:10px;flex:1;background:var(--bg)}
+.col-empty{color:var(--muted);font-size:12px;text-align:center;padding:16px 4px;border:1px dashed var(--line);border-radius:10px}
+.col-note{font-size:11px;color:var(--warn);line-height:1.3}
 
-.days{display:flex;flex-direction:column;gap:14px}
-.day{background:var(--surface);border:1px solid var(--line);border-radius:12px;overflow:hidden}
-.day-head{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:center;gap:10px;padding:12px 16px}
-.day-head .title{display:flex;flex-direction:column;gap:2px;min-width:0}
-.day-head .acts{display:flex;flex-wrap:wrap;gap:6px}
-.folder{font-size:12px;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:60vw}
-.warns{display:flex;flex-wrap:wrap;gap:6px;padding:0 16px 8px}
-.warn{font-size:12px;color:var(--warn);border:1px solid currentColor;border-radius:999px;padding:1px 8px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:9px;display:flex;flex-direction:column;gap:7px;cursor:pointer;text-align:left;position:relative}
+.card:hover{border-color:var(--muted)}
+.card.sel{border-color:var(--today);box-shadow:0 0 0 1px var(--today)}
+.card .who{display:flex;align-items:center;gap:7px;font-weight:600;font-size:13px;min-width:0}
+.card .who span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.av{position:relative;width:24px;height:24px;flex:0 0 24px;border-radius:50%;background:var(--sunk);display:grid;place-items:center;font-size:10px;font-weight:700;color:var(--muted)}
+.av svg{position:absolute;right:-3px;bottom:-3px;width:12px;height:12px}
+.card .time{display:flex;align-items:center;gap:6px;font-size:13px}
+.card .time .gap{margin-left:auto;font-size:11px;color:var(--muted)}
+.card .time .gap.bad{color:var(--err);font-weight:600}
+.thumb{position:relative;border-radius:8px;overflow:hidden;aspect-ratio:3/2;background:var(--sunk);display:grid;place-items:center;max-width:100%}
+.thumb img{width:100%;height:100%;object-fit:cover;display:block}
+.thumb .play{position:absolute;width:28px;height:28px;border-radius:50%;background:#2AA7E0;display:grid;place-items:center;box-shadow:0 1px 4px rgba(0,0,0,.3)}
+.thumb .play::after{content:"";border-left:9px solid #fff;border-top:6px solid transparent;border-bottom:6px solid transparent;margin-left:2px}
+.thumb .ph{position:absolute;left:0;right:0;bottom:0;font-size:11px;color:var(--muted);padding:5px 8px;text-align:center;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;line-height:1.25}
+.thumb.loading::before{content:"";position:absolute;inset:0;background:linear-gradient(90deg,transparent,rgba(127,127,127,.15),transparent);animation:sh 1.2s infinite}
+@keyframes sh{from{transform:translateX(-100%)}to{transform:translateX(100%)}}
+.card .cap{font-size:13px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;word-break:break-word}
+.card .foot{display:flex;flex-wrap:wrap;gap:5px;align-items:center}
+.tag{font-size:11px;font-weight:600;border-radius:5px;padding:1px 6px}
+.tag.trial{background:var(--trial-bg);color:var(--trial)} .tag.reel{background:var(--normal-bg);color:var(--normal)}
+.tag.post{background:var(--post-bg);color:var(--post)} .tag.story{background:var(--story-bg);color:var(--story)}
+.tag.feed{background:var(--sunk);color:var(--muted)} .tag.ex{background:var(--sunk);color:var(--muted);text-transform:uppercase;letter-spacing:.05em}
+.st{font-size:11px;font-weight:600;margin-left:auto}
+.st.sent{color:var(--ok)} .st.error{color:var(--err)} .st.sending{color:var(--warn)}
+.card.trial{box-shadow:inset 3px 0 0 var(--trial)} .card.reel{box-shadow:inset 3px 0 0 var(--normal)}
+.card.post{box-shadow:inset 3px 0 0 var(--post)} .card.story{box-shadow:inset 3px 0 0 var(--story)}
 
-.timeline{position:relative;height:38px;margin:2px 16px 10px;border-radius:6px;background:linear-gradient(90deg,var(--sunk),var(--bg) 50%,var(--sunk))}
-.timeline .tick{position:absolute;top:0;bottom:0;border-left:1px dashed var(--line)}
-.timeline .tlab{position:absolute;bottom:-1px;font-size:10px;color:var(--muted);transform:translateX(-50%);font-family:var(--f-mono)}
-.timeline .tlab.l{transform:none;left:4px} .timeline .tlab.r{transform:none;right:4px}
-.timeline .pin{position:absolute;top:7px;width:10px;height:14px;margin-left:-5px;border-radius:3px;background:var(--trial)}
-.timeline .pin.bad{background:var(--err)}
+/* éditeur latéral */
+.drawer-bg{position:fixed;inset:0;background:var(--shade);z-index:20}
+.drawer{position:fixed;top:0;right:0;bottom:0;width:min(560px,100%);z-index:21;background:var(--surface);border-left:1px solid var(--line);display:flex;flex-direction:column;
+  padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px);padding-right:env(safe-area-inset-right,0px)}
+.drawer header{display:flex;justify-content:space-between;align-items:center;padding:12px 16px;border-bottom:1px solid var(--line);gap:10px}
+.drawer .body{flex:1;overflow:auto;padding:16px;display:flex;flex-direction:column;gap:14px}
+.drawer footer{display:flex;justify-content:space-between;gap:8px;padding:12px 16px;border-top:1px solid var(--line);flex-wrap:wrap}
+.tabs{display:flex;gap:18px;align-items:center;border-bottom:1px solid var(--line)}
+.tabs button{border:0;background:transparent;border-radius:0;padding:8px 2px;font-weight:600;color:var(--muted);border-bottom:2px solid transparent}
+.tabs button.on{color:var(--today);border-bottom-color:var(--today)}
+.editor{border:1px solid var(--line);border-radius:10px;padding:12px;display:flex;flex-direction:column;gap:12px;background:var(--bg)}
+.editor textarea{width:100%;min-height:96px;resize:vertical}
+.media-row{display:grid;grid-template-columns:minmax(0,190px) minmax(0,1fr);gap:14px;align-items:start}
+.preview{border-radius:10px;overflow:hidden;background:#000;aspect-ratio:9/16;display:grid;place-items:center;position:relative;max-width:100%}
+.preview video,.preview img{width:100%;height:100%;object-fit:contain;display:block}
+.preview .ph{color:#bbb;font-size:12px;padding:10px;text-align:center;display:flex;flex-direction:column;gap:8px;align-items:center}
+.opts{display:flex;flex-direction:column;gap:8px}
+.opt{display:flex;align-items:center;gap:10px;background:var(--surface);border:1px solid var(--line);border-radius:9px;padding:9px 12px;cursor:pointer}
+.opt input[type=checkbox]{width:18px;height:18px;accent-color:var(--today)}
+.opt.on{border-color:var(--trial)}
+.subopt{margin-left:28px;display:flex;flex-direction:column;gap:6px}
+.subopt label{display:flex;gap:8px;align-items:flex-start;font-size:13px;cursor:pointer}
+.fieldset{display:flex;flex-direction:column;gap:6px}
+.errline{font-size:12px;color:var(--err)}
 
-.slots{display:flex;flex-direction:column;border-top:1px solid var(--line)}
-.slot{display:grid;grid-template-columns:150px 128px minmax(0,1.3fr) minmax(0,1fr) 92px 30px;gap:8px;align-items:center;padding:7px 16px;border-bottom:1px solid var(--line)}
-.slot:last-child{border-bottom:0}
-.slot.trial{box-shadow:inset 3px 0 0 var(--trial)} .slot.normal{box-shadow:inset 3px 0 0 var(--normal)} .slot.post{box-shadow:inset 3px 0 0 var(--post)}
-.slot select,.slot input{width:100%}
-.slot .tsel.trial{background:var(--trial-bg);color:var(--trial);border-color:transparent;font-weight:600}
-.slot .tsel.normal{background:var(--normal-bg);color:var(--normal);border-color:transparent;font-weight:600}
-.slot .tsel.post{background:var(--post-bg);color:var(--post);border-color:transparent;font-weight:600}
-.slot .gap{font-size:11px;color:var(--muted)}
-.slot .gap.bad{color:var(--err);font-weight:600}
-.st{font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.st.sent{color:var(--ok);font-weight:600} .st.error{color:var(--err);font-weight:600} .st.sending{color:var(--warn)}
-.empty{padding:22px 16px;text-align:center;color:var(--muted);display:flex;flex-direction:column;gap:10px;align-items:center}
-.addrow{padding:8px 16px;display:flex;gap:6px;flex-wrap:wrap;border-top:1px solid var(--line);background:var(--sunk)}
-.ex{font-size:10px;text-transform:uppercase;letter-spacing:.06em;background:var(--sunk);border:1px solid var(--line);border-radius:4px;padding:0 5px;color:var(--muted)}
-.errline{grid-column:1/-1;font-size:12px;color:var(--err)}
-
-.sendbar{position:fixed;left:0;right:0;bottom:0;z-index:5;background:var(--surface);border-top:1px solid var(--line);
-  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-top:10px;padding-bottom:calc(10px + env(safe-area-inset-bottom,0px))}
-.sendbar .in{max-width:1080px;margin:0 auto;display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:10px}
-.counts{display:flex;gap:12px;flex-wrap:wrap;font-size:13px}
-.counts b{font-family:var(--f-mono)}
-.progress{height:4px;background:var(--sunk);border-radius:2px;overflow:hidden;flex-basis:100%}
-.progress>i{display:block;height:100%;background:var(--accent);width:0;transition:width .3s}
-
-.confirm{padding:16px;display:flex;flex-direction:column;gap:10px;border-color:var(--accent)}
-.confirm ul{margin:0;padding-left:18px}
-
-.modal-bg{position:fixed;inset:0;background:rgba(10,12,25,.55);z-index:20;display:flex;align-items:center;justify-content:center;padding:16px}
-.modal{background:var(--surface);border:1px solid var(--line);border-radius:14px;width:min(560px,100%);max-height:86vh;display:flex;flex-direction:column;overflow:hidden}
+/* sélecteur Drive */
+.modal-bg{position:fixed;inset:0;background:var(--shade);z-index:30;display:flex;align-items:center;justify-content:center;padding:16px}
+.modal{background:var(--surface);border:1px solid var(--line);border-radius:14px;width:min(600px,100%);max-height:86vh;display:flex;flex-direction:column;overflow:hidden}
 .modal header{padding:14px 16px;border-bottom:1px solid var(--line);display:flex;flex-direction:column;gap:10px}
-.crumbs{display:flex;flex-wrap:wrap;gap:4px;font-size:12px}
+.crumbs{display:flex;flex-wrap:wrap;gap:4px;font-size:12px;align-items:center}
 .crumbs button{padding:2px 6px;font-size:12px}
-.flist{overflow:auto;flex:1;min-height:160px}
-.flist button{display:flex;width:100%;text-align:left;border:0;border-bottom:1px solid var(--line);border-radius:0;padding:10px 16px;gap:10px;align-items:center;background:transparent}
-.flist button:hover{background:var(--sunk)}
+.flist{overflow:auto;flex:1;min-height:180px}
+.flist .it{display:flex;width:100%;text-align:left;border:0;border-bottom:1px solid var(--line);border-radius:0;padding:10px 16px;gap:10px;align-items:center;background:transparent;cursor:pointer}
+.flist .it:hover{background:var(--sunk)}
+.flist .it .nm{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.flist .it input{width:17px;height:17px;accent-color:var(--today)}
+.empty{padding:22px 16px;text-align:center;color:var(--muted)}
 .modal footer{padding:12px 16px;border-top:1px solid var(--line);display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap;align-items:center}
 
-@media (max-width:760px){
-  .slot{grid-template-columns:150px 1fr 30px;grid-template-areas:"t ty x" "f f f" "c c c" "s s s"}
-  .slot>:nth-child(1){grid-area:t}.slot>:nth-child(2){grid-area:ty}.slot>:nth-child(3){grid-area:f}
-  .slot>:nth-child(4){grid-area:c}.slot>:nth-child(5){grid-area:s}.slot>:nth-child(6){grid-area:x}
-  h1{font-size:23px}
+.confirm{background:var(--surface);border:1px solid var(--accent);border-radius:12px;padding:16px;display:flex;flex-direction:column;gap:10px}
+.confirm ul{margin:0;padding-left:18px}
+
+@media (max-width:700px){
+  .board{grid-template-columns:repeat(7,78vw);min-width:0}
+  .media-row{grid-template-columns:1fr}
+  .preview{max-height:60vh;aspect-ratio:auto;height:52vh}
+  h1{font-size:21px}
 }
-@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+@media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
 </style>
 
 <div class="wrap">
-  <header class="top">
-    <div>
-      <div class="lbl">Programmation Instagram</div>
+  <div class="topbar">
+    <div class="l">
       <h1>Planche Publer</h1>
-    </div>
-    <div class="conn">
+      <div class="weeknav">
+        <button class="icon" id="w-prev" aria-label="Semaine précédente">‹</button>
+        <h2 id="w-label" class="mono"></h2>
+        <button class="icon" id="w-next" aria-label="Semaine suivante">›</button>
+        <button id="w-today">Aujourd'hui</button>
+      </div>
       <span class="chip" id="c-drive"><span class="dot wait"></span>Drive</span>
       <span class="chip" id="c-publer"><span class="dot wait"></span>Publer</span>
     </div>
-  </header>
-
-  <div id="banner" class="banner" hidden></div>
-
-  <details class="panel" id="settings-panel">
-    <summary><h2>Plan de programmation</h2><span class="muted" id="plan-sum"></span></summary>
-    <div class="settings">
-      <div class="group">
-        <h3>Compte</h3>
-        <select id="s-account"><option value="">Chargement des comptes…</option></select>
-        <span class="muted" style="font-size:12px">Les publications partent sur ce compte Instagram.</span>
-      </div>
-      <div class="group">
-        <h3><span class="sw" style="background:var(--trial)"></span>Réels d'essai (la nuit)</h3>
-        <div class="row"><label for="s-tmin">Par nuit, entre</label><input type="number" id="s-tmin" min="1" max="30"><label for="s-tmax">et</label><input type="number" id="s-tmax" min="1" max="30"></div>
-        <div class="row"><label for="s-gmin">Écart, entre</label><input type="number" id="s-gmin" min="1" max="240"><label for="s-gmax">et</label><input type="number" id="s-gmax" min="1" max="240"><label>min</label></div>
-        <div class="row"><label for="s-tstart">De</label><input type="time" id="s-tstart"><label for="s-tend">à</label><input type="time" id="s-tend"></div>
-        <div class="row"><label for="s-tmode">Mode</label>
-          <select id="s-tmode"><option value="MANUAL">Essai : je décide du partage</option><option value="SS_PERFORMANCE">Partage auto si ça marche</option></select></div>
-      </div>
-      <div class="group">
-        <h3><span class="sw" style="background:var(--normal)"></span>Réel normal (1 par jour)</h3>
-        <div class="row"><input type="checkbox" id="s-non"><label for="s-non">Activé</label></div>
-        <div class="row"><label for="s-nstart">Entre</label><input type="time" id="s-nstart"><label for="s-nend">et</label><input type="time" id="s-nend"></div>
-        <span class="muted" style="font-size:12px">Pris dans le même dossier que les réels d'essai du jour.</span>
-      </div>
-      <div class="group">
-        <h3><span class="sw" style="background:var(--post)"></span>Publication (1 par semaine)</h3>
-        <div class="row"><input type="checkbox" id="s-won"><label for="s-won">Activée</label></div>
-        <div class="row"><label for="s-wday">Le</label><select id="s-wday"></select></div>
-        <div class="row"><label for="s-wstart">Entre</label><input type="time" id="s-wstart"><label for="s-wend">et</label><input type="time" id="s-wend"></div>
-      </div>
-      <div class="group">
-        <h3>Légendes par défaut</h3>
-        <input id="s-ctrial" placeholder="Réels d'essai">
-        <input id="s-cnormal" placeholder="Réels normaux">
-        <input id="s-cpost" placeholder="Publication">
-        <div class="row"><input type="checkbox" id="s-skip"><label for="s-skip">Ne pas réutiliser une vidéo déjà envoyée</label></div>
-      </div>
-    </div>
-  </details>
-
-  <div class="weekbar">
     <div class="row">
-      <button id="w-prev" aria-label="Semaine précédente">←</button>
-      <h2 id="w-label" class="mono" style="font-family:var(--f-display)"></h2>
-      <button id="w-next" aria-label="Semaine suivante">→</button>
-    </div>
-    <div class="row">
-      <button id="w-fill">Re-mélanger toute la semaine</button>
-      <button class="ghost" id="w-clear">Vider la semaine</button>
-    </div>
-  </div>
-
-  <div class="days" id="days"></div>
-</div>
-
-<div class="sendbar">
-  <div class="in">
-    <div class="counts" id="counts"></div>
-    <div class="row">
+      <div class="counts" id="counts"></div>
       <select id="send-mode" aria-label="Mode d'envoi">
-        <option value="draft">Envoyer en brouillons (test)</option>
+        <option value="draft">En brouillons (test)</option>
         <option value="schedule">Programmer pour de vrai</option>
       </select>
       <button class="primary" id="send-btn">Envoyer sur Publer</button>
     </div>
-    <div class="progress" id="progress" hidden><i></i></div>
   </div>
+  <div class="progress" id="progress" hidden><i></i></div>
+  <div id="banner" class="banner" hidden></div>
+  <div id="confirm-slot"></div>
+
+  <details class="panel" id="settings-panel">
+    <summary><h2>Plan de programmation</h2><span class="muted" id="plan-sum" style="font-size:13px"></span></summary>
+    <div class="settings">
+      <div class="group">
+        <h3>Compte</h3>
+        <select id="s-account"><option value="">Chargement des comptes…</option></select>
+        <div class="row"><input type="checkbox" id="s-thumbs"><label for="s-thumbs">Charger les aperçus vidéo automatiquement</label></div>
+        <div class="row"><input type="checkbox" id="s-skip"><label for="s-skip">Ne pas réutiliser une vidéo déjà envoyée</label></div>
+      </div>
+      <div class="group">
+        <h3><span class="sw" style="background:var(--trial)"></span>Reels Test (la nuit)</h3>
+        <div class="row"><label for="s-tmin">Par nuit, entre</label><input type="number" id="s-tmin" min="0" max="30"><label for="s-tmax">et</label><input type="number" id="s-tmax" min="0" max="30"></div>
+        <div class="row"><label for="s-gmin">Écart, entre</label><input type="number" id="s-gmin" min="1" max="240"><label for="s-gmax">et</label><input type="number" id="s-gmax" min="1" max="240"><label>min</label></div>
+        <div class="row"><label for="s-tstart">De</label><input type="time" id="s-tstart"><label for="s-tend">à</label><input type="time" id="s-tend"></div>
+        <div class="row"><label for="s-night">La nuit du lundi</label>
+          <select id="s-night"><option value="starts">lundi soir → mardi matin</option><option value="ends">dimanche soir → lundi matin</option></select></div>
+        <div class="row"><label for="s-tmode">Partage</label>
+          <select id="s-tmode"><option value="MANUAL">Je décide si je partage</option><option value="SS_PERFORMANCE">Partage auto si ça marche</option></select></div>
+      </div>
+      <div class="group">
+        <h3><span class="sw" style="background:var(--normal)"></span>Reel normal (1 par jour)</h3>
+        <div class="row"><input type="checkbox" id="s-non"><label for="s-non">Activé</label></div>
+        <div class="row"><label for="s-nstart">Entre</label><input type="time" id="s-nstart"><label for="s-nend">et</label><input type="time" id="s-nend"></div>
+        <span class="muted" style="font-size:12px">Pris dans le dossier du jour, partagé dans le fil.</span>
+      </div>
+      <div class="group">
+        <h3><span class="sw" style="background:var(--post)"></span>Post (1 par semaine)</h3>
+        <div class="row"><input type="checkbox" id="s-won"><label for="s-won">Activé</label><label for="s-wday">le</label><select id="s-wday"></select></div>
+        <div class="row"><label for="s-wstart">Entre</label><input type="time" id="s-wstart"><label for="s-wend">et</label><input type="time" id="s-wend"></div>
+        <div class="row"><button id="s-wfolder">Choisir le dossier des posts</button><span class="muted" id="s-wfname" style="font-size:12px"></span></div>
+      </div>
+      <div class="group">
+        <h3>Légendes par défaut</h3>
+        <input id="s-ctrial" placeholder="Reels Test">
+        <input id="s-cnormal" placeholder="Reels normaux">
+        <input id="s-cpost" placeholder="Posts et stories">
+      </div>
+    </div>
+  </details>
+
+  <div class="row" style="justify-content:space-between">
+    <span class="muted" style="font-size:13px"><b>Auto</b> : choisis un dossier, la journée se remplit toute seule. <b>+</b> : ajoute tes vidéos à la main.</span>
+    <div class="row"><button id="w-fill">Re-mélanger la semaine</button><button class="ghost" id="w-clear">Vider la semaine</button></div>
+  </div>
+
+  <div class="board-scroll"><div class="board" id="board"></div></div>
 </div>
+
+<div class="drawer-bg" id="drawer-bg" hidden></div>
+<aside class="drawer" id="drawer" hidden aria-labelledby="dr-title"></aside>
 
 <div class="modal-bg" id="picker" hidden>
   <div class="modal" role="dialog" aria-modal="true" aria-labelledby="pk-title">
     <header>
-      <h2 id="pk-title">Choisir un dossier Drive</h2>
-      <form class="row" id="pk-form"><input id="pk-q" placeholder="Rechercher un dossier par nom" style="flex:1"><button type="submit">Rechercher</button></form>
+      <h2 id="pk-title">Choisir dans Drive</h2>
+      <form class="row" id="pk-form"><input id="pk-q" placeholder="Rechercher par nom" style="flex:1"><button type="submit">Rechercher</button></form>
       <div class="crumbs" id="pk-crumbs"></div>
     </header>
     <div class="flist" id="pk-list"></div>
     <footer>
       <button class="ghost" id="pk-cancel">Annuler</button>
-      <button class="primary" id="pk-choose" disabled>Prendre les vidéos de ce dossier</button>
+      <button class="primary" id="pk-choose" disabled>Choisir</button>
     </footer>
   </div>
 </div>
@@ -228,231 +265,313 @@ details.panel[open]>summary{border-bottom:1px solid var(--line)}
 <script>
 (() => {
 const $ = s => document.querySelector(s);
-const DRIVE = "Google Drive", PUBLER = "Publer";
-const DAYS_FR = ["lundi","mardi","mercredi","jeudi","vendredi","samedi","dimanche"];
-const TYPE_LABEL = {trial:"Réel d'essai", normal:"Réel normal", post:"Publication"};
-const DEFAULTS = {accountId:"",accountName:"",trialMin:12,trialMax:16,gapMin:25,gapMax:40,trialStart:"22:40",trialEnd:"06:37",trialMode:"MANUAL",
+const DRIVE="Google Drive", PUBLER="Publer";
+const DAYS_FR=["lundi","mardi","mercredi","jeudi","vendredi","samedi","dimanche"];
+const IG=`<svg viewBox="0 0 24 24" aria-hidden="true"><defs><linearGradient id="igg" x1="0" y1="1" x2="1" y2="0"><stop offset="0" stop-color="#FEC053"/><stop offset=".5" stop-color="#F2203E"/><stop offset="1" stop-color="#5258CF"/></linearGradient></defs><rect width="24" height="24" rx="7" fill="url(#igg)"/><rect x="5.5" y="5.5" width="13" height="13" rx="4" fill="none" stroke="#fff" stroke-width="1.8"/><circle cx="12" cy="12" r="3.1" fill="none" stroke="#fff" stroke-width="1.8"/><circle cx="16.3" cy="7.7" r="1" fill="#fff"/></svg>`;
+const DEFAULTS={accountId:"",accountName:"",trialMin:12,trialMax:16,gapMin:25,gapMax:40,trialStart:"22:40",trialEnd:"06:37",trialMode:"MANUAL",night:"starts",
   normalOn:true,normalStart:"12:00",normalEnd:"20:00",weeklyOn:true,weeklyDay:6,weeklyStart:"12:00",weeklyEnd:"19:00",
-  capTrial:"",capNormal:"",capPost:"",skipUsed:true};
-const KEY = "planche-publer-v1";
+  capTrial:"",capNormal:"",capPost:"",skipUsed:true,autoThumbs:true};
+const KEY="planche-publer-v2", TKEY="planche-publer-thumbs";
 
 /* ---------- état ---------- */
-let S;
-function load(){ try{ const raw = localStorage.getItem(KEY); if(raw) return JSON.parse(raw);}catch(e){} return null; }
-function save(){ try{ localStorage.setItem(KEY, JSON.stringify(S)); }catch(e){} }
-S = load() || {settings:{...DEFAULTS}, weekStart:mondayOf(new Date(), true), weeks:{}, used:{}, shared:{}, sendMode:"draft", seeded:false};
-S.settings = {...DEFAULTS, ...S.settings};
-let mcp = null, sending = false, confirmOpen = false, picker = null;
+function load(k){try{const r=localStorage.getItem(k);if(r)return JSON.parse(r)}catch(e){}return null}
+function store(k,v){try{localStorage.setItem(k,JSON.stringify(v));return true}catch(e){return false}}
+let S=load(KEY)||{settings:{...DEFAULTS},weekStart:mondayOf(new Date()),slots:[],folders:{},weekly:{},used:{},shared:{},sendMode:"draft",seeded:false};
+S.settings={...DEFAULTS,...S.settings};
+let THUMBS=load(TKEY)||{};
+function save(){store(KEY,S)}
+let mcp=null,sending=false,confirmOpen=false,picker=null,openId=null;
+const blobs=new Map(), thumbFail={}, thumbBusy=new Set(); let thumbQueue=[], thumbRunning=false;
 
 /* ---------- dates ---------- */
 function pad(n){return String(n).padStart(2,"0")}
 function ymd(d){return d.getFullYear()+"-"+pad(d.getMonth()+1)+"-"+pad(d.getDate())}
 function parseYmd(s){const [y,m,d]=s.split("-").map(Number);return new Date(y,m-1,d)}
 function addDays(s,n){const d=parseYmd(s);d.setDate(d.getDate()+n);return ymd(d)}
-function mondayOf(d,next){const x=new Date(d.getFullYear(),d.getMonth(),d.getDate());const wd=(x.getDay()+6)%7;
-  x.setDate(x.getDate()-wd+(next&&wd>0?7:0));return ymd(x)}
+function mondayOf(d){const x=new Date(d.getFullYear(),d.getMonth(),d.getDate());x.setDate(x.getDate()-((x.getDay()+6)%7));return ymd(x)}
 function toMin(t){const [h,m]=t.split(":").map(Number);return h*60+m}
 function fmtMin(m){m=((m%1440)+1440)%1440;return pad(Math.floor(m/60))+":"+pad(m%60)}
-function frDay(s,opts){return parseYmd(s).toLocaleDateString("fr-FR",opts||{weekday:"long",day:"numeric",month:"short"})}
+function frDay(s,o){return parseYmd(s).toLocaleDateString("fr-FR",o||{weekday:"long",day:"numeric",month:"short"})}
 function isoLocal(date,time){const [y,mo,d]=date.split("-").map(Number);const [h,mi]=time.split(":").map(Number);
   const dt=new Date(y,mo-1,d,h,mi);const off=-dt.getTimezoneOffset();const sg=off>=0?"+":"-";const a=Math.abs(off);
   return `${date}T${time}:00${sg}${pad(Math.floor(a/60))}:${pad(a%60)}`}
-function when(slot){const [y,mo,d]=slot.date.split("-").map(Number);const [h,mi]=slot.time.split(":").map(Number);return new Date(y,mo-1,d,h,mi)}
-function rand(a,b){return a+Math.floor(Math.random()*(b-a+1))}
+function at(s){const [y,mo,d]=s.date.split("-").map(Number);const [h,mi]=s.time.split(":").map(Number);return new Date(y,mo-1,d,h,mi).getTime()}
+function rand(a,b){if(b<a)[a,b]=[b,a];return a+Math.floor(Math.random()*(b-a+1))}
 function shuffle(a){a=a.slice();for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]]}return a}
 function uid(){return Math.random().toString(36).slice(2,10)}
-
-function trialWindow(){const st=S.settings;const s=toMin(st.trialStart);let e=toMin(st.trialEnd);if(e<=s)e+=1440;return {s,w:e-s}}
-function week(){ if(!S.weeks[S.weekStart]) S.weeks[S.weekStart]={days:{},weekly:{folder:null,media:[],slot:null}}; return S.weeks[S.weekStart]; }
-function day(date){const w=week();if(!w.days[date])w.days[date]={folder:null,videos:[],slots:[],note:""};return w.days[date]}
+function esc(s){return String(s??"").replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]))}
 function weekDates(){return [...Array(7)].map((_,i)=>addDays(S.weekStart,i))}
+function trialWindow(){const st=S.settings;const s=toMin(st.trialStart);let e=toMin(st.trialEnd);if(e<=s)e+=1440;return {s,w:e-s}}
+function inWindow(time){const {s,w}=trialWindow();let m=toMin(time);if(m<s)m+=1440;return m-s<=w}
+function nightStartFor(dayKey){return S.settings.night==="ends"?addDays(dayKey,-1):dayKey}
+function isImage(s){return (s.mime||"").startsWith("image/")}
 
 /* ---------- génération ---------- */
 function planTrial(n){
-  const {gapMin,gapMax}=S.settings; const {w}=trialWindow();
-  if(n<=0) return [];
-  if(n===1) return [rand(0,w)];
-  n=Math.min(n,Math.floor(w/gapMin)+1);
-  for(let k=0;k<600;k++){
-    const gaps=[...Array(n-1)].map(()=>rand(gapMin,gapMax)); const sum=gaps.reduce((a,b)=>a+b,0);
-    if(sum<=w){let t=rand(0,w-sum);const out=[t];gaps.forEach(g=>{t+=g;out.push(t)});return out}
-  }
-  const out=[];let t=0;for(let i=0;i<n;i++){out.push(t);t+=gapMin}return out;
+  const {gapMin,gapMax}=S.settings;const {w}=trialWindow();
+  if(n<=0)return[]; if(n===1)return[rand(0,w)];
+  n=Math.min(n,Math.floor(w/Math.max(1,gapMin))+1);
+  for(let k=0;k<600;k++){const g=[...Array(n-1)].map(()=>rand(gapMin,gapMax));const sum=g.reduce((a,b)=>a+b,0);
+    if(sum<=w){let t=rand(0,w-sum);const o=[t];g.forEach(x=>{t+=x;o.push(t)});return o}}
+  const o=[];let t=0;for(let i=0;i<n;i++){o.push(t);t+=gapMin}return o;
 }
-function placedElsewhere(date){const ids=new Set();const w=week();
-  Object.entries(w.days).forEach(([d,dd])=>{if(d!==date)dd.slots.forEach(s=>s.fileId&&ids.add(s.fileId))});
-  if(w.weekly.slot&&w.weekly.slot.fileId)ids.add(w.weekly.slot.fileId);return ids}
-function trialDate(date,time){return toMin(time)<12*60?addDays(date,1):date}
-
-function fillDay(date){
-  const st=S.settings, dd=day(date);
-  const taken=placedElsewhere(date);
-  const kept=dd.slots.filter(s=>s.status==="sent"&&!s.example); kept.forEach(s=>taken.add(s.fileId));
-  let pool=dd.videos.filter(v=>!taken.has(v.id)&&!(st.skipUsed&&S.used[v.id]));
-  pool=shuffle(pool);
-  const slots=[]; const notes=[];
-  if(st.normalOn&&pool.length){const v=pool.pop();const t=fmtMin(rand(toMin(st.normalStart),Math.max(toMin(st.normalStart),toMin(st.normalEnd))));
-    slots.push({id:uid(),type:"normal",date,time:t,fileId:v.id,fileName:v.title,caption:"",status:""})}
-  const target=rand(Math.min(st.trialMin,st.trialMax),Math.max(st.trialMin,st.trialMax));
-  const n=Math.min(target,pool.length);
-  const offs=planTrial(n); const {s}=trialWindow();
-  offs.forEach((o,i)=>{const m=s+o;const t=fmtMin(m);slots.push({id:uid(),type:"trial",date:m>=1440?addDays(date,1):date,time:t,fileId:pool[i].id,fileName:pool[i].title,caption:"",status:""})});
-  if(offs.length<target) notes.push(pool.length<target?`${pool.length} vidéo(s) dispo pour ${target} réels d'essai visés`:`Seulement ${offs.length} réels d'essai tiennent dans le créneau`);
-  const left=pool.length-offs.length; if(left>0) notes.push(`${left} vidéo(s) non placée(s)`);
-  dd.slots=kept.concat(slots); dd.note=notes.join(" · ");
+function newSlot(o){return {id:uid(),kind:"reel",trial:false,trialMode:S.settings.trialMode,feed:true,audio:"",caption:"",status:"",error:"",origin:"manual",...o}}
+function takenIds(exceptOrigin){const ids=new Set();S.slots.forEach(s=>{if(s.fileId&&!(s.origin===exceptOrigin&&s.status!=="sent"))ids.add(s.fileId)});return ids}
+function fillDay(dayKey){
+  const st=S.settings,f=S.folders[dayKey];if(!f)return;
+  const origin="auto:"+dayKey;
+  S.slots=S.slots.filter(s=>!(s.origin===origin&&s.status!=="sent"));
+  const taken=takenIds(origin);
+  let pool=shuffle(f.videos.filter(v=>!taken.has(v.id)&&!(st.skipUsed&&S.used[v.id])));
+  const notes=[];const ex=!!f.example;
+  if(st.normalOn&&pool.length){const v=pool.pop();
+    S.slots.push(newSlot({origin,example:ex,date:dayKey,time:fmtMin(rand(toMin(st.normalStart),toMin(st.normalEnd))),fileId:v.id,fileName:v.title,mime:v.mimeType}))}
+  const target=rand(st.trialMin,st.trialMax);const n=Math.min(target,pool.length);
+  const offs=planTrial(n);const {s}=trialWindow();const ns=nightStartFor(dayKey);
+  offs.forEach((o,i)=>{const m=s+o;const v=pool[i];
+    S.slots.push(newSlot({origin,example:ex,kind:"reel",trial:true,feed:false,date:m>=1440?addDays(ns,1):ns,time:fmtMin(m),fileId:v.id,fileName:v.title,mime:v.mimeType}))});
+  if(offs.length<target)notes.push(pool.length<target?`${pool.length} vidéo(s) dispo pour ${target} Reels Test visés`:`${offs.length} Reels Test tiennent dans le créneau`);
+  const left=pool.length-offs.length;if(left>0)notes.push(`${left} vidéo(s) non placée(s)`);
+  f.note=ex?"Exemple : clique Auto pour choisir ton dossier":notes.join(" · ");
 }
 function fillWeekly(){
-  const st=S.settings,w=week();
-  if(!st.weeklyOn){w.weekly.slot=null;return}
-  const pool=shuffle(w.weekly.media.filter(m=>!(st.skipUsed&&S.used[m.id])));
-  if(!pool.length){w.weekly.slot=null;return}
-  const m=pool[0];
-  w.weekly.slot={id:uid(),type:"post",date:addDays(S.weekStart,+st.weeklyDay),time:fmtMin(rand(toMin(st.weeklyStart),Math.max(toMin(st.weeklyStart),toMin(st.weeklyEnd)))),
-    fileId:m.id,fileName:m.title,mime:m.mimeType,caption:"",status:""};
+  const st=S.settings,w=S.weekly[S.weekStart];const origin="weekly:"+S.weekStart;
+  S.slots=S.slots.filter(s=>!(s.origin===origin&&s.status!=="sent"));
+  if(!st.weeklyOn||!w||!w.media.length)return;
+  const taken=takenIds(origin);const pool=shuffle(w.media.filter(m=>!taken.has(m.id)&&!(st.skipUsed&&S.used[m.id])));
+  if(!pool.length)return;const m=pool[0];
+  S.slots.push(newSlot({origin,kind:"post",feed:true,date:addDays(S.weekStart,+st.weeklyDay),time:fmtMin(rand(toMin(st.weeklyStart),toMin(st.weeklyEnd))),fileId:m.id,fileName:m.title,mime:m.mimeType}));
 }
 function seedExample(){
-  const date=S.weekStart, dd=day(date); const vids=[...Array(15)].map((_,i)=>({id:"ex"+i,title:`exemple_${pad(i+1)}.mp4`}));
-  dd.videos=vids; dd.example=true; dd.folder={id:null,name:"Exemple (aucun dossier choisi)"};
-  fillDay(date); dd.slots.forEach(s=>s.example=true); dd.note="Planche d'exemple : choisis un dossier Drive pour la remplir avec tes vidéos";
-  S.seeded=true;
+  const d=S.weekStart;S.folders[d]={folder:{id:null,name:"Exemple"},videos:[...Array(14)].map((_,i)=>({id:"ex"+i,title:`exemple_${pad(i+1)}.mp4`,mimeType:"video/mp4"})),example:true};
+  fillDay(d);S.seeded=true;
 }
 
-/* ---------- validations ---------- */
-function absMin(slot){return Math.round((parseYmd(slot.date)-parseYmd(S.weekStart))/864e5)*1440+toMin(slot.time)}
-function analyse(date){
-  const dd=day(date),{s,w}=trialWindow(),{gapMin,gapMax}=S.settings;
-  const base=Math.round((parseYmd(date)-parseYmd(S.weekStart))/864e5)*1440+s;
-  const trials=dd.slots.filter(x=>x.type==="trial").sort((a,b)=>absMin(a)-absMin(b));
-  const info={};let badGaps=0,outside=0;
-  trials.forEach((t,i)=>{const rel=absMin(t)-base;const out=rel<0||rel>w;if(out)outside++;
-    let gap=null,bad=false;if(i>0){gap=absMin(t)-absMin(trials[i-1]);bad=gap<gapMin||gap>gapMax;if(bad)badGaps++}
-    info[t.id]={rel,out,gap,bad}});
-  const ids={};let dup=0;dd.slots.forEach(x=>{if(x.fileId){ids[x.fileId]=(ids[x.fileId]||0)+1;if(ids[x.fileId]===2)dup++}});
-  return {info,badGaps,outside,dup};
+/* ---------- analyse des écarts ---------- */
+function gapInfo(){
+  const {gapMin,gapMax}=S.settings;const info={};
+  const trials=S.slots.filter(s=>s.kind==="reel"&&s.trial).sort((a,b)=>at(a)-at(b));
+  trials.forEach((t,i)=>{const out=!inWindow(t.time);let gap=null,bad=false;
+    if(i>0){const g=(at(t)-at(trials[i-1]))/6e4;if(g<10*60){gap=Math.round(g);bad=gap<gapMin||gap>gapMax}}
+    info[t.id]={gap,bad,out}});
+  const cnt={};S.slots.forEach(s=>{if(s.fileId&&s.status!=="sent")cnt[s.fileId]=(cnt[s.fileId]||0)+1});
+  return {info,cnt};
 }
 
 /* ---------- rendu ---------- */
-function esc(s){return String(s??"").replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]))}
-function renderSettings(){
-  const st=S.settings;
-  $("#s-wday").innerHTML=DAYS_FR.map((d,i)=>`<option value="${i}">${d}</option>`).join("");
-  const map={"s-tmin":"trialMin","s-tmax":"trialMax","s-gmin":"gapMin","s-gmax":"gapMax","s-tstart":"trialStart","s-tend":"trialEnd","s-tmode":"trialMode",
-    "s-nstart":"normalStart","s-nend":"normalEnd","s-wday":"weeklyDay","s-wstart":"weeklyStart","s-wend":"weeklyEnd","s-ctrial":"capTrial","s-cnormal":"capNormal","s-cpost":"capPost"};
-  Object.entries(map).forEach(([id,k])=>{const el=$("#"+id);el.value=st[k];el.onchange=()=>{st[k]=el.type==="number"?Math.max(1,+el.value||1):el.value;save();renderAll()}});
-  [["s-non","normalOn"],["s-won","weeklyOn"],["s-skip","skipUsed"]].forEach(([id,k])=>{const el=$("#"+id);el.checked=!!st[k];el.onchange=()=>{st[k]=el.checked;save();renderAll()}});
-  $("#s-account").onchange=e=>{st.accountId=e.target.value;st.accountName=e.target.selectedOptions[0]?.textContent||"";save();renderCounts()};
-  $("#send-mode").value=S.sendMode; $("#send-mode").onchange=e=>{S.sendMode=e.target.value;save();closeConfirm()};
+function initials(n){return (n||"?").split(/\s+/).map(w=>w[0]).join("").slice(0,2).toUpperCase()}
+function kindClass(s){return s.kind==="reel"?(s.trial?"trial":"reel"):s.kind}
+function kindLabel(s){return s.kind==="reel"?(s.trial?"Reel Test":"Reel"):s.kind==="post"?"Post":"Story"}
+function thumbHTML(s){
+  if(THUMBS[s.fileId])return `<img src="${THUMBS[s.fileId]}" alt="">${isImage(s)?"":'<span class="play"></span>'}`;
+  return `<span class="ph">${esc(s.fileName||"Aucune vidéo")}</span>${s.fileId&&!isImage(s)?'<span class="play"></span>':""}`;
 }
-function planSummary(){const st=S.settings;return `${st.trialMin}–${st.trialMax} essais · ${st.gapMin}–${st.gapMax} min · ${st.trialStart}→${st.trialEnd}`+(st.normalOn?" · 1 réel/jour":"")+(st.weeklyOn?" · 1 post/sem.":"")}
-
-function timelineHTML(date,an){
-  const {s,w}=trialWindow(); const dd=day(date);
-  const mid=1440-s; let h=`<div class="timeline" aria-hidden="true">`;
-  if(mid>0&&mid<w) h+=`<span class="tick" style="left:${mid/w*100}%"></span><span class="tlab" style="left:${mid/w*100}%">00:00</span>`;
-  h+=`<span class="tlab l">${S.settings.trialStart}</span><span class="tlab r">${S.settings.trialEnd}</span>`;
-  dd.slots.filter(x=>x.type==="trial").forEach(x=>{const i=an.info[x.id];if(!i)return;const p=Math.max(0,Math.min(100,i.rel/w*100));
-    h+=`<span class="pin${i.out||i.bad?" bad":""}" style="left:${p}%" title="${x.time}"></span>`});
-  return h+"</div>";
-}
-function slotHTML(x,dd,an,dayDate){
-  const i=an&&an.info[x.id];
-  const opts=(dd.videos||[]).map(v=>`<option value="${esc(v.id)}"${v.id===x.fileId?" selected":""}>${esc(v.title)}${S.used[v.id]?" (déjà envoyée)":""}</option>`).join("");
-  const missing=x.fileId&&!(dd.videos||[]).some(v=>v.id===x.fileId)?`<option value="${esc(x.fileId)}" selected>${esc(x.fileName)}</option>`:"";
-  const ph={trial:S.settings.capTrial,normal:S.settings.capNormal,post:S.settings.capPost}[x.type]||"Légende";
-  const stTxt={sent:"Envoyé ✓",error:"Erreur",sending:"Envoi…",unsure:"À vérifier"}[x.status]||(i&&i.gap!=null?`+${i.gap} min`:"");
-  const stCls=x.status==="sent"?"sent":x.status==="error"||x.status==="unsure"?"error":x.status==="sending"?"sending":(i&&(i.bad||i.out)?"gap bad":"gap");
-  const lock=x.status==="sent"||sending?" disabled":"";
-  const typeSel=x.type==="post"?`<select class="tsel post" disabled><option>Publication</option></select>`:
-    `<select class="tsel ${x.type}" data-k="type" aria-label="Type"${lock}><option value="trial"${x.type==="trial"?" selected":""}>Réel d'essai</option><option value="normal"${x.type==="normal"?" selected":""}>Réel normal</option></select>`;
-  return `<div class="slot ${x.type}" data-day="${dayDate||""}" data-id="${x.id}">
-    <div class="row" style="gap:4px;flex-wrap:nowrap"><input type="time" class="mono" data-k="time" value="${x.time}" aria-label="Heure"${lock}>${x.example?'<span class="ex">ex.</span>':""}</div>
-    ${typeSel}
-    <select data-k="fileId" aria-label="Vidéo"${lock}>${missing}${opts}</select>
-    <input data-k="caption" value="${esc(x.caption)}" placeholder="${esc(ph||"Légende par défaut")}" aria-label="Légende"${lock}>
-    <span class="st ${stCls}" title="${esc(x.error||"")}">${stTxt}</span>
-    <button class="ghost" data-act="del" aria-label="Supprimer"${lock}>×</button>
-    ${x.error?`<div class="errline">${esc(x.error)}</div>`:""}
+function cardHTML(s,g){
+  const i=g.info[s.id];const dup=s.fileId&&g.cnt[s.fileId]>1;
+  const st={sent:"Envoyé ✓",error:"Erreur",sending:"Envoi…",unsure:"À vérifier"}[s.status]||"";
+  const stc=s.status==="sent"?"sent":s.status==="sending"?"sending":s.status?"error":"";
+  const loading=thumbBusy.has(s.fileId)?" loading":"";
+  return `<div class="card ${kindClass(s)}${openId===s.id?" sel":""}" tabindex="0" role="button" data-id="${s.id}" aria-label="${esc(kindLabel(s)+" à "+s.time)}">
+    <div class="who"><span class="av">${esc(initials(S.settings.accountName))}${IG}</span><span>${esc(S.settings.accountName||"Instagram")}</span></div>
+    <div class="time"><span aria-hidden="true">🕓</span><span class="mono">${s.time}</span>${i&&i.gap!=null?`<span class="gap${i.bad?" bad":""}">+${i.gap} min</span>`:""}${i&&i.out?`<span class="gap bad">hors créneau</span>`:""}</div>
+    <div class="thumb${loading}" data-thumb="${esc(s.fileId||"")}">${thumbHTML(s)}</div>
+    ${s.caption||defaultCap(s)?`<div class="cap">${esc(s.caption||defaultCap(s))}</div>`:""}
+    <div class="foot"><span class="tag ${kindClass(s)}">${kindLabel(s)}</span>${s.kind==="reel"&&s.feed?'<span class="tag feed">Fil</span>':""}${dup?'<span class="tag" style="color:var(--err)">Doublon</span>':""}${s.example?'<span class="tag ex">ex.</span>':""}<span class="st ${stc}">${st}</span></div>
+    ${s.error?`<div class="errline">${esc(s.error)}</div>`:""}
   </div>`;
 }
-function dayHTML(date){
-  const dd=day(date); const an=analyse(date);
-  const sorted=dd.slots.slice().sort((a,b)=>absMin(a)-absMin(b));
-  const nightEnd=frDay(addDays(date,1),{weekday:"short"});
-  const warns=[];
-  if(an.badGaps) warns.push(`${an.badGaps} écart(s) hors ${S.settings.gapMin}–${S.settings.gapMax} min`);
-  if(an.outside) warns.push(`${an.outside} réel(s) hors créneau`);
-  if(an.dup) warns.push(`${an.dup} vidéo(s) en double`);
-  const head=`<div class="day-head"><div class="title"><h3>${frDay(date)}</h3>
-      <span class="folder">${dd.folder?"📁 "+esc(dd.folder.name)+" · "+dd.videos.length+" vidéo(s)":"Aucun dossier"} · nuit jusqu'à ${nightEnd} ${S.settings.trialEnd}</span></div>
-    <div class="acts"><button data-act="pick" data-day="${date}">${dd.folder&&!dd.example?"Changer de dossier":"Choisir le dossier"}</button>
-      ${dd.videos.length&&!dd.example?`<button data-act="refresh" data-day="${date}" title="Relire le dossier et re-mélanger">Re-mélanger</button>`:""}
-      ${dd.slots.length?`<button class="ghost" data-act="clear" data-day="${date}">Vider</button>`:""}</div></div>`;
-  if(!dd.slots.length&&!dd.folder) return `<section class="day">${head}</section>`;
-  const w=(dd.note?`<span class="warn" style="color:var(--muted)">${esc(dd.note)}</span>`:"")+warns.map(t=>`<span class="warn">${t}</span>`).join("");
-  return `<section class="day">${head}${w?`<div class="warns">${w}</div>`:""}${timelineHTML(date,an)}
-    <div class="slots">${sorted.map(x=>slotHTML(x,dd,an,date)).join("")||`<div class="empty">Aucune publication ce jour-là.</div>`}</div>
-    <div class="addrow"><button data-act="add" data-type="trial" data-day="${date}">+ Réel d'essai</button><button data-act="add" data-type="normal" data-day="${date}">+ Réel normal</button></div></section>`;
+function colHTML(date,g){
+  const today=ymd(new Date())===date;const f=S.folders[date];
+  const list=S.slots.filter(s=>s.date===date).sort((a,b)=>at(a)-at(b));
+  return `<section class="col" aria-label="${esc(frDay(date))}">
+    <div class="col-head">
+      <span class="dname">${DAYS_FR[(parseYmd(date).getDay()+6)%7]}</span>
+      <span class="ddate${today?" today":""}">${frDay(date,{day:"numeric",month:"short"})}</span>
+      <div class="col-tools"><button data-act="auto" data-day="${date}" title="Remplir automatiquement depuis un dossier Drive">⚡ Auto</button><button class="plus" data-act="add" data-day="${date}" title="Ajouter des vidéos à la main" aria-label="Ajouter des vidéos">+</button></div>
+      ${f?`<div class="fold"><span>📁 ${esc(f.folder.name)} · ${f.videos.length}</span>${f.example?"":`<button data-act="reshuffle" data-day="${date}" title="Relire le dossier et re-mélanger">↻</button>`}<button data-act="unfold" data-day="${date}" title="Retirer le remplissage auto">✕</button></div>`:""}
+      ${f&&f.note?`<div class="col-note">${esc(f.note)}</div>`:""}
+    </div>
+    <div class="col-body">${list.map(s=>cardHTML(s,g)).join("")||`<div class="col-empty">Rien de prévu</div>`}</div>
+  </section>`;
 }
-function weeklyHTML(){
-  const st=S.settings,w=week().weekly; if(!st.weeklyOn) return "";
-  const dd={videos:w.media};
-  return `<section class="day"><div class="day-head"><div class="title"><h3>Publication de la semaine</h3>
-    <span class="folder">${w.folder?"📁 "+esc(w.folder.name)+" · "+w.media.length+" fichier(s)":"Choisis le dossier où tu ranges tes publications (photos ou vidéos)"}</span></div>
-    <div class="acts"><button data-act="pick" data-day="weekly">${w.folder?"Changer de dossier":"Choisir le dossier"}</button>
-    ${w.media.length?`<button data-act="refresh" data-day="weekly">Re-tirer</button>`:""}</div></div>
-    ${w.slot?`<div class="slots"><div class="lbl" style="padding:8px 16px 0">${frDay(w.slot.date)}</div>${slotHTML(w.slot,dd,null,"weekly")}</div>`:""}</section>`;
+function renderBoard(){
+  const g=gapInfo();
+  const end=addDays(S.weekStart,6);
+  $("#w-label").textContent=`${frDay(S.weekStart,{day:"numeric",month:"short"})} – ${frDay(end,{day:"numeric",month:"short"})}`;
+  $("#board").innerHTML=weekDates().map(d=>colHTML(d,g)).join("");
+  observeThumbs();
 }
-function renderDays(){
-  $("#w-label").textContent=`Semaine du ${frDay(S.weekStart,{day:"numeric",month:"long"})}`;
-  $("#days").innerHTML=weeklyHTML()+weekDates().map(dayHTML).join("");
-}
-function allSlots(){const w=week();const out=[];Object.values(w.days).forEach(d=>d.slots.forEach(s=>out.push(s)));if(S.settings.weeklyOn&&w.weekly.slot)out.push(w.weekly.slot);return out}
+function defaultCap(s){const st=S.settings;return s.kind==="reel"?(s.trial?st.capTrial:st.capNormal):st.capPost}
 function renderCounts(){
-  const all=allSlots().filter(s=>!s.example);
-  const c={trial:0,normal:0,post:0};all.forEach(s=>c[s.type]++);
-  const sent=all.filter(s=>s.status==="sent").length;
-  $("#counts").innerHTML=`<span><b>${c.trial}</b> essais</span><span><b>${c.normal}</b> réels</span><span><b>${c.post}</b> post</span>${sent?`<span style="color:var(--ok)"><b>${sent}</b> envoyé(s)</span>`:""}`;
+  const wk=new Set(weekDates());const all=S.slots.filter(s=>!s.example);
+  const inW=all.filter(s=>wk.has(s.date));
+  const c={trial:0,reel:0,post:0,story:0};inW.forEach(s=>c[kindClass(s)]++);
   const todo=all.filter(s=>s.status!=="sent").length;
+  $("#counts").innerHTML=`<span><b>${c.trial}</b> test</span><span><b>${c.reel}</b> reels</span><span><b>${c.post+c.story}</b> posts</span>`;
   $("#send-btn").textContent=todo?`Envoyer ${todo} sur Publer`:"Rien à envoyer";
   $("#send-btn").disabled=sending||!todo;
-  $("#plan-sum").textContent=planSummary();
+  const st=S.settings;
+  $("#plan-sum").textContent=`${st.trialMin}–${st.trialMax} Reels Test · ${st.gapMin}–${st.gapMax} min · ${st.trialStart}→${st.trialEnd}`+(st.normalOn?" · 1 reel/jour":"")+(st.weeklyOn?" · 1 post/sem.":"");
+  const w=S.weekly[S.weekStart];$("#s-wfname").textContent=w&&w.folder?"📁 "+w.folder.name+" · "+w.media.length:"";
 }
-function renderAll(){renderDays();renderCounts();if(confirmOpen)renderConfirm()}
+function renderAll(){renderBoard();renderCounts();if(openId)renderDrawer();if(confirmOpen)renderConfirm()}
 
-/* ---------- édition ---------- */
-function findSlot(dayKey,id){if(dayKey==="weekly")return {list:null,slot:week().weekly.slot};const dd=day(dayKey);return {list:dd.slots,slot:dd.slots.find(s=>s.id===id),dd}}
-$("#days").addEventListener("change",e=>{
-  const el=e.target,row=el.closest(".slot");if(!row||!el.dataset.k)return;
-  const {slot,dd}=findSlot(row.dataset.day,row.dataset.id);if(!slot)return;
-  const k=el.dataset.k;
-  if(k==="time"){if(!el.value)return;slot.time=el.value;if(slot.type==="trial")slot.date=trialDate(row.dataset.day,el.value)}
-  else if(k==="type"){slot.type=el.value;slot.date=el.value==="trial"?trialDate(row.dataset.day,slot.time):row.dataset.day}
-  else if(k==="fileId"){const src=row.dataset.day==="weekly"?week().weekly.media:dd.videos;const v=src.find(x=>x.id===el.value);slot.fileId=el.value;slot.fileName=v?v.title:"";if(v&&v.mimeType)slot.mime=v.mimeType}
-  else if(k==="caption"){slot.caption=el.value}
-  slot.status=slot.status==="error"?"":slot.status;slot.error="";
-  save();if(k!=="caption")renderAll();
+/* ---------- réglages ---------- */
+function bindSettings(){
+  const st=S.settings;
+  $("#s-wday").innerHTML=DAYS_FR.map((d,i)=>`<option value="${i}">${d}</option>`).join("");
+  const map={"s-tmin":"trialMin","s-tmax":"trialMax","s-gmin":"gapMin","s-gmax":"gapMax","s-tstart":"trialStart","s-tend":"trialEnd","s-tmode":"trialMode","s-night":"night",
+    "s-nstart":"normalStart","s-nend":"normalEnd","s-wday":"weeklyDay","s-wstart":"weeklyStart","s-wend":"weeklyEnd","s-ctrial":"capTrial","s-cnormal":"capNormal","s-cpost":"capPost"};
+  Object.entries(map).forEach(([id,k])=>{const el=$("#"+id);el.value=st[k];el.onchange=()=>{st[k]=el.type==="number"?Math.max(0,+el.value||0):el.value;save();renderAll()}});
+  [["s-non","normalOn"],["s-won","weeklyOn"],["s-skip","skipUsed"],["s-thumbs","autoThumbs"]].forEach(([id,k])=>{const el=$("#"+id);el.checked=!!st[k];el.onchange=()=>{st[k]=el.checked;save();renderAll()}});
+  $("#s-account").onchange=e=>{st.accountId=e.target.value;st.accountName=(e.target.selectedOptions[0]?.dataset.name)||"";save();renderAll()};
+  $("#s-wfolder").onclick=()=>openPicker("folder",f=>useWeeklyFolder(f));
+  $("#send-mode").value=S.sendMode;$("#send-mode").onchange=e=>{S.sendMode=e.target.value;save();if(confirmOpen)renderConfirm()};
+}
+
+/* ---------- calendrier : actions ---------- */
+$("#board").addEventListener("click",e=>{
+  const b=e.target.closest("button[data-act]");
+  if(b){if(sending)return;const d=b.dataset.day;
+    if(b.dataset.act==="auto")return openPicker("folder",f=>useDayFolder(d,f));
+    if(b.dataset.act==="add")return openPicker("files",files=>addManual(d,files));
+    if(b.dataset.act==="reshuffle")return refreshDay(d);
+    if(b.dataset.act==="unfold"){const o="auto:"+d;S.slots=S.slots.filter(s=>!(s.origin===o&&s.status!=="sent"));delete S.folders[d];save();return renderAll()}
+    return}
+  const c=e.target.closest(".card");if(c)openDrawer(c.dataset.id);
 });
-$("#days").addEventListener("click",e=>{
-  const b=e.target.closest("button[data-act]");if(!b||sending)return;
-  const act=b.dataset.act,dk=b.dataset.day;
-  if(act==="pick")return openPicker(dk);
-  if(act==="refresh")return refreshFolder(dk);
-  if(act==="clear"){const dd=day(dk);dd.slots=dd.slots.filter(s=>s.status==="sent");dd.note="";save();return renderAll()}
-  if(act==="add"){const dd=day(dk);const type=b.dataset.type;
-    const used=new Set(dd.slots.map(s=>s.fileId));const v=dd.videos.find(x=>!used.has(x.id))||dd.videos[0];
-    let time;if(type==="trial"){const tr=dd.slots.filter(s=>s.type==="trial").sort((a,b)=>absMin(a)-absMin(b));
-      time=tr.length?fmtMin(toMin(tr[tr.length-1].time)+S.settings.gapMin):S.settings.trialStart}else time=S.settings.normalStart;
-    dd.slots.push({id:uid(),type,date:type==="trial"?trialDate(dk,time):dk,time,fileId:v?v.id:"",fileName:v?v.title:"",caption:"",status:"",example:!!dd.example});
-    save();return renderAll()}
-  if(act==="del"){const row=b.closest(".slot");const dkey=row.dataset.day;
-    if(dkey==="weekly"){week().weekly.slot=null}else{const dd=day(dkey);dd.slots=dd.slots.filter(s=>s.id!==row.dataset.id)}
-    save();return renderAll()}
-});
-$("#w-prev").onclick=()=>{S.weekStart=addDays(S.weekStart,-7);closeConfirm();save();renderAll()};
-$("#w-next").onclick=()=>{S.weekStart=addDays(S.weekStart,7);closeConfirm();save();renderAll()};
-$("#w-fill").onclick=()=>{weekDates().forEach(d=>{const dd=day(d);if(dd.videos.length&&!dd.slots.some(s=>s.status==="sent")){fillDay(d);if(dd.example)dd.slots.forEach(s=>s.example=true)}});
-  if(!week().weekly.slot||week().weekly.slot.status!=="sent")fillWeekly();save();renderAll()};
-$("#w-clear").onclick=()=>{weekDates().forEach(d=>{const dd=day(d);dd.slots=dd.slots.filter(s=>s.status==="sent")});save();renderAll()};
+$("#board").addEventListener("keydown",e=>{if((e.key==="Enter"||e.key===" ")&&e.target.classList.contains("card")){e.preventDefault();openDrawer(e.target.dataset.id)}});
+$("#w-prev").onclick=()=>{S.weekStart=addDays(S.weekStart,-7);save();renderAll()};
+$("#w-next").onclick=()=>{S.weekStart=addDays(S.weekStart,7);save();renderAll()};
+$("#w-today").onclick=()=>{S.weekStart=mondayOf(new Date());save();renderAll()};
+$("#w-fill").onclick=()=>{weekDates().forEach(d=>{if(S.folders[d])fillDay(d)});fillWeekly();save();renderAll()};
+$("#w-clear").onclick=()=>{const wk=new Set(weekDates());S.slots=S.slots.filter(s=>s.status==="sent"||!wk.has(s.date));weekDates().forEach(d=>delete S.folders[d]);save();renderAll()};
+
+function addManual(dayKey,files){
+  if(!files.length)return;
+  const day=S.slots.filter(s=>s.date===dayKey).sort((a,b)=>at(a)-at(b));
+  let m=day.length?toMin(day[day.length-1].time)+S.settings.gapMin:toMin(S.settings.normalStart);
+  let last;
+  files.forEach(f=>{const img=(f.mimeType||"").startsWith("image/");
+    last=newSlot({date:dayKey,time:fmtMin(Math.min(m,1439)),kind:img?"post":"reel",fileId:f.id,fileName:f.title,mime:f.mimeType});
+    S.slots.push(last);m+=S.settings.gapMin});
+  save();renderAll();if(files.length===1)openDrawer(last.id);
+}
+
+/* ---------- éditeur latéral ---------- */
+function slotById(id){return S.slots.find(s=>s.id===id)}
+function openDrawer(id){openId=id;$("#drawer").hidden=false;$("#drawer-bg").hidden=false;renderDrawer();renderBoard();
+  const s=slotById(id);if(s&&s.fileId&&!s.example)loadMedia(s.fileId).then(()=>{if(openId===id)renderPreview()}).catch(()=>{if(openId===id)renderPreview()})}
+function closeDrawer(){openId=null;$("#drawer").hidden=true;$("#drawer-bg").hidden=true;renderBoard()}
+$("#drawer-bg").onclick=closeDrawer;
+function renderDrawer(){
+  const s=slotById(openId);if(!s)return closeDrawer();
+  const lock=s.status==="sent"||sending;const dis=lock?" disabled":"";
+  const f=s.origin&&s.origin.startsWith("auto:")?S.folders[s.origin.slice(5)]:null;
+  const pool=f?f.videos:[];
+  const opts=(pool.some(v=>v.id===s.fileId)?"":`<option value="${esc(s.fileId)}">${esc(s.fileName||"—")}</option>`)+pool.map(v=>`<option value="${esc(v.id)}"${v.id===s.fileId?" selected":""}>${esc(v.title)}${S.used[v.id]?" (déjà envoyée)":""}</option>`).join("");
+  $("#drawer").innerHTML=`<header><div class="who" style="display:flex;gap:8px;align-items:center"><span class="av">${esc(initials(S.settings.accountName))}${IG}</span><h2 id="dr-title">${esc(S.settings.accountName||"Instagram")}</h2></div>
+      <button class="ghost icon" id="dr-close" aria-label="Fermer">✕</button></header>
+    <div class="body">
+      ${s.status==="sent"?`<div class="banner">Déjà envoyée sur Publer. Modifie-la directement dans Publer.</div>`:""}
+      ${s.error?`<div class="banner err">${esc(s.error)}</div>`:""}
+      <div class="tabs" role="tablist">${["post","reel","story"].map(k=>`<button role="tab" data-kind="${k}" class="${s.kind===k?"on":""}"${dis}>${k==="post"?"Post":k==="reel"?"Reel":"Story"}</button>`).join("")}</div>
+      <div class="editor">
+        <textarea id="dr-cap" placeholder="${esc(defaultCap(s)||"Écris ta légende…")}"${dis}>${esc(s.caption)}</textarea>
+        <div class="media-row">
+          <div class="preview" id="dr-prev"></div>
+          <div class="opts">
+            ${s.kind==="reel"?`<span class="lbl">Plus d'options</span>
+            <label class="opt"><input type="checkbox" id="dr-feed"${s.feed?" checked":""}${dis}><span>Partager également dans le fil</span></label>
+            <label class="opt${s.trial?" on":""}"><input type="checkbox" id="dr-trial"${s.trial?" checked":""}${dis}><span>⏱ Publier comme Reel Test</span></label>
+            ${s.trial?`<div class="subopt"><label><input type="radio" name="dr-tm" value="MANUAL"${s.trialMode==="MANUAL"?" checked":""}${dis}><span>Je décide moi-même si je le partage à mes abonnés</span></label>
+              <label><input type="radio" name="dr-tm" value="SS_PERFORMANCE"${s.trialMode==="SS_PERFORMANCE"?" checked":""}${dis}><span>Partage auto aux abonnés s'il marche bien</span></label></div>`:""}
+            <input id="dr-audio" placeholder="Renommer l'audio original" value="${esc(s.audio)}"${dis}>`:`<span class="muted" style="font-size:13px">${s.kind==="post"?"Post classique dans le fil.":"Story Instagram (24 h)."}</span>`}
+            <div class="fieldset"><span class="lbl">Fichier</span>
+              ${pool.length?`<select id="dr-file"${dis}>${opts}</select>`:`<span style="font-size:13px;word-break:break-all">${esc(s.fileName||"Aucun fichier")}</span>`}
+              <button id="dr-pick"${dis||(s.example?" disabled":"")}>Choisir dans Drive</button></div>
+          </div>
+        </div>
+      </div>
+      <div class="row"><div class="fieldset"><span class="lbl">Date</span><input type="date" id="dr-date" value="${s.date}"${dis}></div>
+        <div class="fieldset"><span class="lbl">Heure</span><input type="time" id="dr-time" value="${s.time}"${dis}></div></div>
+    </div>
+    <footer><button class="ghost" id="dr-del"${dis} style="color:var(--err)">Supprimer</button>
+      <div class="row"><button id="dr-dup"${s.example?" disabled":""}>Dupliquer</button><button class="primary" id="dr-ok">Terminé</button></div></footer>`;
+  renderPreview();
+  const upd=(fn,full)=>{fn(s);if(s.status==="error"||s.status==="unsure"){s.status="";s.error=""}save();renderBoard();renderCounts();if(full)renderDrawer()};
+  $("#dr-close").onclick=closeDrawer;$("#dr-ok").onclick=closeDrawer;
+  $("#drawer").querySelectorAll("[data-kind]").forEach(b=>b.onclick=()=>upd(x=>{x.kind=b.dataset.kind;if(x.kind!=="reel")x.trial=false},true));
+  $("#dr-cap").oninput=e=>{s.caption=e.target.value;save()};$("#dr-cap").onchange=()=>renderBoard();
+  if($("#dr-feed"))$("#dr-feed").onchange=e=>upd(x=>x.feed=e.target.checked);
+  if($("#dr-trial"))$("#dr-trial").onchange=e=>upd(x=>{x.trial=e.target.checked;if(x.trial)x.feed=false},true);
+  $("#drawer").querySelectorAll("input[name=dr-tm]").forEach(r=>r.onchange=()=>upd(x=>x.trialMode=r.value));
+  if($("#dr-audio"))$("#dr-audio").onchange=e=>upd(x=>x.audio=e.target.value.trim());
+  if($("#dr-file"))$("#dr-file").onchange=e=>upd(x=>{const v=pool.find(p=>p.id===e.target.value);x.fileId=e.target.value;x.fileName=v?v.title:"";x.mime=v?v.mimeType:x.mime;loadMedia(x.fileId).then(renderPreview,renderPreview)},true);
+  $("#dr-pick").onclick=()=>openPicker("file",files=>{const v=files[0];if(!v)return;upd(x=>{x.fileId=v.id;x.fileName=v.title;x.mime=v.mimeType},true);loadMedia(v.id).then(renderPreview,renderPreview)});
+  $("#dr-date").onchange=e=>{if(e.target.value)upd(x=>x.date=e.target.value)};
+  $("#dr-time").onchange=e=>{if(e.target.value)upd(x=>x.time=e.target.value)};
+  $("#dr-del").onclick=()=>{S.slots=S.slots.filter(x=>x.id!==s.id);save();closeDrawer();renderCounts()};
+  $("#dr-dup").onclick=()=>{const c={...s,id:uid(),status:"",error:"",origin:"manual",time:fmtMin(toMin(s.time)+S.settings.gapMin)};S.slots.push(c);save();renderCounts();openDrawer(c.id)};
+}
+function renderPreview(){
+  const box=$("#dr-prev");if(!box)return;const s=slotById(openId);if(!s)return;
+  const b=blobs.get(s.fileId);
+  if(b)box.innerHTML=isImage(s)?`<img src="${b}" alt="">`:`<video src="${b}" controls playsinline preload="metadata"></video>`;
+  else if(s.example)box.innerHTML=`<div class="ph">Vidéo d'exemple</div>`;
+  else if(thumbBusy.has(s.fileId))box.innerHTML=`<div class="ph">Chargement de la vidéo depuis Drive…</div>`;
+  else{const fail=thumbFail[s.fileId];
+    box.innerHTML=`<div class="ph">${THUMBS[s.fileId]?`<img src="${THUMBS[s.fileId]}" alt="" style="max-height:200px">`:""}${fail?`<span>${esc(fail)}</span>`:""}<button id="dr-load">${fail?"Réessayer":"Charger la vidéo"}</button></div>`;
+    $("#dr-load").onclick=()=>{delete thumbFail[s.fileId];loadMedia(s.fileId).then(renderPreview,renderPreview);renderPreview()}}
+}
+
+/* ---------- aperçus : téléchargement Drive + vignette ---------- */
+function b64FromResult(r){
+  const looks=t=>typeof t==="string"&&t.length>200&&/^[A-Za-z0-9+/=\s_-]+$/.test(t.slice(0,400).replace(/^data:[^,]*,/,""));
+  const p=r&&r.payload;
+  if(looks(p))return p;
+  if(p&&typeof p==="object")for(const k of ["content","data","base64","fileContent","contentBase64","blob","body","bytes"])if(looks(p[k]))return p[k];
+  for(const b of (r&&r.content)||[]){if(b.resource&&looks(b.resource.blob))return b.resource.blob;if(looks(b.blob))return b.blob;if(looks(b.data))return b.data;if(b.type==="text"&&looks(b.text))return b.text}
+  return null;
+}
+function b64ToBlob(b64,type){b64=b64.replace(/^data:[^,]*,/,"").replace(/\s/g,"").replace(/-/g,"+").replace(/_/g,"/");
+  const bin=atob(b64);const u=new Uint8Array(bin.length);for(let i=0;i<bin.length;i++)u[i]=bin.charCodeAt(i);return new Blob([u],{type})}
+function mimeOf(id){const s=S.slots.find(x=>x.fileId===id);if(s&&s.mime)return s.mime;for(const f of Object.values(S.folders)){const v=f.videos.find(x=>x.id===id);if(v)return v.mimeType}return "video/mp4"}
+function makeThumb(url,img){return new Promise((res,rej)=>{const W=320;const done=(el,w,h)=>{try{const c=document.createElement("canvas");c.width=W;c.height=Math.round(W*h/w)||180;c.getContext("2d").drawImage(el,0,0,c.width,c.height);res(c.toDataURL("image/jpeg",.62))}catch(e){rej(e)}};
+  const t=setTimeout(()=>rej(new Error("timeout")),20000);
+  if(img){const i=new Image();i.onload=()=>{clearTimeout(t);done(i,i.naturalWidth,i.naturalHeight)};i.onerror=()=>{clearTimeout(t);rej(new Error("img"))};i.src=url;return}
+  const v=document.createElement("video");v.muted=true;v.playsInline=true;v.preload="auto";
+  v.onloadeddata=()=>{v.currentTime=Math.min(.6,(v.duration||1)/2)};v.onseeked=()=>{clearTimeout(t);done(v,v.videoWidth,v.videoHeight)};v.onerror=()=>{clearTimeout(t);rej(new Error("video"))};v.src=url})}
+function saveThumb(id,data){THUMBS[id]=data;let keys=Object.keys(THUMBS);while(keys.length>160){delete THUMBS[keys.shift()];}
+  if(!store(TKEY,THUMBS)){keys=Object.keys(THUMBS);keys.slice(0,40).forEach(k=>delete THUMBS[k]);store(TKEY,THUMBS)}}
+async function loadMedia(id){
+  if(!id||id.startsWith("ex")||blobs.has(id))return;
+  if(!mcp)throw new Error("no mcp");
+  if(thumbBusy.has(id)){while(thumbBusy.has(id))await new Promise(r=>setTimeout(r,300));if(blobs.has(id))return;throw new Error("fail")}
+  thumbBusy.add(id);markThumb(id);
+  try{
+    const r=await mcp.callTool(DRIVE,"download_file_content",{fileId:id});
+    const b64=b64FromResult(r);if(!b64)throw {code:"shape",message:"Drive n'a pas renvoyé la vidéo"};
+    const mt=mimeOf(id);const url=URL.createObjectURL(b64ToBlob(b64,mt));
+    blobs.set(id,url);if(blobs.size>8){const [k,u]=blobs.entries().next().value;if(k!==id){URL.revokeObjectURL(u);blobs.delete(k)}}
+    if(!THUMBS[id]){try{saveThumb(id,await makeThumb(url,mt.startsWith("image/")))}catch(e){}}
+  }catch(e){thumbFail[id]=e&&e.code==="shape"?e.message:("Aperçu indisponible : "+explain(e,DRIVE));throw e}
+  finally{thumbBusy.delete(id);markThumb(id)}
+}
+function markThumb(id){document.querySelectorAll(`.thumb[data-thumb="${CSS.escape(id)}"]`).forEach(el=>{const s=S.slots.find(x=>x.fileId===id);if(!s)return;
+  el.classList.toggle("loading",thumbBusy.has(id));el.innerHTML=thumbHTML(s)})}
+let io=null;
+function observeThumbs(){
+  if(io)io.disconnect();if(!mcp||!S.settings.autoThumbs||!("IntersectionObserver" in window))return;
+  io=new IntersectionObserver(es=>es.forEach(en=>{if(!en.isIntersecting)return;const id=en.target.dataset.thumb;io.unobserve(en.target);
+    if(id&&!THUMBS[id]&&!thumbFail[id]&&!id.startsWith("ex")&&!thumbQueue.includes(id))thumbQueue.push(id);runThumbs()}),{root:null,rootMargin:"200px"});
+  document.querySelectorAll(".thumb[data-thumb]").forEach(el=>{if(el.dataset.thumb&&!THUMBS[el.dataset.thumb])io.observe(el)});
+}
+async function runThumbs(){if(thumbRunning)return;thumbRunning=true;let fails=0;
+  while(thumbQueue.length&&S.settings.autoThumbs){const id=thumbQueue.shift();
+    try{await loadMedia(id);fails=0}catch(e){fails++;if(e&&["needs_reauth","server_not_connected","not_in_manifest","blocked_by_policy","not_granted"].includes(e.code)){thumbQueue=[];break}
+      if(fails>=3){thumbQueue=[];banner("Les aperçus vidéo ne se chargent pas depuis Drive. La planche reste utilisable : les noms de fichiers s'affichent à la place.",false);break}}}
+  thumbRunning=false}
 
 /* ---------- connecteurs ---------- */
 function explain(e,server){
@@ -461,169 +580,158 @@ function explain(e,server){
     case "needs_reauth":return `Reconnecte ${server} dans claude.ai → Paramètres → Connecteurs.`;
     case "server_not_connected":return `${server} n'est pas connecté. Ajoute-le dans claude.ai → Paramètres → Connecteurs.`;
     case "selection_required":return `Plusieurs connecteurs ${server} existent : choisis lequel utiliser dans la fenêtre claude.ai.`;
-    case "not_in_manifest":return `Tu n'as pas autorisé ${server} pour cette page. Ouvre le menu Autorisations de la page pour l'activer.`;
+    case "not_in_manifest":return `${server} n'est pas autorisé pour cette page. Active-le dans le menu Autorisations de la page.`;
     case "approval_required":return `${server} attend ton accord. Relance l'action et accepte la demande.`;
     case "blocked_by_policy":return `${server} est bloqué par les règles de ton organisation.`;
     case "server_unavailable":return `${server} ne répond pas pour l'instant. Réessaie dans une minute.`;
-    case "tool_error":{let m=e.message||"";try{const r=e.result;const t=r&&r.content&&r.content.find(x=>x.type==="text");if(t)m=t.text}catch(_){}return `${server} a refusé : ${String(m).slice(0,240)}`}
-    case "not_granted":case "capability_disabled":case "capability_removed":return `Les connecteurs ne sont pas disponibles ici. Ouvre la page dans claude.ai.`;
-    default:return `${server} : ${e&&e.message?e.message:"erreur inconnue"}`;
+    case "tool_error":{let m=e.message||"";try{const t=e.result&&e.result.content&&e.result.content.find(x=>x.type==="text");if(t)m=t.text}catch(_){}return `${server} a refusé : ${String(m).slice(0,240)}`}
+    case "not_granted":case "capability_disabled":case "capability_removed":return "Les connecteurs ne sont pas disponibles ici. Ouvre la page dans claude.ai.";
+    default:return `${server} : ${e&&e.message?String(e.message).slice(0,200):"erreur inconnue"}`;
   }
 }
-function setChip(id,state,text){const el=$(id);el.innerHTML=`<span class="dot ${state}"></span>${esc(text)}`}
+function setChip(id,state,text){$(id).innerHTML=`<span class="dot ${state}"></span>${esc(text)}`}
 function banner(msg,err){const b=$("#banner");if(!msg){b.hidden=true;return}b.hidden=false;b.className="banner"+(err?" err":"");b.textContent=msg}
 async function call(server,tool,input){if(!mcp)throw {code:"not_granted"};const r=await mcp.callTool(server,tool,input);return r.payload}
-
 async function loadAccounts(){
   const sel=$("#s-account");
-  try{
-    const p=await call(PUBLER,"lookup_publer_accounts",{platform:"instagram"});
-    const accs=(p&&p.accounts)||[];
+  try{const p=await call(PUBLER,"lookup_publer_accounts",{platform:"instagram"});const accs=(p&&p.accounts)||[];
     if(!accs.length){sel.innerHTML=`<option value="">Aucun compte Instagram dans Publer</option>`;setChip("#c-publer","err","Publer : aucun compte");return}
-    sel.innerHTML=accs.map(a=>`<option value="${esc(a.id)}">${esc(a.name)} (${esc(a.channel||"Instagram")})</option>`).join("");
-    if(!accs.some(a=>a.id===S.settings.accountId)){S.settings.accountId=accs[0].id;S.settings.accountName=accs[0].name;save()}
-    sel.value=S.settings.accountId;
-    setChip("#c-publer","ok","Publer · "+(S.settings.accountName||accs[0].name));
+    sel.innerHTML=accs.map(a=>`<option value="${esc(a.id)}" data-name="${esc(a.name)}">${esc(a.name)} (Instagram)</option>`).join("");
+    if(!accs.some(a=>a.id===S.settings.accountId)){S.settings.accountId=accs[0].id;S.settings.accountName=accs[0].name}
+    else S.settings.accountName=accs.find(a=>a.id===S.settings.accountId).name;
+    sel.value=S.settings.accountId;save();setChip("#c-publer","ok","Publer");renderAll();
   }catch(e){sel.innerHTML=`<option value="">Comptes indisponibles</option>`;setChip("#c-publer","err","Publer");banner(explain(e,PUBLER),true)}
-  renderCounts();
 }
 
-/* ---------- sélecteur de dossier Drive ---------- */
+/* ---------- sélecteur Drive (dossier, fichiers, fichier) ---------- */
 const FOLDER="application/vnd.google-apps.folder";
-async function driveSearch(query){
-  const out=[];let token;
-  for(let i=0;i<10;i++){
-    const p=await call(DRIVE,"search_files",{query,pageSize:100,excludeContentSnippets:true,...(token?{pageToken:token}:{})});
-    const f=(p&&p.files)||[];out.push(...f);token=p&&p.nextPageToken;if(!token||!f.length)break;
-  }
-  const seen=new Set();return out.filter(f=>!seen.has(f.id)&&seen.add(f.id));
-}
 function q(s){return String(s).replace(/\\/g,"\\\\").replace(/'/g,"\\'")}
-function openPicker(dk){picker={dk,stack:[{id:"root",name:"Mon Drive"}],items:[],search:false};$("#picker").hidden=false;$("#pk-q").value="";browse()}
+async function driveSearch(query){const out=[];let token;
+  for(let i=0;i<10;i++){const p=await call(DRIVE,"search_files",{query,pageSize:100,excludeContentSnippets:true,...(token?{pageToken:token}:{})});
+    const f=(p&&p.files)||[];out.push(...f);token=p&&p.nextPageToken;if(!token||!f.length)break}
+  const seen=new Set();return out.filter(f=>!seen.has(f.id)&&seen.add(f.id))}
+const MEDIA_Q=`(mimeType contains 'video/' or mimeType contains 'image/')`;
+function openPicker(mode,cb){picker={mode,cb,stack:[{id:"root",name:"Mon Drive"}],search:false,sel:new Map(),items:[]};
+  $("#pk-title").textContent=mode==="folder"?"Choisir le dossier à répartir":mode==="files"?"Ajouter des vidéos":"Choisir une vidéo";
+  $("#picker").hidden=false;$("#pk-q").value="";browse()}
 function closePicker(){picker=null;$("#picker").hidden=true}
 async function browse(){
-  const cur=picker.stack[picker.stack.length-1];
-  $("#pk-crumbs").innerHTML=picker.stack.map((c,i)=>`<button data-i="${i}">${esc(c.name)}</button>`).join("<span class='muted'>/</span>");
-  $("#pk-list").innerHTML=`<div class="empty">Chargement…</div>`;$("#pk-choose").disabled=true;
+  const p=picker;const cur=p.stack[p.stack.length-1];
+  $("#pk-crumbs").innerHTML=p.stack.map((c,i)=>`<button data-i="${i}">${esc(c.name)}</button>`).join("<span class='muted'>/</span>");
+  $("#pk-list").innerHTML=`<div class="empty">Chargement…</div>`;updateChoose();
   try{
-    const items=picker.search?await driveSearch(`title contains '${q(picker.search)}' and mimeType = '${FOLDER}'`)
-      :await driveSearch(`parentId = '${q(cur.id)}' and mimeType = '${FOLDER}'`);
-    if(!picker)return;
-    items.sort((a,b)=>a.title.localeCompare(b.title,"fr",{numeric:true}));
-    $("#pk-list").innerHTML=items.length?items.map(f=>`<button data-id="${esc(f.id)}" data-name="${esc(f.title)}"><span>📁</span><span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis">${esc(f.title)}</span><span class="muted">›</span></button>`).join("")
-      :`<div class="empty">${picker.search?"Aucun dossier trouvé.":"Pas de sous-dossier ici."}</div>`;
-    $("#pk-choose").disabled=picker.search||cur.id==="root";
-    $("#pk-choose").textContent=cur.id==="root"?"Ouvre un dossier":`Prendre les vidéos de « ${cur.name} »`;
+    let folders=[],media=[];
+    if(p.search){folders=await driveSearch(`title contains '${q(p.search)}' and mimeType = '${FOLDER}'`);
+      if(p.mode!=="folder")media=await driveSearch(`title contains '${q(p.search)}' and ${MEDIA_Q}`)}
+    else{folders=await driveSearch(`parentId = '${q(cur.id)}' and mimeType = '${FOLDER}'`);
+      if(cur.id!=="root"||p.mode!=="folder")media=await driveSearch(`parentId = '${q(cur.id)}' and ${MEDIA_Q}`)}
+    if(picker!==p)return;
+    const by=(a,b)=>a.title.localeCompare(b.title,"fr",{numeric:true});folders.sort(by);media.sort(by);p.media=media;
+    const fh=folders.map(f=>`<button class="it" data-folder="${esc(f.id)}" data-name="${esc(f.title)}"><span>📁</span><span class="nm">${esc(f.title)}</span><span class="muted">›</span></button>`).join("");
+    const mh=p.mode==="folder"?(media.length?`<div class="empty" style="padding:10px 16px;text-align:left">${media.filter(m=>m.mimeType.startsWith("video/")).length} vidéo(s) dans ce dossier</div>`:"")
+      :media.map(m=>`<label class="it"><input type="${p.mode==="files"?"checkbox":"radio"}" name="pk-m" data-file="${esc(m.id)}"${p.sel.has(m.id)?" checked":""}><span>${m.mimeType.startsWith("video/")?"🎬":"🖼"}</span><span class="nm">${esc(m.title)}</span><span class="muted mono" style="font-size:11px">${m.fileSize?Math.round(m.fileSize/1048576)+" Mo":""}</span></label>`).join("");
+    $("#pk-list").innerHTML=fh+mh||`<div class="empty">${p.search?"Rien trouvé.":"Dossier vide."}</div>`;
+    if(p.mode!=="folder"&&media.length>1&&p.mode==="files")$("#pk-list").insertAdjacentHTML("afterbegin",`<button class="it" id="pk-all"><span>☑</span><span class="nm">Tout sélectionner (${media.length})</span></button>`);
+    setChip("#c-drive","ok","Drive");updateChoose();
   }catch(e){$("#pk-list").innerHTML=`<div class="empty" style="color:var(--err)">${esc(explain(e,DRIVE))}</div>`;setChip("#c-drive","err","Drive")}
 }
-$("#pk-list").onclick=e=>{const b=e.target.closest("button[data-id]");if(!b)return;picker.search=false;picker.stack.push({id:b.dataset.id,name:b.dataset.name});browse()};
+function updateChoose(){const p=picker;if(!p)return;const cur=p.stack[p.stack.length-1];const b=$("#pk-choose");
+  if(p.mode==="folder"){b.disabled=!!p.search||cur.id==="root";b.textContent=cur.id==="root"?"Ouvre un dossier":`Répartir les vidéos de « ${cur.name} »`}
+  else{b.disabled=!p.sel.size;b.textContent=p.mode==="files"?`Ajouter ${p.sel.size||""} vidéo(s)`.replace("  "," "):"Choisir cette vidéo"}}
+$("#pk-list").addEventListener("click",e=>{const p=picker;if(!p)return;
+  if(e.target.closest("#pk-all")){(p.media||[]).forEach(m=>p.sel.set(m.id,m));$("#pk-list").querySelectorAll("input[data-file]").forEach(i=>i.checked=true);return updateChoose()}
+  const f=e.target.closest("[data-folder]");if(f){p.search=false;p.stack.push({id:f.dataset.folder,name:f.dataset.name});browse()}});
+$("#pk-list").addEventListener("change",e=>{const p=picker;const i=e.target.closest("input[data-file]");if(!p||!i)return;
+  const m=(p.media||[]).find(x=>x.id===i.dataset.file);if(p.mode==="file")p.sel.clear();if(i.checked&&m)p.sel.set(m.id,m);else p.sel.delete(i.dataset.file);updateChoose()});
 $("#pk-crumbs").onclick=e=>{const b=e.target.closest("button[data-i]");if(!b)return;picker.search=false;picker.stack=picker.stack.slice(0,+b.dataset.i+1);browse()};
-$("#pk-form").onsubmit=e=>{e.preventDefault();const v=$("#pk-q").value.trim();picker.search=v||false;if(!v)picker.stack=[picker.stack[0]];browse()};
+$("#pk-form").onsubmit=e=>{e.preventDefault();const v=$("#pk-q").value.trim();picker.search=v||false;browse()};
 $("#pk-cancel").onclick=closePicker;
 $("#picker").addEventListener("click",e=>{if(e.target.id==="picker")closePicker()});
-document.addEventListener("keydown",e=>{if(e.key==="Escape"&&picker)closePicker()});
-$("#pk-choose").onclick=async()=>{const cur=picker.stack[picker.stack.length-1];const dk=picker.dk;closePicker();await useFolder(dk,{id:cur.id,name:cur.name})};
+document.addEventListener("keydown",e=>{if(e.key!=="Escape")return;if(picker)closePicker();else if(openId)closeDrawer()});
+$("#pk-choose").onclick=()=>{const p=picker;if(!p)return;const cur=p.stack[p.stack.length-1];closePicker();
+  if(p.mode==="folder")p.cb({id:cur.id,name:cur.name});
+  else p.cb([...p.sel.values()].map(m=>({id:m.id,title:m.title,mimeType:m.mimeType})))};
 
-async function listMedia(folderId,weekly){
-  const mt=weekly?`(mimeType contains 'video/' or mimeType contains 'image/')`:`mimeType contains 'video/'`;
-  const f=await driveSearch(`parentId = '${q(folderId)}' and ${mt}`);
-  return f.map(x=>({id:x.id,title:x.title,mimeType:x.mimeType,size:+x.fileSize||0})).sort((a,b)=>a.title.localeCompare(b.title,"fr",{numeric:true}));
+async function listVideos(folderId,withImages){
+  const f=await driveSearch(`parentId = '${q(folderId)}' and ${withImages?MEDIA_Q:"mimeType contains 'video/'"}`);
+  return f.map(x=>({id:x.id,title:x.title,mimeType:x.mimeType})).sort((a,b)=>a.title.localeCompare(b.title,"fr",{numeric:true}));
 }
-async function useFolder(dk,folder){
+async function useDayFolder(d,folder){
   banner("Lecture du dossier « "+folder.name+" »…");
-  try{
-    const media=await listMedia(folder.id,dk==="weekly");
-    setChip("#c-drive","ok","Drive");banner(null);
-    if(dk==="weekly"){const w=week().weekly;w.folder=folder;w.media=media;fillWeekly()}
-    else{const dd=day(dk);dd.folder=folder;dd.videos=media;dd.example=false;dd.slots=dd.slots.filter(s=>s.status==="sent"&&!s.example);fillDay(dk);
-      if(!media.length)dd.note="Ce dossier ne contient aucune vidéo (les sous-dossiers ne sont pas lus)"}
-    save();renderAll();
-  }catch(e){banner(explain(e,DRIVE),true);setChip("#c-drive","err","Drive")}
+  try{const v=await listVideos(folder.id,false);
+    if(S.folders[d]&&S.folders[d].example){S.slots=S.slots.filter(s=>!s.example)}
+    S.folders[d]={folder,videos:v};fillDay(d);if(!v.length)S.folders[d].note="Aucune vidéo dans ce dossier (les sous-dossiers ne sont pas lus)";
+    banner(null);save();renderAll();
+  }catch(e){banner(explain(e,DRIVE),true)}
 }
-async function refreshFolder(dk){
-  const f=dk==="weekly"?week().weekly.folder:day(dk).folder; if(f&&f.id) return useFolder(dk,f);
-  if(dk==="weekly")fillWeekly();else fillDay(dk);save();renderAll();
+async function refreshDay(d){const f=S.folders[d];if(f&&f.folder.id)return useDayFolder(d,f.folder);fillDay(d);save();renderAll()}
+async function useWeeklyFolder(folder){
+  try{const m=await listVideos(folder.id,true);S.weekly[S.weekStart]={folder,media:m};fillWeekly();save();renderAll()}
+  catch(e){banner(explain(e,DRIVE),true)}
 }
 
 /* ---------- envoi vers Publer ---------- */
-function captionFor(s){const st=S.settings;return s.caption||({trial:st.capTrial,normal:st.capNormal,post:st.capPost}[s.type])||""}
-function checkSlots(){
-  const now=Date.now()+5*60e3; const ok=[],skipped=[];
-  allSlots().forEach(s=>{if(s.example||s.status==="sent")return;
-    if(!s.fileId)skipped.push([s,"pas de vidéo"]);else if(when(s).getTime()<now)skipped.push([s,"heure déjà passée"]);else ok.push(s)});
-  ok.sort((a,b)=>when(a)-when(b));return {ok,skipped};
-}
-function closeConfirm(){confirmOpen=false;const c=$("#confirm");if(c)c.remove()}
+function checkSlots(){const lim=Date.now()+5*60e3;const ok=[],skipped=[];
+  S.slots.forEach(s=>{if(s.example||s.status==="sent")return;if(!s.fileId)skipped.push("sans fichier");else if(at(s)<lim)skipped.push("heure déjà passée");else ok.push(s)});
+  ok.sort((a,b)=>at(a)-at(b));return {ok,skipped}}
+function closeConfirm(){confirmOpen=false;$("#confirm-slot").innerHTML=""}
 function renderConfirm(){
-  let c=$("#confirm"); if(!c){c=document.createElement("section");c.id="confirm";c.className="panel confirm";$(".wrap").appendChild(c)}
-  const {ok,skipped}=checkSlots(); const st=S.settings; const real=S.sendMode==="schedule";
-  const by={trial:0,normal:0,post:0};ok.forEach(s=>by[s.type]++);
-  const examples=allSlots().filter(s=>s.example).length;
-  c.innerHTML=`<h2>${real?"Programmer":"Envoyer en brouillons"} ${ok.length} publication(s)</h2>
-    <ul>
-      <li>Compte : <b>${esc(st.accountName||"aucun compte choisi")}</b></li>
-      <li>${by.trial} réel(s) d'essai (${st.trialMode==="MANUAL"?"partage décidé par toi":"partage auto si ça marche"}), ${by.normal} réel(s) normal(aux), ${by.post} publication(s)</li>
-      <li>${real?"Publer publiera tout seul aux heures prévues.":"Rien ne sera publié : tout arrive en brouillon daté dans ton calendrier Publer pour vérifier."}</li>
-      <li class="muted">Pour que Publer puisse récupérer chaque vidéo, son fichier Drive passe en « accessible à toute personne disposant du lien » (lecture seule).</li>
-      ${skipped.length?`<li style="color:var(--warn)">${skipped.length} ignorée(s) : ${esc([...new Set(skipped.map(x=>x[1]))].join(", "))}</li>`:""}
-      ${examples?`<li class="muted">Les ${examples} lignes d'exemple ne sont pas envoyées.</li>`:""}
-    </ul>
-    <div class="row"><button class="primary" id="cf-go"${!ok.length||!st.accountId?" disabled":""}>Confirmer l'envoi</button><button class="ghost" id="cf-no">Annuler</button></div>`;
-  $("#cf-go").onclick=()=>runSend(ok); $("#cf-no").onclick=closeConfirm;
-  c.scrollIntoView({behavior:"smooth",block:"nearest"});
+  const {ok,skipped}=checkSlots();const st=S.settings;const real=S.sendMode==="schedule";
+  const c={trial:0,reel:0,post:0,story:0};ok.forEach(s=>c[kindClass(s)]++);
+  $("#confirm-slot").innerHTML=`<section class="confirm"><h2>${real?"Programmer":"Envoyer en brouillons"} ${ok.length} publication(s)</h2><ul>
+    <li>Compte : <b>${esc(st.accountName||"aucun compte choisi")}</b></li>
+    <li>${c.trial} Reel(s) Test, ${c.reel} Reel(s), ${c.post} post(s), ${c.story} story(s)</li>
+    <li>${real?"Publer publiera tout seul aux heures prévues.":"Rien ne sera publié : tout arrive en brouillon daté dans ton calendrier Publer."}</li>
+    <li class="muted">Pour que Publer récupère chaque fichier, il passe en « toute personne disposant du lien » (lecture seule) sur Drive.</li>
+    ${skipped.length?`<li style="color:var(--warn)">${skipped.length} ignorée(s) : ${esc([...new Set(skipped)].join(", "))}</li>`:""}
+    ${S.slots.some(s=>s.example)?`<li class="muted">Les cartes d'exemple ne sont pas envoyées.</li>`:""}
+  </ul><div class="row"><button class="primary" id="cf-go"${!ok.length||!st.accountId?" disabled":""}>Confirmer l'envoi</button><button class="ghost" id="cf-no">Annuler</button></div></section>`;
+  $("#cf-go").onclick=()=>runSend(ok);$("#cf-no").onclick=closeConfirm;
 }
-$("#send-btn").onclick=()=>{if(sending)return;confirmOpen=true;renderConfirm()};
-
+$("#send-btn").onclick=()=>{if(sending)return;confirmOpen=true;renderConfirm();window.scrollTo({top:0,behavior:"smooth"})};
 function mediaUrl(id){return `https://drive.usercontent.google.com/download?id=${encodeURIComponent(id)}&export=download&confirm=t`}
-function payloadProblem(p){
-  if(!p||typeof p!=="object")return null;
+function payloadProblem(p){if(!p||typeof p!=="object")return null;
   if(p.confirmation_required||p.selection_required)return p.message||p.next_step||"Publer demande une confirmation.";
   if(p.error)return typeof p.error==="string"?p.error:(p.error.message||JSON.stringify(p.error).slice(0,200));
-  if(p.success===false||p.ok===false)return p.message||"Publer a refusé la publication.";
-  return null;
-}
+  if(p.success===false||p.ok===false)return p.message||"Publer a refusé la publication.";return null}
 async function sendOne(s){
   const st=S.settings;
-  if(!S.shared[s.fileId]){
-    await call(DRIVE,"share_file",{fileId:s.fileId,permissionId:"anyoneWithLink",role:"reader"});
-    S.shared[s.fileId]=true;save();
-  }
-  const isImg=s.type==="post"&&s.mime&&s.mime.startsWith("image/");
-  const post={platform:"instagram",account:st.accountId,caption:captionFor(s),post_type:isImg?"photo":"reel",
-    media_url:mediaUrl(s.fileId),media_filename:s.fileName||("media"+(isImg?".jpg":".mp4")),scheduled_for:isoLocal(s.date,s.time)};
-  if(s.type==="trial")post.network_options={details:{type:"reel",trial_reel:st.trialMode}};
+  if(!S.shared[s.fileId]){await call(DRIVE,"share_file",{fileId:s.fileId,permissionId:"anyoneWithLink",role:"reader"});S.shared[s.fileId]=true;save()}
+  const img=isImage(s);
+  const post={platform:"instagram",account:st.accountId,caption:s.caption||defaultCap(s)||"",media_url:mediaUrl(s.fileId),
+    media_filename:s.fileName||("media"+(img?".jpg":".mp4")),scheduled_for:isoLocal(s.date,s.time)};
+  if(s.kind==="reel"){post.post_type="reel";const d={type:"reel",feed:!!s.feed};if(s.trial)d.trial_reel=s.trialMode||st.trialMode;if(s.audio)d.audio=s.audio;post.network_options={details:d}}
+  else if(s.kind==="story")post.post_type="story";
+  else post.post_type=img?"photo":"video";
   const p=await call(PUBLER,"submit_publer_posts",{when:S.sendMode==="schedule"?"schedule":"draft",allow_duplicate:true,posts:[post]});
-  const prob=payloadProblem(p); if(prob) throw {code:"tool_error",message:prob};
+  const prob=payloadProblem(p);if(prob)throw {code:"tool_error",message:prob,server:PUBLER};
 }
 async function runSend(list){
   sending=true;closeConfirm();renderAll();
   const bar=$("#progress");bar.hidden=false;const fill=bar.firstElementChild;let done=0,fails=0;
   for(const s of list){
-    s.status="sending";s.error="";renderDays();
+    s.status="sending";s.error="";renderBoard();
     try{await sendOne(s);s.status="sent";S.used[s.fileId]=true}
-    catch(e){fails++;const server=e&&e.server===DRIVE?DRIVE:PUBLER;
-      const ambiguous=e&&(e.code==="server_unavailable"||e.code==="upstream_error"||e.code==="cancelled");
-      s.status=ambiguous?"unsure":"error";
-      s.error=ambiguous?"Pas de réponse claire : regarde dans Publer si elle est arrivée avant de renvoyer.":explain(e,e&&e.server||server);
+    catch(e){fails++;const amb=e&&["server_unavailable","upstream_error","cancelled"].includes(e.code);
+      s.status=amb?"unsure":"error";s.error=amb?"Pas de réponse claire : vérifie dans Publer avant de renvoyer.":explain(e,(e&&e.server)||PUBLER);
       if(e&&["needs_reauth","server_not_connected","not_in_manifest","blocked_by_policy","not_granted","selection_required"].includes(e.code)){banner(s.error,true);save();break}}
-    done++;fill.style.width=(done/list.length*100)+"%";save();renderDays();renderCounts();
+    done++;fill.style.width=(done/list.length*100)+"%";save();renderBoard();renderCounts();
   }
   sending=false;setTimeout(()=>{bar.hidden=true;fill.style.width="0"},1500);
-  banner(fails?`${done-fails} envoyée(s), ${fails} en erreur. Les lignes en erreur restent dans la planche : corrige-les et renvoie.`
+  banner(fails?`${done-fails} envoyée(s), ${fails} en erreur. Clique une carte en erreur pour voir le détail, corrige-la et renvoie.`
     :`${done} publication(s) ${S.sendMode==="schedule"?"programmée(s)":"envoyée(s) en brouillon"} sur Publer.`,!!fails);
   renderAll();
 }
 
 /* ---------- démarrage ---------- */
-if(!S.seeded&&!Object.keys(S.weeks).length)seedExample();
-week();renderSettings();renderAll();
+if(!S.seeded&&!S.slots.length)seedExample();
+bindSettings();renderAll();
 (async()=>{
   try{mcp=await window.claude?.use?.("mcp")}catch(e){mcp=null}
   if(!mcp){setChip("#c-drive","err","Drive");setChip("#c-publer","err","Publer");
     banner("Ouvre cette page dans claude.ai pour la relier à ton Drive et à Publer. Tu peux quand même préparer la planche ici.");
     $("#s-account").innerHTML=`<option value="">Publer non relié</option>`;return}
-  setChip("#c-drive","ok","Drive");
-  loadAccounts();
+  setChip("#c-drive","ok","Drive");loadAccounts();observeThumbs();
 })();
 })();
 </script>
