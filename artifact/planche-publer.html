@@ -387,7 +387,7 @@ function thumbHTML(s){
   if(!s.fileId)return `<span class="ph">Aucune vidéo</span>`;
   if(s.example)return `<span class="ph">${esc(s.fileName)}</span>`;
   const f=thumbFail[s.fileId];
-  return f?`<span class="ph" title="${esc(f)}">Image indisponible · ${esc(s.fileName)}</span>`:`<span class="ph">Image en cours…</span>`;
+  return f?`<span class="ph" title="${esc(f)}">Autorise Google Slides pour voir l'image</span>`:`<span class="ph">Image en cours…</span>`;
 }
 const MAX_DL=10*1024*1024;
 function sizeOf(id){const s=S.slots.find(x=>x.fileId===id&&x.size);if(s)return s.size;for(const f of Object.values(S.folders)){const v=f.videos.find(x=>x.id===id);if(v&&v.size)return v.size}return 0}
@@ -472,7 +472,7 @@ $("#board").addEventListener("keydown",e=>{if((e.key==="Enter"||e.key===" ")&&e.
 $("#w-prev").onclick=()=>{S.weekStart=addDays(S.weekStart,-7);save();renderAll()};
 $("#w-next").onclick=()=>{S.weekStart=addDays(S.weekStart,7);save();renderAll()};
 $("#w-today").onclick=()=>{S.weekStart=mondayOf(new Date());save();renderAll()};
-$("#w-fill").onclick=()=>{Object.keys(thumbFail).forEach(k=>delete thumbFail[k]);weekDates().forEach(d=>{if(S.folders[d])fillDay(d)});fillWeekly();save();renderAll()};
+$("#w-fill").onclick=()=>{Object.keys(thumbFail).forEach(k=>delete thumbFail[k]);Object.keys(tries).forEach(k=>delete tries[k]);weekDates().forEach(d=>{if(S.folders[d])fillDay(d)});fillWeekly();save();renderAll()};
 $("#w-clear").onclick=()=>{const wk=new Set(weekDates());S.slots=S.slots.filter(s=>s.status==="sent"||!wk.has(s.date));weekDates().forEach(d=>delete S.folders[d]);save();renderAll()};
 
 function addManual(dayKey,files){
@@ -550,7 +550,7 @@ function renderPreview(){
   else if(thumbBusy.has(s.fileId))box.innerHTML=`<div class="ph">Chargement de la vidéo depuis Drive…</div>`;
   else if(THUMBS[s.fileId]){
     box.innerHTML=`<img src="${THUMBS[s.fileId]}" alt="" style="object-fit:cover"><a class="bigplay" href="${driveLink(s.fileId)}" target="_blank" rel="noopener" title="Lire la vidéo dans Drive" aria-label="Lire la vidéo dans Drive"></a><span class="pvname">${esc(s.fileName)}</span>`}
-  else box.innerHTML=`<div class="ph"><span>${thumbFail[s.fileId]?esc(thumbFail[s.fileId]):"Image en cours de préparation…"}</span>
+  else box.innerHTML=`<div class="ph"><span>${thumbFail[s.fileId]?esc(thumbFail[s.fileId]):"Image en cours de préparation… elle s'affiche dès que Google l'a prête."}</span>
       <a href="${driveLink(s.fileId)}" target="_blank" rel="noopener" style="color:#9cc3ff">Lire la vidéo dans Drive ↗</a></div>`;
 }
 
@@ -585,7 +585,7 @@ async function loadMedia(id){
     const mt=mimeOf(id);const url=URL.createObjectURL(b64ToBlob(b64,mt));
     blobs.set(id,url);if(blobs.size>8){const [k,u]=blobs.entries().next().value;if(k!==id){URL.revokeObjectURL(u);blobs.delete(k)}}
     if(!THUMBS[id]){try{saveThumb(id,await makeThumb(url,mt.startsWith("image/")))}catch(e){}}
-  }catch(e){if(isImgId(id))thumbFail[id]=e&&e.code==="shape"?e.message:("Image indisponible : "+explain(e,DRIVE));throw e}
+  }catch(e){throw e}
   finally{thumbBusy.delete(id);markThumb(id)}
 }
 function isImgId(id){const s=S.slots.find(x=>x.fileId===id);return !!(s&&isImage(s))}
@@ -601,7 +601,7 @@ const PER=3,CW=228,CH=405;let deckRunning=false;const deckPending=new Set();let 
 function observeThumbs(){clearTimeout(deckTimer);deckTimer=setTimeout(queueThumbs,250)}
 function queueThumbs(){
   if(!mcp||!S.settings.autoThumbs)return;const wk=new Set(weekDates());
-  S.slots.forEach(s=>{if(!s.fileId||s.example||THUMBS[s.fileId]||thumbFail[s.fileId]||!wk.has(s.night||s.date))return;
+  S.slots.forEach(s=>{if(!s.fileId||s.example||THUMBS[s.fileId]||thumbFail[s.fileId]||tries[s.fileId]||!wk.has(s.night||s.date))return;
     if(isImage(s)){if((s.size||0)<=MAX_DL&&!thumbQueue.includes(s.fileId)){thumbQueue.push(s.fileId);runThumbs()}}
     else deckPending.add(s.fileId)});
   runDeck();
@@ -614,32 +614,53 @@ async function ensureDeck(){
   if(!f||!f.id)throw {code:"tool_error",message:"création de la présentation impossible"};
   S.deckId=f.id;save();return {id:f.id,slide:await slidesRead(f.id)};
 }
-function isBlank(ctx,w,h){const d=ctx.getImageData(0,0,w,h).data;let lit=0,n=0;for(let i=0;i<d.length;i+=4*37){n++;if(Math.max(d[i],d[i+1],d[i+2])>18)lit++}return lit/n<.03}
+const sleep=ms=>new Promise(r=>setTimeout(r,ms));
+const tries={};let retryTimer=null;const AUTH=["needs_reauth","server_not_connected","not_in_manifest","blocked_by_policy","not_granted","selection_required","approval_required"];
+/* Part de la cellule qui a encore la couleur du fond : la vidéo n'est pas encore dessinée par Google. */
+function bgShare(ctx,w,h,c){const d=ctx.getImageData(0,0,w,h).data;let same=0,n=0;
+  for(let i=0;i<d.length;i+=4*29){n++;if(Math.abs(d[i]-c[0])<28&&Math.abs(d[i+1]-c[1])<28&&Math.abs(d[i+2]-c[2])<28)same++}return same/n}
+function loadImg(url){return new Promise((res,rej)=>{const i=new Image();i.onload=()=>res(i);i.onerror=()=>rej({code:"shape",message:"image illisible"});i.src=url})}
 async function deckBatch(ids){
-  const d=await ensureDeck();const pid=d.slide.objectId;const tag=Date.now().toString(36);
+  const d=await ensureDeck();const pid=d.slide.objectId;const tag=Date.now().toString(36)+rand(100,999);
+  /* couleur de fond unique pour ce lot : elle prouve que l'export montre bien CE lot et pas le précédent */
+  const col=[rand(40,215),rand(40,215),rand(40,215)];
   const req=(d.slide.pageElements||[]).map(x=>({deleteObject:{objectId:x.objectId}}));
-  req.push({updatePageProperties:{objectId:pid,pageProperties:{pageBackgroundFill:{solidFill:{color:{rgbColor:{red:0,green:0,blue:0}}}}},fields:"pageBackgroundFill"}});
+  req.push({updatePageProperties:{objectId:pid,pageProperties:{pageBackgroundFill:{solidFill:{color:{rgbColor:{red:col[0]/255,green:col[1]/255,blue:col[2]/255}}}}},fields:"pageBackgroundFill"}});
   ids.forEach((fid,i)=>req.push({createVideo:{objectId:`pv_${tag}_${i}`,source:"DRIVE",id:fid,elementProperties:{pageObjectId:pid,
     size:{width:{magnitude:CW,unit:"PT"},height:{magnitude:CH,unit:"PT"}},transform:{scaleX:1,scaleY:1,translateX:i*(CW+6),translateY:0,unit:"PT"}}}}));
   try{await call(SLIDES,"update_presentation",{presentationId:d.id,requests:req})}catch(e){throw {...e,server:e.server||SLIDES}}
-  let r;try{r=await mcp.callTool(DRIVE,"download_file_content",{fileId:d.id,exportMimeType:"image/png"})}catch(e){throw {...e,server:e.server||DRIVE}}
-  const b64=b64FromResult(r);if(!b64)throw {code:"shape",message:"Drive n'a pas renvoyé l'image"};
-  const url=URL.createObjectURL(b64ToBlob(b64,"image/png"));
-  try{const img=await new Promise((res,rej)=>{const i=new Image();i.onload=()=>res(i);i.onerror=()=>rej({code:"shape",message:"image illisible"});i.src=url});
-    const k=img.naturalWidth/720;
-    ids.forEach((fid,i)=>{const c=document.createElement("canvas");const sx=Math.ceil(i*(CW+6)*k),sw=Math.floor(CW*k)-1,sh=Math.floor(CH*k)-1;c.width=sw;c.height=sh;
-      const ctx=c.getContext("2d");ctx.imageSmoothingQuality="high";ctx.drawImage(img,sx,0,sw,sh,0,0,sw,sh);
-      if(isBlank(ctx,c.width,c.height)){thumbFail[fid]="Drive n'a pas encore préparé l'image de cette vidéo (vidéo toute récente ?). Re-mélange plus tard."}
-      else saveThumb(fid,c.toDataURL("image/jpeg",.92));markThumb(fid)});
-  }finally{URL.revokeObjectURL(url)}
+  const left=new Set(ids);
+  for(let a=0;a<5&&left.size;a++){
+    await sleep(a===0?2000:2500+a*1500);
+    let r;try{r=await mcp.callTool(DRIVE,"download_file_content",{fileId:d.id,exportMimeType:"image/png"})}catch(e){throw {...e,server:e.server||DRIVE}}
+    const b64=b64FromResult(r);if(!b64)continue;
+    const url=URL.createObjectURL(b64ToBlob(b64,"image/png"));
+    try{const img=await loadImg(url);const k=img.naturalWidth/720;
+      /* témoin : la marge de droite doit avoir la couleur de ce lot */
+      const m=document.createElement("canvas");m.width=m.height=4;const mc=m.getContext("2d");mc.drawImage(img,Math.floor(712*k),Math.floor(200*k),4,4,0,0,4,4);
+      const px=mc.getImageData(1,1,1,1).data;if(Math.abs(px[0]-col[0])>30||Math.abs(px[1]-col[1])>30||Math.abs(px[2]-col[2])>30)continue;
+      ids.forEach((fid,i)=>{if(!left.has(fid))return;
+        const c=document.createElement("canvas");const sx=Math.ceil(i*(CW+6)*k),sw=Math.floor(CW*k)-1,sh=Math.floor(CH*k)-1;c.width=sw;c.height=sh;
+        const ctx=c.getContext("2d");ctx.imageSmoothingQuality="high";ctx.drawImage(img,sx,0,sw,sh,0,0,sw,sh);
+        if(bgShare(ctx,sw,sh,col)>.6)return;
+        saveThumb(fid,c.toDataURL("image/jpeg",.92));delete tries[fid];left.delete(fid);markThumb(fid)});
+    }finally{URL.revokeObjectURL(url)}
+  }
+  return [...left];
 }
+/* Ce qui n'est pas prêt est retenté plus tard, sans jamais afficher d'erreur sur la carte. */
+function retryLater(ids){ids.forEach(id=>{tries[id]=(tries[id]||0)+1;if(tries[id]<=8)deckPending.add(id)});
+  clearTimeout(retryTimer);if(deckPending.size)retryTimer=setTimeout(runDeck,Math.min(90000,15000*Math.max(1,...ids.map(id=>tries[id]||1))))}
 async function runDeck(){
-  if(deckRunning)return;deckRunning=true;
+  if(deckRunning||!mcp)return;deckRunning=true;const later=[];
   try{while(deckPending.size){const batch=[...deckPending].slice(0,PER);batch.forEach(i=>deckPending.delete(i));
-    try{await deckBatch(batch)}
-    catch(e){const msg=e&&e.code==="shape"?e.message:explain(e,(e&&e.server)||SLIDES);batch.forEach(id=>{thumbFail[id]=msg;markThumb(id)});
-      if(e&&["needs_reauth","server_not_connected","not_in_manifest","blocked_by_policy","not_granted","selection_required","approval_required"].includes(e.code)){banner("Images des vidéos : "+msg,true);deckPending.clear();break}}}}
+    try{const missing=await deckBatch(batch);later.push(...missing)}
+    catch(e){if(e&&AUTH.includes(e.code)){batch.forEach(id=>{thumbFail[id]=explain(e,(e&&e.server)||SLIDES);markThumb(id)});
+        banner("Images des vidéos : "+explain(e,(e&&e.server)||SLIDES),true);deckPending.clear();break}
+      if(e&&e.code==="tool_error"&&e.server===SLIDES){S.deckId=null;save()}
+      later.push(...batch);await sleep(3000)}}}
   finally{deckRunning=false}
+  if(later.length)retryLater(later);
 }
 async function runThumbs(){if(thumbRunning)return;thumbRunning=true;let fails=0;
   while(thumbQueue.length&&S.settings.autoThumbs){const id=thumbQueue.shift();
