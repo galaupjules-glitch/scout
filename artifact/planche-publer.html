@@ -60,6 +60,7 @@ input[type=number]{width:68px} input[type=time]{width:110px}
 .progress{height:4px;background:var(--sunk);border-radius:2px;overflow:hidden}
 .progress>i{display:block;height:100%;background:var(--accent);width:0;transition:width .3s}
 .banner{border:1px solid var(--line);background:var(--sunk);border-radius:10px;padding:10px 14px}
+.banner{display:flex;align-items:flex-start;gap:10px}.banner>span{flex:1;min-width:0}.banner .bx{padding:0 6px;color:var(--muted)}
 .banner.err{background:var(--err-bg);border-color:var(--err)}
 
 /* réglages */
@@ -721,7 +722,11 @@ function explain(e,server){
   }
 }
 function setChip(id,state,text){$(id).innerHTML=`<span class="dot ${state}"></span>${esc(text)}`}
-function banner(msg,err){const b=$("#banner");if(!msg){b.hidden=true;return}b.hidden=false;b.className="banner"+(err?" err":"");b.textContent=msg}
+let bannerTimer=null;
+/* message en haut : toujours fermable avec ✕ ; les messages de réussite disparaissent seuls après 8 s */
+function banner(msg,err){const b=$("#banner");clearTimeout(bannerTimer);if(!msg){b.hidden=true;return}b.hidden=false;b.className="banner"+(err?" err":"");
+  b.innerHTML="";const t=document.createElement("span");t.textContent=msg;const x=document.createElement("button");x.className="ghost icon bx";x.setAttribute("aria-label","Fermer le message");x.textContent="✕";x.onclick=()=>banner(null);
+  b.append(t,x);if(!err&&!/…$/.test(msg))bannerTimer=setTimeout(()=>banner(null),8000)}
 async function call(server,tool,input){if(!mcp)throw {code:"not_granted"};const r=await mcp.callTool(server,tool,input);return r.payload}
 async function loadAccounts(){
   const sel=$("#s-account");
