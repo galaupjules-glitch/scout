@@ -394,7 +394,7 @@ const MAX_DL=10*1024*1024;
 function sizeOf(id){const s=S.slots.find(x=>x.fileId===id&&x.size);if(s)return s.size;for(const f of Object.values(S.folders)){const v=f.videos.find(x=>x.id===id);if(v&&v.size)return v.size}return 0}
 function driveLink(id){return `https://drive.google.com/file/d/${encodeURIComponent(id)}/view`}
 function cardHTML(s,g,col){
-  const i=g.info[s.id];const other=col&&s.date!==col?`<span class="muted" style="font-size:11px">${frDay(s.date,{weekday:"short"})}</span>`:"";const dup=s.fileId&&g.cnt[s.fileId]>1;
+  const i=g.info[s.id];const other="";const dup=s.fileId&&g.cnt[s.fileId]>1;
   const st={sent:s.sentMode==="draft"?"Brouillon Publer":"Programmé ✓",error:"Erreur",sending:"Envoi…",unsure:"À vérifier"}[s.status]||"";
   const stc=s.status==="sent"?"sent":s.status==="sending"?"sending":s.status?"error":"";
   const loading=mcp&&S.settings.autoThumbs&&s.fileId&&!s.example&&!THUMBS[s.fileId]&&!thumbFail[s.fileId]?" loading":"";
@@ -409,15 +409,17 @@ function cardHTML(s,g,col){
 }
 function colHTML(date,g){
   const today=ymd(new Date())===date;const f=S.folders[date];
-  const list=S.slots.filter(s=>s.night?s.night===date:s.date===date).sort((a,b)=>at(a)-at(b));
-  const nTrial=list.filter(s=>s.night===date).length;
+  /* comme Publer : chaque carte est rangée au jour où elle sera vraiment publiée */
+  const list=S.slots.filter(s=>s.date===date).sort((a,b)=>at(a)-at(b));
+  const night=S.slots.filter(s=>s.night===date).sort((a,b)=>at(a)-at(b));const nTrial=night.length;
+  const nightDays=[...new Set(night.map(s=>s.date))];
   return `<section class="col" aria-label="${esc(frDay(date))}">
     <div class="col-head">
       <span class="dname">${DAYS_FR[(parseYmd(date).getDay()+6)%7]}</span>
       <span class="ddate${today?" today":""}">${frDay(date,{day:"numeric",month:"short"})}</span>
       <div class="col-tools"><button data-act="auto" data-day="${date}" title="Remplir automatiquement depuis un dossier Drive">⚡ Auto</button><button class="plus" data-act="add" data-day="${date}" title="Ajouter des vidéos à la main" aria-label="Ajouter des vidéos">+</button></div>
       ${f?`<div class="fold"><span>📁 ${esc(f.folder.name)} · ${f.videos.length}</span>${f.example?"":`<button data-act="reshuffle" data-day="${date}" title="Relire le dossier et re-mélanger">↻</button>`}<button data-act="unfold" data-day="${date}" title="Retirer le remplissage auto">✕</button></div>`:""}
-      ${nTrial?`<div class="fold" style="color:var(--trial);font-weight:600"><span>${nTrial} Reels Test · nuit ${S.settings.trialStart}→${S.settings.trialEnd}</span></div>`:""}
+      ${nTrial?`<div class="fold" style="color:var(--trial);font-weight:600;white-space:normal"><span style="white-space:normal">⚡ ${nTrial} Reels Test : ${nightDays.map(d=>{const n=night.filter(s=>s.date===d).length;return n+" le "+frDay(d,{weekday:"short",day:"numeric"})}).join(", ")}</span></div>`:""}
       ${f&&f.note?`<div class="col-note">${esc(f.note)}</div>`:""}
     </div>
     <div class="col-body">${list.map(s=>cardHTML(s,g,date)).join("")||`<div class="col-empty">Rien de prévu</div>`}</div>
@@ -433,7 +435,7 @@ function renderBoard(){
 function defaultCap(s){const st=S.settings;return s.kind==="reel"?(s.trial?st.capTrial:st.capNormal):st.capPost}
 function renderCounts(){
   const wk=new Set(weekDates());const all=S.slots.filter(s=>!s.example);
-  const inW=all.filter(s=>wk.has(s.night||s.date));
+  const inW=all.filter(s=>wk.has(s.date));
   const c={trial:0,reel:0,post:0,story:0};inW.forEach(s=>c[kindClass(s)]++);
   const todo=all.filter(s=>s.status!=="sent").length;
   $("#counts").innerHTML=`<span><b>${c.trial}</b> test</span><span><b>${c.reel}</b> reels</span><span><b>${c.post+c.story}</b> posts</span>`;
@@ -474,7 +476,7 @@ $("#w-prev").onclick=()=>{S.weekStart=addDays(S.weekStart,-7);save();renderAll()
 $("#w-next").onclick=()=>{S.weekStart=addDays(S.weekStart,7);save();renderAll()};
 $("#w-today").onclick=()=>{S.weekStart=mondayOf(new Date());save();renderAll()};
 $("#w-fill").onclick=()=>{Object.keys(thumbFail).forEach(k=>delete thumbFail[k]);Object.keys(tries).forEach(k=>delete tries[k]);weekDates().forEach(d=>{if(S.folders[d])fillDay(d)});fillWeekly();save();renderAll()};
-$("#w-clear").onclick=()=>{const wk=new Set(weekDates());S.slots.forEach(s=>{if(wk.has(s.night||s.date)&&s.status==="sent")delete S.used[s.fileId]});S.slots=S.slots.filter(s=>!wk.has(s.night||s.date));weekDates().forEach(d=>delete S.folders[d]);save();renderAll()};
+$("#w-clear").onclick=()=>{const wk=new Set(weekDates());S.slots.forEach(s=>{if(wk.has(s.date)&&s.status==="sent")delete S.used[s.fileId]});S.slots=S.slots.filter(s=>!wk.has(s.date));weekDates().forEach(d=>delete S.folders[d]);save();renderAll()};
 
 function addManual(dayKey,files){
   if(!files.length)return;
