@@ -103,6 +103,9 @@ details.panel[open]>summary{border-bottom:1px solid var(--line)}
 .card .time .gap.bad{color:var(--err);font-weight:600}
 .thumb{position:relative;border-radius:8px;overflow:hidden;aspect-ratio:3/2;background:var(--sunk);display:grid;place-items:center;max-width:100%}
 .thumb img{width:100%;height:100%;object-fit:cover;display:block}
+.card .x{margin-left:auto;flex:0 0 auto;border:0;background:transparent;color:var(--muted);padding:2px 6px;font-size:14px;border-radius:6px}
+.card .x:hover{background:var(--err-bg);color:var(--err)}
+.thumb{aspect-ratio:4/5!important}
 .thumb .big{display:flex;flex-direction:column;align-items:center;gap:2px;font-size:18px;padding-bottom:14px}
 .thumb .big b{font-size:13px;font-family:var(--f-display);color:var(--fg)}
 .thumb .play{position:absolute;width:28px;height:28px;border-radius:50%;background:#2AA7E0;display:grid;place-items:center;box-shadow:0 1px 4px rgba(0,0,0,.3)}
@@ -137,6 +140,9 @@ details.panel[open]>summary{border-bottom:1px solid var(--line)}
 .preview{border-radius:10px;overflow:hidden;background:#000;aspect-ratio:9/16;display:grid;place-items:center;position:relative;max-width:100%}
 .preview video,.preview img{width:100%;height:100%;object-fit:contain;display:block}
 .preview .ph{color:#bbb;font-size:12px;padding:10px;text-align:center;display:flex;flex-direction:column;gap:8px;align-items:center}
+.bigplay{position:absolute;left:50%;top:50%;width:58px;height:58px;margin:-29px 0 0 -29px;border-radius:50%;background:#2AA7E0;box-shadow:0 2px 10px rgba(0,0,0,.4)}
+.bigplay::after{content:"";position:absolute;left:23px;top:17px;border-left:18px solid #fff;border-top:12px solid transparent;border-bottom:12px solid transparent}
+.pvname{position:absolute;left:0;right:0;bottom:0;padding:6px 8px;font-size:11px;color:#fff;background:linear-gradient(transparent,rgba(0,0,0,.7));overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .opts{display:flex;flex-direction:column;gap:8px}
 .opt{display:flex;align-items:center;gap:10px;background:var(--surface);border:1px solid var(--line);border-radius:9px;padding:9px 12px;cursor:pointer}
 .opt input[type=checkbox]{width:18px;height:18px;accent-color:var(--today)}
@@ -204,7 +210,7 @@ details.panel[open]>summary{border-bottom:1px solid var(--line)}
       <div class="group">
         <h3>Compte</h3>
         <select id="s-account"><option value="">Chargement des comptes…</option></select>
-        <div class="row"><input type="checkbox" id="s-thumbs"><label for="s-thumbs">Charger les aperçus vidéo automatiquement</label></div>
+        <div class="row"><input type="checkbox" id="s-thumbs"><label for="s-thumbs">Afficher l'image de chaque vidéo (via Google Slides)</label></div>
         <div class="row"><input type="checkbox" id="s-skip"><label for="s-skip">Ne pas réutiliser une vidéo déjà envoyée</label></div>
       </div>
       <div class="group">
@@ -374,7 +380,10 @@ function vidLabel(name){const m=/(\d{4})(\d{2})(\d{2})[_-](\d{2})(\d{2})/.exec(n
   return (name||"").replace(/\.[^.]+$/,"")}
 function thumbHTML(s){
   if(THUMBS[s.fileId])return `<img src="${THUMBS[s.fileId]}" alt="">${isImage(s)?"":'<span class="play"></span>'}`;
-  return `<span class="big">🎬<b>${esc(vidLabel(s.fileName)||"Aucune vidéo")}</b></span><span class="ph">${esc(s.fileName||"")}</span>`;
+  if(!s.fileId)return `<span class="ph">Aucune vidéo</span>`;
+  if(s.example)return `<span class="ph">${esc(s.fileName)}</span>`;
+  const f=thumbFail[s.fileId];
+  return f?`<span class="ph" title="${esc(f)}">Image indisponible · ${esc(s.fileName)}</span>`:`<span class="ph">Image en cours…</span>`;
 }
 const MAX_DL=10*1024*1024;
 function sizeOf(id){const s=S.slots.find(x=>x.fileId===id&&x.size);if(s)return s.size;for(const f of Object.values(S.folders)){const v=f.videos.find(x=>x.id===id);if(v&&v.size)return v.size}return 0}
@@ -383,9 +392,9 @@ function cardHTML(s,g,col){
   const i=g.info[s.id];const other=col&&s.date!==col?`<span class="muted" style="font-size:11px">${frDay(s.date,{weekday:"short"})}</span>`:"";const dup=s.fileId&&g.cnt[s.fileId]>1;
   const st={sent:"Envoyé ✓",error:"Erreur",sending:"Envoi…",unsure:"À vérifier"}[s.status]||"";
   const stc=s.status==="sent"?"sent":s.status==="sending"?"sending":s.status?"error":"";
-  const loading=thumbBusy.has(s.fileId)?" loading":"";
+  const loading=mcp&&S.settings.autoThumbs&&s.fileId&&!s.example&&!THUMBS[s.fileId]&&!thumbFail[s.fileId]?" loading":"";
   return `<div class="card ${kindClass(s)}${openId===s.id?" sel":""}" tabindex="0" role="button" data-id="${s.id}" aria-label="${esc(kindLabel(s)+" à "+s.time)}">
-    <div class="who"><span class="av">${esc(initials(S.settings.accountName))}${IG}</span><span>${esc(S.settings.accountName||"Instagram")}</span></div>
+    <div class="who"><span class="av">${esc(initials(S.settings.accountName))}${IG}</span><span>${esc(S.settings.accountName||"Instagram")}</span>${s.status==="sent"?"":`<button class="x" data-act="rm" data-id="${s.id}" title="Retirer de la planche" aria-label="Retirer de la planche">✕</button>`}</div>
     <div class="time"><span aria-hidden="true">🕓</span>${other}<span class="mono">${s.time}</span>${i&&i.gap!=null?`<span class="gap${i.bad?" bad":""}">+${i.gap} min</span>`:""}${i&&i.out?`<span class="gap bad">hors créneau</span>`:""}</div>
     <div class="thumb${loading}" data-thumb="${esc(s.fileId||"")}">${thumbHTML(s)}</div>
     ${s.caption||defaultCap(s)?`<div class="cap">${esc(s.caption||defaultCap(s))}</div>`:""}
@@ -446,6 +455,7 @@ function bindSettings(){
 /* ---------- calendrier : actions ---------- */
 $("#board").addEventListener("click",e=>{
   const b=e.target.closest("button[data-act]");
+  if(b&&b.dataset.act==="rm"){e.stopPropagation();if(sending)return;S.slots=S.slots.filter(s=>s.id!==b.dataset.id);if(openId===b.dataset.id)closeDrawer();save();return renderAll()}
   if(b){if(sending)return;const d=b.dataset.day;
     if(b.dataset.act==="auto")return openPicker("folder",f=>useDayFolder(d,f));
     if(b.dataset.act==="add")return openPicker("files",files=>addManual(d,files));
@@ -458,7 +468,7 @@ $("#board").addEventListener("keydown",e=>{if((e.key==="Enter"||e.key===" ")&&e.
 $("#w-prev").onclick=()=>{S.weekStart=addDays(S.weekStart,-7);save();renderAll()};
 $("#w-next").onclick=()=>{S.weekStart=addDays(S.weekStart,7);save();renderAll()};
 $("#w-today").onclick=()=>{S.weekStart=mondayOf(new Date());save();renderAll()};
-$("#w-fill").onclick=()=>{weekDates().forEach(d=>{if(S.folders[d])fillDay(d)});fillWeekly();save();renderAll()};
+$("#w-fill").onclick=()=>{Object.keys(thumbFail).forEach(k=>delete thumbFail[k]);weekDates().forEach(d=>{if(S.folders[d])fillDay(d)});fillWeekly();save();renderAll()};
 $("#w-clear").onclick=()=>{const wk=new Set(weekDates());S.slots=S.slots.filter(s=>s.status==="sent"||!wk.has(s.date));weekDates().forEach(d=>delete S.folders[d]);save();renderAll()};
 
 function addManual(dayKey,files){
@@ -534,12 +544,10 @@ function renderPreview(){
   if(b)box.innerHTML=isImage(s)?`<img src="${b}" alt="">`:`<video src="${b}" controls playsinline preload="metadata"></video>`;
   else if(s.example)box.innerHTML=`<div class="ph">Vidéo d'exemple</div>`;
   else if(thumbBusy.has(s.fileId))box.innerHTML=`<div class="ph">Chargement de la vidéo depuis Drive…</div>`;
-  else{const big=sizeOf(s.fileId)>MAX_DL;const fail=thumbFail[s.fileId];
-    box.innerHTML=`<div class="ph">${THUMBS[s.fileId]?`<img src="${THUMBS[s.fileId]}" alt="" style="max-height:260px;width:auto">`:`<span style="font-size:15px;color:#fff">${esc(vidLabel(s.fileName))}</span>`}
-      ${big?`<span>Vidéo de ${Math.round(sizeOf(s.fileId)/1048576)} Mo : pour la lire ici, ajoute-la avec « 📷 Ajouter les images ».</span>`:fail?`<span>${esc(fail)}</span>`:""}
-      <a href="${driveLink(s.fileId)}" target="_blank" rel="noopener" style="color:#9cc3ff">Ouvrir dans Drive ↗</a>
-      ${big?"":`<button id="dr-load">${fail?"Réessayer":"Charger la vidéo"}</button>`}</div>`;
-    if($("#dr-load"))$("#dr-load").onclick=()=>{delete thumbFail[s.fileId];loadMedia(s.fileId).then(renderPreview,renderPreview);renderPreview()}}
+  else if(THUMBS[s.fileId]){
+    box.innerHTML=`<img src="${THUMBS[s.fileId]}" alt="" style="object-fit:cover"><a class="bigplay" href="${driveLink(s.fileId)}" target="_blank" rel="noopener" title="Lire la vidéo dans Drive" aria-label="Lire la vidéo dans Drive"></a><span class="pvname">${esc(s.fileName)}</span>`}
+  else box.innerHTML=`<div class="ph"><span>${thumbFail[s.fileId]?esc(thumbFail[s.fileId]):"Image en cours de préparation…"}</span>
+      <a href="${driveLink(s.fileId)}" target="_blank" rel="noopener" style="color:#9cc3ff">Lire la vidéo dans Drive ↗</a></div>`;
 }
 
 /* ---------- aperçus : téléchargement Drive + vignette ---------- */
@@ -563,7 +571,7 @@ function saveThumb(id,data){THUMBS[id]=data;let keys=Object.keys(THUMBS);while(k
   if(!store(TKEY,THUMBS)){keys=Object.keys(THUMBS);keys.slice(0,40).forEach(k=>delete THUMBS[k]);store(TKEY,THUMBS)}}
 async function loadMedia(id){
   if(!id||id.startsWith("ex")||blobs.has(id))return;
-  if(sizeOf(id)>MAX_DL){thumbFail[id]=`Cette vidéo fait ${Math.round(sizeOf(id)/1048576)} Mo : Drive ne laisse pas la page la télécharger au-delà de 10 Mo. Utilise « 📷 Ajouter les images » ou ouvre-la dans Drive.`;throw {code:"too_big"}}
+  if(sizeOf(id)>MAX_DL)throw {code:"too_big"};
   if(!mcp)throw new Error("no mcp");
   if(thumbBusy.has(id)){while(thumbBusy.has(id))await new Promise(r=>setTimeout(r,300));if(blobs.has(id))return;throw new Error("fail")}
   thumbBusy.add(id);markThumb(id);
@@ -573,18 +581,61 @@ async function loadMedia(id){
     const mt=mimeOf(id);const url=URL.createObjectURL(b64ToBlob(b64,mt));
     blobs.set(id,url);if(blobs.size>8){const [k,u]=blobs.entries().next().value;if(k!==id){URL.revokeObjectURL(u);blobs.delete(k)}}
     if(!THUMBS[id]){try{saveThumb(id,await makeThumb(url,mt.startsWith("image/")))}catch(e){}}
-  }catch(e){thumbFail[id]=e&&e.code==="shape"?e.message:("Aperçu indisponible : "+explain(e,DRIVE));throw e}
+  }catch(e){if(isImgId(id))thumbFail[id]=e&&e.code==="shape"?e.message:("Image indisponible : "+explain(e,DRIVE));throw e}
   finally{thumbBusy.delete(id);markThumb(id)}
 }
+function isImgId(id){const s=S.slots.find(x=>x.fileId===id);return !!(s&&isImage(s))}
 function markThumb(id){document.querySelectorAll(`.thumb[data-thumb="${CSS.escape(id)}"]`).forEach(el=>{const s=S.slots.find(x=>x.fileId===id);if(!s)return;
-  el.classList.toggle("loading",thumbBusy.has(id));el.innerHTML=thumbHTML(s)})}
-let io=null;
-function observeThumbs(){
-  if(io)io.disconnect();if(!mcp||!S.settings.autoThumbs||!("IntersectionObserver" in window))return;
-  io=new IntersectionObserver(es=>es.forEach(en=>{if(!en.isIntersecting)return;const id=en.target.dataset.thumb;io.unobserve(en.target);
-    const sz=sizeOf(id);
-    if(id&&sz&&sz<=MAX_DL&&!THUMBS[id]&&!thumbFail[id]&&!id.startsWith("ex")&&!thumbQueue.includes(id))thumbQueue.push(id);runThumbs()}),{root:null,rootMargin:"200px"});
-  document.querySelectorAll(".thumb[data-thumb]").forEach(el=>{if(el.dataset.thumb&&!THUMBS[el.dataset.thumb])io.observe(el)});
+  el.classList.toggle("loading",!THUMBS[id]&&!thumbFail[id]);el.innerHTML=thumbHTML(s)});
+  if(openId){const s=slotById(openId);if(s&&s.fileId===id)renderPreview()}}
+
+/* Images des vidéos : Drive refuse de télécharger les vidéos de plus de 10 Mo, mais une vidéo Drive posée
+   sur une diapo Google Slides apparaît avec son image. On pose 16 vidéos sur une diapo, on exporte la diapo
+   en JPEG (petit fichier) et on découpe chaque vignette. */
+const SLIDES="Google Slides";
+let deckRunning=false;const deckPending=new Set();let deckTimer=null;
+function observeThumbs(){clearTimeout(deckTimer);deckTimer=setTimeout(queueThumbs,250)}
+function queueThumbs(){
+  if(!mcp||!S.settings.autoThumbs)return;const wk=new Set(weekDates());
+  S.slots.forEach(s=>{if(!s.fileId||s.example||THUMBS[s.fileId]||thumbFail[s.fileId]||!wk.has(s.night||s.date))return;
+    if(isImage(s)){if((s.size||0)<=MAX_DL&&!thumbQueue.includes(s.fileId)){thumbQueue.push(s.fileId);runThumbs()}}
+    else deckPending.add(s.fileId)});
+  runDeck();
+}
+async function slidesRead(id){const p=await call(SLIDES,"read_presentation",{presentationId:id,fields:["slides.objectId","slides.pageElements.objectId"]});
+  const c=(p&&p.content)||p;if(!c||!c.slides||!c.slides.length)throw {code:"tool_error",message:"présentation vide"};return c.slides[0]}
+async function ensureDeck(){
+  if(S.deckId){try{return {id:S.deckId,slide:await slidesRead(S.deckId)}}catch(e){if(e&&e.code!=="tool_error")throw e}}
+  const f=await call(DRIVE,"create_file",{title:"Planche Publer – images des vidéos (ne pas supprimer)",contentMimeType:"application/vnd.google-apps.presentation"});
+  if(!f||!f.id)throw {code:"tool_error",message:"création de la présentation impossible"};
+  S.deckId=f.id;save();return {id:f.id,slide:await slidesRead(f.id)};
+}
+function isBlank(ctx,w,h){const d=ctx.getImageData(0,0,w,h).data;let lit=0,n=0;for(let i=0;i<d.length;i+=4*37){n++;if(Math.max(d[i],d[i+1],d[i+2])>18)lit++}return lit/n<.03}
+async function deckBatch(ids){
+  const d=await ensureDeck();const pid=d.slide.objectId;const tag=Date.now().toString(36);
+  const req=(d.slide.pageElements||[]).map(x=>({deleteObject:{objectId:x.objectId}}));
+  req.push({updatePageProperties:{objectId:pid,pageProperties:{pageBackgroundFill:{solidFill:{color:{rgbColor:{red:0,green:0,blue:0}}}}},fields:"pageBackgroundFill"}});
+  ids.forEach((fid,i)=>req.push({createVideo:{objectId:`pv_${tag}_${i}`,source:"DRIVE",id:fid,elementProperties:{pageObjectId:pid,
+    size:{width:{magnitude:90,unit:"PT"},height:{magnitude:160,unit:"PT"}},transform:{scaleX:1,scaleY:1,translateX:(i%8)*90,translateY:Math.floor(i/8)*170,unit:"PT"}}}}));
+  try{await call(SLIDES,"update_presentation",{presentationId:d.id,requests:req})}catch(e){throw {...e,server:e.server||SLIDES}}
+  let r;try{r=await mcp.callTool(DRIVE,"download_file_content",{fileId:d.id,exportMimeType:"image/jpeg"})}catch(e){throw {...e,server:e.server||DRIVE}}
+  const b64=b64FromResult(r);if(!b64)throw {code:"shape",message:"Drive n'a pas renvoyé l'image"};
+  const url=URL.createObjectURL(b64ToBlob(b64,"image/jpeg"));
+  try{const img=await new Promise((res,rej)=>{const i=new Image();i.onload=()=>res(i);i.onerror=()=>rej({code:"shape",message:"image illisible"});i.src=url});
+    const k=img.naturalWidth/720;
+    ids.forEach((fid,i)=>{const c=document.createElement("canvas");const sw=90*k,sh=160*k;c.width=Math.round(sw);c.height=Math.round(sh);
+      const ctx=c.getContext("2d");ctx.drawImage(img,(i%8)*90*k,Math.floor(i/8)*170*k,sw,sh,0,0,c.width,c.height);
+      if(isBlank(ctx,c.width,c.height)){thumbFail[fid]="Drive n'a pas encore préparé l'image de cette vidéo (vidéo toute récente ?). Re-mélange plus tard."}
+      else saveThumb(fid,c.toDataURL("image/jpeg",.75));markThumb(fid)});
+  }finally{URL.revokeObjectURL(url)}
+}
+async function runDeck(){
+  if(deckRunning)return;deckRunning=true;
+  try{while(deckPending.size){const batch=[...deckPending].slice(0,16);batch.forEach(i=>deckPending.delete(i));
+    try{await deckBatch(batch)}
+    catch(e){const msg=e&&e.code==="shape"?e.message:explain(e,(e&&e.server)||SLIDES);batch.forEach(id=>{thumbFail[id]=msg;markThumb(id)});
+      if(e&&["needs_reauth","server_not_connected","not_in_manifest","blocked_by_policy","not_granted","selection_required","approval_required"].includes(e.code)){banner("Images des vidéos : "+msg,true);deckPending.clear();break}}}}
+  finally{deckRunning=false}
 }
 async function runThumbs(){if(thumbRunning)return;thumbRunning=true;let fails=0;
   while(thumbQueue.length&&S.settings.autoThumbs){const id=thumbQueue.shift();
