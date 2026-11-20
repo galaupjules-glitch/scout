@@ -194,8 +194,8 @@ details.panel[open]>summary{border-bottom:1px solid var(--line)}
     <div class="row">
       <div class="counts" id="counts"></div>
       <select id="send-mode" aria-label="Mode d'envoi">
-        <option value="draft">En brouillons (test)</option>
-        <option value="schedule">Programmer pour de vrai</option>
+        <option value="schedule">Programmer sur Publer</option>
+        <option value="draft">Brouillons seulement (test)</option>
       </select>
       <button class="primary" id="send-btn">Envoyer sur Publer</button>
     </div>
@@ -279,6 +279,7 @@ let S=load(KEY)||{settings:{...DEFAULTS},weekStart:mondayOf(new Date()),slots:[]
 S.settings={...DEFAULTS,...S.settings,normalOn:false,weeklyOn:false};
 S.slots=S.slots.filter(s=>!(s.status!=="sent"&&s.origin&&s.origin.startsWith("auto:")&&!s.trial));
 S.slots.forEach(s=>{if(!s.night&&s.trial&&s.origin&&s.origin.startsWith("auto:"))s.night=s.origin.slice(5)});
+if(!S.modeV2){S.sendMode="schedule";S.modeV2=true}
 let THUMBS={};try{localStorage.removeItem(TKEY)}catch(e){}
 const IDB=(()=>{let dbp=null;const open=()=>dbp||(dbp=new Promise((res,rej)=>{try{const r=indexedDB.open("planche-publer",1);r.onupgradeneeded=()=>r.result.createObjectStore("thumbs");r.onsuccess=()=>res(r.result);r.onerror=()=>rej(r.error)}catch(e){rej(e)}}));
   return {async all(){const db=await open();return new Promise((res,rej)=>{const out={};const c=db.transaction("thumbs").objectStore("thumbs").openCursor();c.onsuccess=()=>{const k=c.result;if(k){out[k.key]=k.value;k.continue()}else res(out)};c.onerror=()=>rej(c.error)})},
@@ -394,7 +395,7 @@ function sizeOf(id){const s=S.slots.find(x=>x.fileId===id&&x.size);if(s)return s
 function driveLink(id){return `https://drive.google.com/file/d/${encodeURIComponent(id)}/view`}
 function cardHTML(s,g,col){
   const i=g.info[s.id];const other=col&&s.date!==col?`<span class="muted" style="font-size:11px">${frDay(s.date,{weekday:"short"})}</span>`:"";const dup=s.fileId&&g.cnt[s.fileId]>1;
-  const st={sent:"Envoyé ✓",error:"Erreur",sending:"Envoi…",unsure:"À vérifier"}[s.status]||"";
+  const st={sent:s.sentMode==="draft"?"Brouillon Publer":"Programmé ✓",error:"Erreur",sending:"Envoi…",unsure:"À vérifier"}[s.status]||"";
   const stc=s.status==="sent"?"sent":s.status==="sending"?"sending":s.status?"error":"";
   const loading=mcp&&S.settings.autoThumbs&&s.fileId&&!s.example&&!THUMBS[s.fileId]&&!thumbFail[s.fileId]?" loading":"";
   return `<div class="card ${kindClass(s)}${openId===s.id?" sel":""}" tabindex="0" role="button" data-id="${s.id}" aria-label="${esc(kindLabel(s)+" à "+s.time)}">
@@ -828,19 +829,21 @@ async function sendOne(s){
   const prob=payloadProblem(p);if(prob)throw {code:"tool_error",message:prob,server:PUBLER};
 }
 async function runSend(list){
-  sending=true;closeConfirm();renderAll();
+  sending=true;closeConfirm();renderAll();const sentDays=[];
   const bar=$("#progress");bar.hidden=false;const fill=bar.firstElementChild;let done=0,fails=0;
   for(const s of list){
     s.status="sending";s.error="";renderBoard();
-    try{await sendOne(s);s.status="sent";S.used[s.fileId]=true}
+    try{await sendOne(s);s.status="sent";s.sentMode=S.sendMode;S.used[s.fileId]=true;sentDays.push(s.date)}
     catch(e){fails++;const amb=e&&["server_unavailable","upstream_error","cancelled"].includes(e.code);
       s.status=amb?"unsure":"error";s.error=amb?"Pas de réponse claire : vérifie dans Publer avant de renvoyer.":explain(e,(e&&e.server)||PUBLER);
       if(e&&["needs_reauth","server_not_connected","not_in_manifest","blocked_by_policy","not_granted","selection_required"].includes(e.code)){banner(s.error,true);save();break}}
     done++;fill.style.width=(done/list.length*100)+"%";save();renderBoard();renderCounts();
   }
   sending=false;setTimeout(()=>{bar.hidden=true;fill.style.width="0"},1500);
-  banner(fails?`${done-fails} envoyée(s), ${fails} en erreur. Clique une carte en erreur pour voir le détail, corrige-la et renvoie.`
-    :`${done} publication(s) ${S.sendMode==="schedule"?"programmée(s)":"envoyée(s) en brouillon"} sur Publer.`,!!fails);
+  sentDays.sort();
+  const where=sentDays.length?` Dans Publer, regarde ${sentDays[0]===sentDays[sentDays.length-1]?"le "+frDay(sentDays[0]):"du "+frDay(sentDays[0])+" au "+frDay(sentDays[sentDays.length-1])}`+(S.sendMode==="schedule"?" (vue calendrier).":", dans l'onglet Brouillons : elles ne partiront pas tant que tu ne cliques pas Programmer."):"";
+  banner((fails?`${done-fails} envoyée(s), ${fails} en erreur. Clique une carte en erreur pour voir le détail, corrige-la et renvoie.`
+    :`${done} publication(s) ${S.sendMode==="schedule"?"programmée(s)":"envoyée(s) en brouillon"} sur Publer.`)+where,!!fails);
   renderAll();
 }
 
