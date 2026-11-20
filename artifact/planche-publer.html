@@ -399,7 +399,7 @@ function cardHTML(s,g,col){
   const stc=s.status==="sent"?"sent":s.status==="sending"?"sending":s.status?"error":"";
   const loading=mcp&&S.settings.autoThumbs&&s.fileId&&!s.example&&!THUMBS[s.fileId]&&!thumbFail[s.fileId]?" loading":"";
   return `<div class="card ${kindClass(s)}${openId===s.id?" sel":""}" tabindex="0" role="button" data-id="${s.id}" aria-label="${esc(kindLabel(s)+" à "+s.time)}">
-    <div class="who"><span class="av">${esc(initials(S.settings.accountName))}${IG}</span><span>${esc(S.settings.accountName||"Instagram")}</span>${s.status==="sent"?"":`<button class="x" data-act="rm" data-id="${s.id}" title="Retirer de la planche" aria-label="Retirer de la planche">✕</button>`}</div>
+    <div class="who"><span class="av">${esc(initials(S.settings.accountName))}${IG}</span><span>${esc(S.settings.accountName||"Instagram")}</span><button class="x" data-act="rm" data-id="${s.id}" title="${s.status==="sent"?"Retirer de la planche (supprime-la aussi dans Publer si besoin)":"Retirer de la planche"}" aria-label="Retirer de la planche">✕</button></div>
     <div class="time"><span aria-hidden="true">🕓</span>${other}<span class="mono">${s.time}</span>${i&&i.gap!=null?`<span class="gap${i.bad?" bad":""}">+${i.gap} min</span>`:""}${i&&i.out?`<span class="gap bad">hors créneau</span>`:""}</div>
     <div class="thumb${loading}" data-thumb="${esc(s.fileId||"")}">${thumbHTML(s)}</div>
     ${s.caption||defaultCap(s)?`<div class="cap">${esc(s.caption||defaultCap(s))}</div>`:""}
@@ -460,7 +460,7 @@ function bindSettings(){
 /* ---------- calendrier : actions ---------- */
 $("#board").addEventListener("click",e=>{
   const b=e.target.closest("button[data-act]");
-  if(b&&b.dataset.act==="rm"){e.stopPropagation();if(sending)return;S.slots=S.slots.filter(s=>s.id!==b.dataset.id);if(openId===b.dataset.id)closeDrawer();save();return renderAll()}
+  if(b&&b.dataset.act==="rm"){e.stopPropagation();if(sending)return;const gone=slotById(b.dataset.id);if(gone&&gone.status==="sent")delete S.used[gone.fileId];S.slots=S.slots.filter(s=>s.id!==b.dataset.id);if(openId===b.dataset.id)closeDrawer();save();return renderAll()}
   if(b){if(sending)return;const d=b.dataset.day;
     if(b.dataset.act==="auto")return openPicker("folder",f=>useDayFolder(d,f));
     if(b.dataset.act==="add")return openPicker("files",files=>addManual(d,files));
@@ -474,7 +474,7 @@ $("#w-prev").onclick=()=>{S.weekStart=addDays(S.weekStart,-7);save();renderAll()
 $("#w-next").onclick=()=>{S.weekStart=addDays(S.weekStart,7);save();renderAll()};
 $("#w-today").onclick=()=>{S.weekStart=mondayOf(new Date());save();renderAll()};
 $("#w-fill").onclick=()=>{Object.keys(thumbFail).forEach(k=>delete thumbFail[k]);Object.keys(tries).forEach(k=>delete tries[k]);weekDates().forEach(d=>{if(S.folders[d])fillDay(d)});fillWeekly();save();renderAll()};
-$("#w-clear").onclick=()=>{const wk=new Set(weekDates());S.slots=S.slots.filter(s=>s.status==="sent"||!wk.has(s.date));weekDates().forEach(d=>delete S.folders[d]);save();renderAll()};
+$("#w-clear").onclick=()=>{const wk=new Set(weekDates());S.slots.forEach(s=>{if(wk.has(s.night||s.date)&&s.status==="sent")delete S.used[s.fileId]});S.slots=S.slots.filter(s=>!wk.has(s.night||s.date));weekDates().forEach(d=>delete S.folders[d]);save();renderAll()};
 
 function addManual(dayKey,files){
   if(!files.length)return;
