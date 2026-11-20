@@ -104,6 +104,7 @@ details.panel[open]>summary{border-bottom:1px solid var(--line)}
 .thumb{position:relative;border-radius:8px;overflow:hidden;aspect-ratio:3/2;background:var(--sunk);display:grid;place-items:center;max-width:100%}
 .thumb img{width:100%;height:100%;object-fit:cover;display:block}
 .card .x{margin-left:auto;flex:0 0 auto;border:0;background:transparent;color:var(--muted);padding:2px 6px;font-size:14px;border-radius:6px}
+.card .x.armed{background:var(--err);color:#fff;font-size:11px;font-weight:600}
 .card .x:hover{background:var(--err-bg);color:var(--err)}
 .thumb{aspect-ratio:4/5!important}
 .thumb .big{display:flex;flex-direction:column;align-items:center;gap:2px;font-size:18px;padding-bottom:14px}
@@ -190,6 +191,7 @@ details.panel[open]>summary{border-bottom:1px solid var(--line)}
       </div>
       <span class="chip" id="c-drive"><span class="dot wait"></span>Drive</span>
       <span class="chip" id="c-publer"><span class="dot wait"></span>Publer</span>
+      <button class="chip" id="c-sync" title="Relire le calendrier Publer maintenant">↻ Synchro Publer</button>
     </div>
     <div class="row">
       <div class="counts" id="counts"></div>
@@ -211,6 +213,7 @@ details.panel[open]>summary{border-bottom:1px solid var(--line)}
         <h3>Compte</h3>
         <select id="s-account"><option value="">Chargement des comptes…</option></select>
         <div class="row"><input type="checkbox" id="s-thumbs"><label for="s-thumbs">Afficher l'image de chaque vidéo (via Google Slides)</label></div>
+        <div class="row"><input type="checkbox" id="s-live"><label for="s-live">Envoyer tout de suite sur Publer les vidéos ajoutées avec +</label></div>
         <div class="row"><input type="checkbox" id="s-skip"><label for="s-skip">Ne pas réutiliser une vidéo déjà envoyée</label></div>
       </div>
       <div class="group">
@@ -269,7 +272,7 @@ const DAYS_FR=["lundi","mardi","mercredi","jeudi","vendredi","samedi","dimanche"
 const IG=`<svg viewBox="0 0 24 24" aria-hidden="true"><defs><linearGradient id="igg" x1="0" y1="1" x2="1" y2="0"><stop offset="0" stop-color="#FEC053"/><stop offset=".5" stop-color="#F2203E"/><stop offset="1" stop-color="#5258CF"/></linearGradient></defs><rect width="24" height="24" rx="7" fill="url(#igg)"/><rect x="5.5" y="5.5" width="13" height="13" rx="4" fill="none" stroke="#fff" stroke-width="1.8"/><circle cx="12" cy="12" r="3.1" fill="none" stroke="#fff" stroke-width="1.8"/><circle cx="16.3" cy="7.7" r="1" fill="#fff"/></svg>`;
 const DEFAULTS={accountId:"",accountName:"",trialCount:"all",trialMin:12,trialMax:16,gapMin:25,gapMax:40,trialStart:"22:40",trialEnd:"06:37",trialMode:"MANUAL",night:"starts",
   normalOn:true,normalStart:"12:00",normalEnd:"20:00",weeklyOn:true,weeklyDay:6,weeklyStart:"12:00",weeklyEnd:"19:00",
-  capTrial:"",capNormal:"",capPost:"",skipUsed:true,autoThumbs:true};
+  capTrial:"",capNormal:"",capPost:"",skipUsed:true,autoThumbs:true,liveSync:true};
 const KEY="planche-publer-v2", TKEY="planche-publer-thumbs";
 
 /* ---------- état ---------- */
@@ -395,22 +398,23 @@ function sizeOf(id){const s=S.slots.find(x=>x.fileId===id&&x.size);if(s)return s
 function driveLink(id){return `https://drive.google.com/file/d/${encodeURIComponent(id)}/view`}
 function cardHTML(s,g,col){
   const i=g.info[s.id];const other="";const dup=s.fileId&&g.cnt[s.fileId]>1;
-  const st={sent:s.sentMode==="draft"?"Brouillon Publer":"Programmé ✓",error:"Erreur",sending:"Envoi…",unsure:"À vérifier"}[s.status]||"";
-  const stc=s.status==="sent"?"sent":s.status==="sending"?"sending":s.status?"error":"";
+  const ps=s.pubStatus||(s.status==="sent"?(s.sentMode==="draft"?"Draft":"Scheduled"):"");
+  const st=s.status==="sent"||s.external?(PUB_LABEL[ps]||"Sur Publer"):({error:"Erreur",sending:"Envoi…",unsure:"À vérifier"}[s.status]||"");
+  const stc=s.status==="sent"||s.external?(ps==="Failed"?"error":"sent"):s.status==="sending"?"sending":s.status?"error":"";
   const loading=mcp&&S.settings.autoThumbs&&s.fileId&&!s.example&&!THUMBS[s.fileId]&&!thumbFail[s.fileId]?" loading":"";
   return `<div class="card ${kindClass(s)}${openId===s.id?" sel":""}" tabindex="0" role="button" data-id="${s.id}" aria-label="${esc(kindLabel(s)+" à "+s.time)}">
-    <div class="who"><span class="av">${esc(initials(S.settings.accountName))}${IG}</span><span>${esc(S.settings.accountName||"Instagram")}</span><button class="x" data-act="rm" data-id="${s.id}" title="${s.status==="sent"?"Retirer de la planche (supprime-la aussi dans Publer si besoin)":"Retirer de la planche"}" aria-label="Retirer de la planche">✕</button></div>
+    <div class="who"><span class="av">${esc(initials(S.settings.accountName))}${IG}</span><span>${esc(S.settings.accountName||"Instagram")}</span>${s.pubStatus==="Published"?"":`<button class="x${armed===s.id?" armed":""}" data-act="rm" data-id="${s.id}" title="${s.publerId||s.external?"Supprimer de la planche ET de Publer":"Retirer de la planche"}" aria-label="Supprimer">${armed===s.id?"Supprimer ?":"✕"}</button>`}</div>
     <div class="time"><span aria-hidden="true">🕓</span>${other}<span class="mono">${s.time}</span>${i&&i.gap!=null?`<span class="gap${i.bad?" bad":""}">+${i.gap} min</span>`:""}${i&&i.out?`<span class="gap bad">hors créneau</span>`:""}</div>
     <div class="thumb${loading}" data-thumb="${esc(s.fileId||"")}">${thumbHTML(s)}</div>
     ${s.caption||defaultCap(s)?`<div class="cap">${esc(s.caption||defaultCap(s))}</div>`:""}
-    <div class="foot"><span class="tag ${kindClass(s)}">${kindLabel(s)}</span>${s.kind==="reel"&&s.feed?'<span class="tag feed">Fil</span>':""}${dup?'<span class="tag" style="color:var(--err)">Doublon</span>':""}${s.example?'<span class="tag ex">ex.</span>':""}<span class="st ${stc}">${st}</span></div>
+    <div class="foot">${s.external?'<span class="tag feed">Publer</span>':`<span class="tag ${kindClass(s)}">${kindLabel(s)}</span>`}${s.kind==="reel"&&s.feed?'<span class="tag feed">Fil</span>':""}${dup?'<span class="tag" style="color:var(--err)">Doublon</span>':""}${s.example?'<span class="tag ex">ex.</span>':""}<span class="st ${stc}">${st}</span></div>
     ${s.error?`<div class="errline">${esc(s.error)}</div>`:""}
   </div>`;
 }
 function colHTML(date,g){
   const today=ymd(new Date())===date;const f=S.folders[date];
   /* comme Publer : chaque carte est rangée au jour où elle sera vraiment publiée */
-  const list=S.slots.filter(s=>s.date===date).sort((a,b)=>at(a)-at(b));
+  const list=S.slots.filter(s=>s.date===date).concat(pubCards(date)).sort((a,b)=>at(a)-at(b));
   const night=S.slots.filter(s=>s.night===date).sort((a,b)=>at(a)-at(b));const nTrial=night.length;
   const nightDays=[...new Set(night.map(s=>s.date))];
   return `<section class="col" aria-label="${esc(frDay(date))}">
@@ -454,7 +458,7 @@ function bindSettings(){
   const syncRange=()=>{$("#s-tmin").disabled=st.trialCount==="all"};
   Object.entries(map).forEach(([id,k])=>{const el=$("#"+id);el.value=st[k];el.onchange=()=>{st[k]=el.type==="number"?Math.max(0,+el.value||0):el.value;syncRange();save();renderAll()}});
   syncRange();
-  [["s-skip","skipUsed"],["s-thumbs","autoThumbs"]].forEach(([id,k])=>{const el=$("#"+id);el.checked=!!st[k];el.onchange=()=>{st[k]=el.checked;save();renderAll()}});
+  [["s-skip","skipUsed"],["s-thumbs","autoThumbs"],["s-live","liveSync"]].forEach(([id,k])=>{const el=$("#"+id);el.checked=!!st[k];el.onchange=()=>{st[k]=el.checked;save();renderAll()}});
   $("#s-account").onchange=e=>{st.accountId=e.target.value;st.accountName=(e.target.selectedOptions[0]?.dataset.name)||"";save();renderAll()};
   $("#send-mode").value=S.sendMode;$("#send-mode").onchange=e=>{S.sendMode=e.target.value;save();if(confirmOpen)renderConfirm()};
 }
@@ -462,19 +466,19 @@ function bindSettings(){
 /* ---------- calendrier : actions ---------- */
 $("#board").addEventListener("click",e=>{
   const b=e.target.closest("button[data-act]");
-  if(b&&b.dataset.act==="rm"){e.stopPropagation();if(sending)return;const gone=slotById(b.dataset.id);if(gone&&gone.status==="sent")delete S.used[gone.fileId];S.slots=S.slots.filter(s=>s.id!==b.dataset.id);if(openId===b.dataset.id)closeDrawer();save();return renderAll()}
+  if(b&&b.dataset.act==="rm"){e.stopPropagation();if(sending)return;return removeCard(b.dataset.id)}
   if(b){if(sending)return;const d=b.dataset.day;
     if(b.dataset.act==="auto")return openPicker("folder",f=>useDayFolder(d,f));
     if(b.dataset.act==="add")return openPicker("files",files=>addManual(d,files));
     if(b.dataset.act==="reshuffle")return refreshDay(d);
     if(b.dataset.act==="unfold"){const o="auto:"+d;S.slots=S.slots.filter(s=>!(s.origin===o&&s.status!=="sent"));delete S.folders[d];save();return renderAll()}
     return}
-  const c=e.target.closest(".card");if(c)openDrawer(c.dataset.id);
+  const c=e.target.closest(".card");if(!c)return;if(c.dataset.id.startsWith("pub_"))return openPubDrawer(c.dataset.id);openDrawer(c.dataset.id);
 });
-$("#board").addEventListener("keydown",e=>{if((e.key==="Enter"||e.key===" ")&&e.target.classList.contains("card")){e.preventDefault();openDrawer(e.target.dataset.id)}});
-$("#w-prev").onclick=()=>{S.weekStart=addDays(S.weekStart,-7);save();renderAll()};
-$("#w-next").onclick=()=>{S.weekStart=addDays(S.weekStart,7);save();renderAll()};
-$("#w-today").onclick=()=>{S.weekStart=mondayOf(new Date());save();renderAll()};
+$("#board").addEventListener("keydown",e=>{if((e.key==="Enter"||e.key===" ")&&e.target.classList.contains("card")){e.preventDefault();const id=e.target.dataset.id;id.startsWith("pub_")?openPubDrawer(id):openDrawer(id)}});
+$("#w-prev").onclick=()=>{S.weekStart=addDays(S.weekStart,-7);save();renderAll();pullPubler()};
+$("#w-next").onclick=()=>{S.weekStart=addDays(S.weekStart,7);save();renderAll();pullPubler()};
+$("#w-today").onclick=()=>{S.weekStart=mondayOf(new Date());save();renderAll();pullPubler()};
 $("#w-fill").onclick=()=>{Object.keys(thumbFail).forEach(k=>delete thumbFail[k]);Object.keys(tries).forEach(k=>delete tries[k]);weekDates().forEach(d=>{if(S.folders[d])fillDay(d)});fillWeekly();save();renderAll()};
 $("#w-clear").onclick=()=>{const wk=new Set(weekDates());S.slots.forEach(s=>{if(wk.has(s.date)&&s.status==="sent")delete S.used[s.fileId]});S.slots=S.slots.filter(s=>!wk.has(s.date));weekDates().forEach(d=>delete S.folders[d]);save();renderAll()};
 
@@ -487,6 +491,7 @@ function addManual(dayKey,files){
     last=newSlot({date:dayKey,time:fmtMin(Math.min(m,1439)),kind:img?"post":"reel",fileId:f.id,fileName:f.title,mime:f.mimeType,size:f.size});
     S.slots.push(last);m+=S.settings.gapMin});
   save();renderAll();if(files.length===1)openDrawer(last.id);
+  if(S.settings.liveSync&&mcp&&S.settings.accountId){const fresh=S.slots.slice(-files.length).filter(x=>!x.status&&at(x)>Date.now()+5*60e3);if(fresh.length)runSend(fresh)}
 }
 
 /* ---------- éditeur latéral ---------- */
@@ -497,14 +502,14 @@ function closeDrawer(){openId=null;$("#drawer").hidden=true;$("#drawer-bg").hidd
 $("#drawer-bg").onclick=closeDrawer;
 function renderDrawer(){
   const s=slotById(openId);if(!s)return closeDrawer();
-  const lock=s.status==="sent"||sending;const dis=lock?" disabled":"";
+  const lock=s.status==="sent"||sending;const dis=lock?" disabled":"";const tdis=(sending||(s.status==="sent"&&!s.publerId)||s.pubStatus==="Published")?" disabled":"";
   const f=s.origin&&s.origin.startsWith("auto:")?S.folders[s.origin.slice(5)]:null;
   const pool=f?f.videos:[];
   const opts=(pool.some(v=>v.id===s.fileId)?"":`<option value="${esc(s.fileId)}">${esc(s.fileName||"—")}</option>`)+pool.map(v=>`<option value="${esc(v.id)}"${v.id===s.fileId?" selected":""}>${esc(v.title)}${S.used[v.id]?" (déjà envoyée)":""}</option>`).join("");
   $("#drawer").innerHTML=`<header><div class="who" style="display:flex;gap:8px;align-items:center"><span class="av">${esc(initials(S.settings.accountName))}${IG}</span><h2 id="dr-title">${esc(S.settings.accountName||"Instagram")}</h2></div>
       <button class="ghost icon" id="dr-close" aria-label="Fermer">✕</button></header>
     <div class="body">
-      ${s.status==="sent"?`<div class="banner">Déjà envoyée sur Publer. Modifie-la directement dans Publer.</div>`:""}
+      ${s.status==="sent"?`<div class="banner">${s.publerId?"Reliée à Publer : si tu changes la date ou l'heure ici, elle est déplacée dans Publer aussi.":"Envoyée sur Publer. Clique « ↻ Synchro Publer » pour la relier."}</div>`:""}
       ${s.error?`<div class="banner err">${esc(s.error)}</div>`:""}
       <div class="tabs" role="tablist">${["post","reel","story"].map(k=>`<button role="tab" data-kind="${k}" class="${s.kind===k?"on":""}"${dis}>${k==="post"?"Post":k==="reel"?"Reel":"Story"}</button>`).join("")}</div>
       <div class="editor">
@@ -524,8 +529,8 @@ function renderDrawer(){
           </div>
         </div>
       </div>
-      <div class="row"><div class="fieldset"><span class="lbl">Date</span><input type="date" id="dr-date" value="${s.date}"${dis}></div>
-        <div class="fieldset"><span class="lbl">Heure</span><input type="time" id="dr-time" value="${s.time}"${dis}></div></div>
+      <div class="row"><div class="fieldset"><span class="lbl">Date</span><input type="date" id="dr-date" value="${s.date}"${tdis}></div>
+        <div class="fieldset"><span class="lbl">Heure</span><input type="time" id="dr-time" value="${s.time}"${tdis}></div></div>
     </div>
     <footer><button class="ghost" id="dr-del"${dis} style="color:var(--err)">Supprimer</button>
       <div class="row"><button id="dr-dup"${s.example?" disabled":""}>Dupliquer</button><button class="primary" id="dr-ok">Terminé</button></div></footer>`;
@@ -540,9 +545,9 @@ function renderDrawer(){
   if($("#dr-audio"))$("#dr-audio").onchange=e=>upd(x=>x.audio=e.target.value.trim());
   if($("#dr-file"))$("#dr-file").onchange=e=>upd(x=>{const v=pool.find(p=>p.id===e.target.value);x.fileId=e.target.value;x.fileName=v?v.title:"";x.mime=v?v.mimeType:x.mime;x.size=v?v.size:0;loadMedia(x.fileId).then(renderPreview,renderPreview)},true);
   $("#dr-pick").onclick=()=>openPicker("file",files=>{const v=files[0];if(!v)return;upd(x=>{x.fileId=v.id;x.fileName=v.title;x.mime=v.mimeType;x.size=v.size},true);loadMedia(v.id).then(renderPreview,renderPreview)});
-  $("#dr-date").onchange=e=>{if(e.target.value)upd(x=>{x.date=e.target.value;x.night=null})};
-  $("#dr-time").onchange=e=>{if(e.target.value)upd(x=>x.time=e.target.value)};
-  $("#dr-del").onclick=()=>{S.slots=S.slots.filter(x=>x.id!==s.id);save();closeDrawer();renderCounts()};
+  $("#dr-date").onchange=e=>{if(e.target.value){const old=[s.date,s.time];upd(x=>{x.date=e.target.value;x.night=null});if(s.publerId)movePub(s,old)}};
+  $("#dr-time").onchange=e=>{if(e.target.value){const old=[s.date,s.time];upd(x=>x.time=e.target.value);if(s.publerId)movePub(s,old)}};
+  $("#dr-del").onclick=()=>{closeDrawer();removeCard(s.id,true)};
   $("#dr-dup").onclick=()=>{const c={...s,id:uid(),status:"",error:"",origin:"manual",time:fmtMin(toMin(s.time)+S.settings.gapMin)};S.slots.push(c);save();renderCounts();openDrawer(c.id)};
 }
 function renderPreview(){
@@ -592,7 +597,7 @@ async function loadMedia(id){
   finally{thumbBusy.delete(id);markThumb(id)}
 }
 function isImgId(id){const s=S.slots.find(x=>x.fileId===id);return !!(s&&isImage(s))}
-function markThumb(id){document.querySelectorAll(`.thumb[data-thumb="${CSS.escape(id)}"]`).forEach(el=>{const s=S.slots.find(x=>x.fileId===id);if(!s)return;
+function markThumb(id){document.querySelectorAll(`.thumb[data-thumb="${CSS.escape(id)}"]`).forEach(el=>{const s=S.slots.find(x=>x.fileId===id)||[].concat(...weekDates().map(pubCards)).find(x=>x.fileId===id);if(!s)return;
   el.classList.toggle("loading",!THUMBS[id]&&!thumbFail[id]);el.innerHTML=thumbHTML(s)});
   if(openId){const s=slotById(openId);if(s&&s.fileId===id)renderPreview()}}
 
@@ -604,7 +609,8 @@ const PER=3,CW=228,CH=405;let deckRunning=false;const deckPending=new Set();let 
 function observeThumbs(){clearTimeout(deckTimer);deckTimer=setTimeout(queueThumbs,250)}
 function queueThumbs(){
   if(!mcp||!S.settings.autoThumbs)return;const wk=new Set(weekDates());
-  S.slots.forEach(s=>{if(!s.fileId||s.example||THUMBS[s.fileId]||thumbFail[s.fileId]||tries[s.fileId]||!wk.has(s.night||s.date))return;
+  S.slots.concat(...weekDates().map(pubCards)).forEach(s=>{if(!s.fileId||s.example||THUMBS[s.fileId]||thumbFail[s.fileId]||tries[s.fileId]||!wk.has(s.night||s.date))return;
+    if(s.fileId.startsWith("url:")){deckPending.add(s.fileId);return}
     if(isImage(s)){if((s.size||0)<=MAX_DL&&!thumbQueue.includes(s.fileId)){thumbQueue.push(s.fileId);runThumbs()}}
     else deckPending.add(s.fileId)});
   runDeck();
@@ -629,8 +635,8 @@ async function deckBatch(ids){
   const col=[rand(40,215),rand(40,215),rand(40,215)];
   const req=(d.slide.pageElements||[]).map(x=>({deleteObject:{objectId:x.objectId}}));
   req.push({updatePageProperties:{objectId:pid,pageProperties:{pageBackgroundFill:{solidFill:{color:{rgbColor:{red:col[0]/255,green:col[1]/255,blue:col[2]/255}}}}},fields:"pageBackgroundFill"}});
-  ids.forEach((fid,i)=>req.push({createVideo:{objectId:`pv_${tag}_${i}`,source:"DRIVE",id:fid,elementProperties:{pageObjectId:pid,
-    size:{width:{magnitude:CW,unit:"PT"},height:{magnitude:CH,unit:"PT"}},transform:{scaleX:1,scaleY:1,translateX:i*(CW+6),translateY:0,unit:"PT"}}}}));
+  ids.forEach((fid,i)=>{const ep={pageObjectId:pid,size:{width:{magnitude:CW,unit:"PT"},height:{magnitude:CH,unit:"PT"}},transform:{scaleX:1,scaleY:1,translateX:i*(CW+6),translateY:0,unit:"PT"}};
+    req.push(fid.startsWith("url:")?{createImage:{objectId:`pv_${tag}_${i}`,url:fid.slice(4),elementProperties:ep}}:{createVideo:{objectId:`pv_${tag}_${i}`,source:"DRIVE",id:fid,elementProperties:ep}})});
   try{await call(SLIDES,"update_presentation",{presentationId:d.id,requests:req})}catch(e){throw {...e,server:e.server||SLIDES}}
   const left=new Set(ids);
   for(let a=0;a<5&&left.size;a++){
@@ -723,7 +729,7 @@ async function loadAccounts(){
     sel.innerHTML=accs.map(a=>`<option value="${esc(a.id)}" data-name="${esc(a.name)}">${esc(a.name)} (Instagram)</option>`).join("");
     if(!accs.some(a=>a.id===S.settings.accountId)){S.settings.accountId=accs[0].id;S.settings.accountName=accs[0].name}
     else S.settings.accountName=accs.find(a=>a.id===S.settings.accountId).name;
-    sel.value=S.settings.accountId;save();setChip("#c-publer","ok","Publer");renderAll();
+    sel.value=S.settings.accountId;save();setChip("#c-publer","ok","Publer");renderAll();pullPubler();
   }catch(e){sel.innerHTML=`<option value="">Comptes indisponibles</option>`;setChip("#c-publer","err","Publer");banner(explain(e,PUBLER),true)}
 }
 
@@ -831,7 +837,7 @@ async function sendOne(s){
   const prob=payloadProblem(p);if(prob)throw {code:"tool_error",message:prob,server:PUBLER};
 }
 async function runSend(list){
-  sending=true;closeConfirm();renderAll();const sentDays=[];
+  if(sending)return;sending=true;closeConfirm();renderAll();const sentDays=[];
   const bar=$("#progress");bar.hidden=false;const fill=bar.firstElementChild;let done=0,fails=0;
   for(const s of list){
     s.status="sending";s.error="";renderBoard();
@@ -846,7 +852,94 @@ async function runSend(list){
   const where=sentDays.length?` Dans Publer, regarde ${sentDays[0]===sentDays[sentDays.length-1]?"le "+frDay(sentDays[0]):"du "+frDay(sentDays[0])+" au "+frDay(sentDays[sentDays.length-1])}`+(S.sendMode==="schedule"?" (vue calendrier).":", dans l'onglet Brouillons : elles ne partiront pas tant que tu ne cliques pas Programmer."):"";
   banner((fails?`${done-fails} envoyée(s), ${fails} en erreur. Clique une carte en erreur pour voir le détail, corrige-la et renvoie.`
     :`${done} publication(s) ${S.sendMode==="schedule"?"programmée(s)":"envoyée(s) en brouillon"} sur Publer.`)+where,!!fails);
-  renderAll();
+  renderAll();setTimeout(pullPubler,1500);
+}
+
+
+/* ---------- synchro avec le calendrier Publer ----------
+   La planche relit Publer (semaine affichée) : chaque publication Publer apparaît ici, reliée à sa carte
+   si elle vient de la planche. Déplacer ou supprimer une carte reliée le fait aussi dans Publer. */
+const PUB_LABEL={Scheduled:"Programmé ✓",Draft:"Brouillon Publer",Published:"Publié ✓",Failed:"Échec Publer",Publishing:"Publication…"};
+const PUB={};let pulling=false,lastPull=0,armed=null,armTimer=null;
+const MONTHS={Jan:0,Feb:1,Mar:2,Apr:3,May:4,Jun:5,Jul:6,Aug:7,Sep:8,Oct:9,Nov:10,Dec:11};
+function parseWhen(w,fromYmd){
+  const m=/([A-Z][a-z]{2})\w*\s+(\d{1,2})\D+?(\d{1,2}):(\d{2})\s*(AM|PM)?\s*(?:UTC|GMT)?\s*([+-]\d{1,2})?(?::?(\d{2}))?/.exec(w||"");
+  if(!m||MONTHS[m[1]]==null)return null;
+  const from=parseYmd(fromYmd);let y=from.getFullYear();const mo=MONTHS[m[1]];if(mo<from.getMonth()-6)y++;if(mo>from.getMonth()+6)y--;
+  let h=+m[3]%12;if(m[5]==="PM")h+=12;if(!m[5])h=+m[3];
+  const oh=m[6]?+m[6]:null;const om=m[7]?+m[7]*(oh<0?-1:1):0;
+  const d=oh==null?new Date(y,mo,+m[2],h,+m[4]):new Date(Date.UTC(y,mo,+m[2],h-oh,+m[4]-om));
+  return {date:ymd(d),time:pad(d.getHours())+":"+pad(d.getMinutes())};
+}
+function pubCards(date){const w=PUB[S.weekStart];if(!w)return[];
+  return w.posts.filter(p=>p.date===date&&!p.linked).map(p=>({id:"pub_"+p.key,external:true,kind:"reel",trial:false,feed:false,date:p.date,time:p.time,
+    fileId:p.image?"url:"+p.image:"",fileName:"",caption:p.caption||"",status:"",pubStatus:p.status,publerId:p.id,url:p.url}))}
+function pubById(cardId){const w=PUB[S.weekStart];return w&&w.posts.find(p=>"pub_"+p.key===cardId)}
+async function pullPubler(){
+  if(!mcp||!S.settings.accountName||pulling)return;pulling=true;$("#c-sync").textContent="↻ Synchro…";
+  const from=addDays(S.weekStart,-1),to=addDays(S.weekStart,8),wk=S.weekStart;
+  try{
+    const p=await call(PUBLER,"list_publer_posts",{from,to,states:["scheduled","draft","published","failed"],limit:200});
+    const raw=(p&&p.posts)||[];const seen=new Set();const posts=[];
+    raw.forEach(x=>{if(x.channel&&!/instagram/i.test(x.channel))return;if(x.account&&x.account!==S.settings.accountName)return;
+      const t=parseWhen(x.when,from);if(!t)return;const id=x.ref&&x.ref.id||"";const key=id||(x.when+"|"+(x.image||""));if(seen.has(key))return;seen.add(key);
+      const st=/schedul/i.test(x.status)?"Scheduled":/draft/i.test(x.status)?"Draft":/publish(ed)?$/i.test(x.status)?"Published":/fail|error/i.test(x.status)?"Failed":(x.status||"");
+      posts.push({key:key.replace(/[^\w-]/g,"").slice(0,60)||uid(),id,date:t.date,time:t.time,status:st,caption:x.caption||"",image:x.image||"",url:x.published_url||""})});
+    /* relier : d'abord par identifiant, sinon par jour + heure exacts */
+    const sent=S.slots.filter(s=>s.status==="sent");const used=new Set();let removed=0;
+    sent.forEach(s=>{let m=s.publerId&&posts.find(q=>q.id===s.publerId);
+      if(!m)m=posts.find(q=>!used.has(q.key)&&q.date===s.date&&q.time===s.time);
+      if(m){used.add(m.key);m.linked=true;if(m.id)s.publerId=m.id;s.pubStatus=m.status;if(s.publerId&&(s.date!==m.date||s.time!==m.time)){s.date=m.date;s.time=m.time}}
+      else if(s.publerId&&s.date>=addDays(wk,0)&&s.date<=addDays(wk,6)){removed++;S.slots=S.slots.filter(x=>x!==s)}});
+    PUB[wk]={posts,at:Date.now()};lastPull=Date.now();save();
+    setChip("#c-publer","ok","Publer");
+    if(removed)banner(`${removed} publication(s) supprimée(s) dans Publer ont été retirées de la planche.`,false);
+    if(wk===S.weekStart){renderBoard();renderCounts()}
+  }catch(e){if(AUTH.includes(e&&e.code))banner("Synchro Publer : "+explain(e,PUBLER),true)}
+  finally{pulling=false;const d=new Date(lastPull);$("#c-sync").textContent=lastPull?`↻ Synchro ${pad(d.getHours())}:${pad(d.getMinutes())}`:"↻ Synchro Publer"}
+}
+$("#c-sync").onclick=()=>pullPubler();
+setInterval(()=>{if(!document.hidden&&!sending&&Date.now()-lastPull>60000)pullPubler()},15000);
+document.addEventListener("visibilitychange",()=>{if(!document.hidden&&Date.now()-lastPull>20000)pullPubler()});
+
+/* supprimer : 1er clic arme la croix, 2e clic supprime (dans Publer aussi si la carte y est) */
+async function removeCard(id,force){
+  const slot=slotById(id),pub=id.startsWith("pub_")?pubById(id):null;
+  const pid=(slot&&slot.publerId)||(pub&&pub.id)||"";
+  if(!force&&armed!==id){armed=id;clearTimeout(armTimer);armTimer=setTimeout(()=>{armed=null;renderBoard()},4000);return renderBoard()}
+  armed=null;clearTimeout(armTimer);
+  if(pid){banner("Suppression dans Publer…");
+    try{await call(PUBLER,"delete_publer_posts",{post_ids:[pid]});
+      const r=await call(PUBLER,"confirm_delete_publer_posts",{post_ids:[pid],user_confirmed:true});
+      const prob=payloadProblem(r);if(prob)throw {code:"tool_error",message:prob,server:PUBLER};
+      banner("Supprimée de Publer et de la planche.")}
+    catch(e){banner("Pas pu la supprimer dans Publer ("+explain(e,PUBLER)+"). Supprime-la dans Publer, puis clique « ↻ Synchro Publer ».",true);return}}
+  else if(slot&&slot.status==="sent"&&!force){banner("Cette carte n'est pas encore reliée à Publer : clique « ↻ Synchro Publer » puis réessaie, ou supprime-la dans Publer.",true);return}
+  if(slot){if(slot.status==="sent")delete S.used[slot.fileId];S.slots=S.slots.filter(x=>x.id!==id)}
+  if(pub){const w=PUB[S.weekStart];w.posts=w.posts.filter(p=>p!==pub)}
+  if(openId===id)closeDrawer();save();renderAll();if(pid)setTimeout(pullPubler,1500);
+}
+/* déplacer une carte reliée : la même date/heure part dans Publer */
+async function movePub(s,old){
+  if(at(s)<Date.now()+5*60e3){banner("L'heure choisie est déjà passée : choisis une heure future.",true);s.date=old[0];s.time=old[1];save();return renderAll()}
+  try{const r=await call(PUBLER,"reschedule_publer_post",{post_id:s.publerId,scheduled_at:isoLocal(s.date,s.time)});
+    const prob=payloadProblem(r);if(prob)throw {code:"tool_error",message:prob,server:PUBLER};banner(`Déplacée dans Publer : ${frDay(s.date)} à ${s.time}.`)}
+  catch(e){s.date=old[0];s.time=old[1];save();renderAll();banner("Pas pu la déplacer dans Publer : "+explain(e,PUBLER),true)}
+}
+/* éditeur d'une publication créée directement dans Publer */
+function openPubDrawer(id){const c=pubCards(S.weekStart).concat(...weekDates().map(pubCards)).find(x=>x.id===id);if(!c)return;
+  openId=null;$("#drawer").hidden=false;$("#drawer-bg").hidden=false;const pub=pubById(id);const can=pub.status!=="Published"&&!!pub.id;
+  $("#drawer").innerHTML=`<header><div class="who" style="display:flex;gap:8px;align-items:center"><span class="av">${esc(initials(S.settings.accountName))}${IG}</span><h2 id="dr-title">${esc(S.settings.accountName)}</h2></div><button class="ghost icon" id="dr-close" aria-label="Fermer">✕</button></header>
+    <div class="body"><div class="banner">Publication ajoutée directement dans Publer (${esc(PUB_LABEL[pub.status]||pub.status)}).${can?" Tu peux la déplacer ou la supprimer d'ici : Publer suit.":""}</div>
+      <div class="media-row"><div class="preview">${THUMBS[c.fileId]?`<img src="${THUMBS[c.fileId]}" alt="" style="object-fit:cover">`:`<div class="ph"><span>Image en cours…</span></div>`}</div>
+        <div class="opts">${pub.caption?`<div style="white-space:pre-wrap">${esc(pub.caption)}</div>`:`<span class="muted">Sans légende</span>`}
+        ${pub.url?`<a href="${esc(pub.url)}" target="_blank" rel="noopener">Voir sur Instagram ↗</a>`:""}</div></div>
+      <div class="row"><div class="fieldset"><span class="lbl">Date</span><input type="date" id="pd-date" value="${pub.date}"${can?"":" disabled"}></div>
+        <div class="fieldset"><span class="lbl">Heure</span><input type="time" id="pd-time" value="${pub.time}"${can?"":" disabled"}></div></div></div>
+    <footer>${can?`<button class="ghost" id="pd-del" style="color:var(--err)">Supprimer de Publer</button>`:"<span></span>"}<button class="primary" id="pd-ok">Terminé</button></footer>`;
+  const close=()=>{$("#drawer").hidden=true;$("#drawer-bg").hidden=true};$("#dr-close").onclick=close;$("#pd-ok").onclick=close;
+  if(can){const mv=async()=>{const s={publerId:pub.id,date:$("#pd-date").value,time:$("#pd-time").value};if(!s.date||!s.time||(s.date===pub.date&&s.time===pub.time))return;const old=[pub.date,pub.time];pub.date=s.date;pub.time=s.time;await movePub(s,old);pullPubler()};
+    $("#pd-date").onchange=mv;$("#pd-time").onchange=mv;$("#pd-del").onclick=()=>{close();removeCard(id,true)}}
 }
 
 /* ---------- démarrage ---------- */
