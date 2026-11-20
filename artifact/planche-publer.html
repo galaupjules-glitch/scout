@@ -273,7 +273,7 @@ const XI=`<svg viewBox="0 0 24 24" aria-hidden="true"><rect width="24" height="2
 const IG=`<svg viewBox="0 0 24 24" aria-hidden="true"><defs><linearGradient id="igg" x1="0" y1="1" x2="1" y2="0"><stop offset="0" stop-color="#FEC053"/><stop offset=".5" stop-color="#F2203E"/><stop offset="1" stop-color="#5258CF"/></linearGradient></defs><rect width="24" height="24" rx="7" fill="url(#igg)"/><rect x="5.5" y="5.5" width="13" height="13" rx="4" fill="none" stroke="#fff" stroke-width="1.8"/><circle cx="12" cy="12" r="3.1" fill="none" stroke="#fff" stroke-width="1.8"/><circle cx="16.3" cy="7.7" r="1" fill="#fff"/></svg>`;
 const DEFAULTS={accountId:"",accountName:"",trialCount:"all",trialMin:12,trialMax:16,gapMin:25,gapMax:40,trialStart:"22:40",trialEnd:"06:37",trialMode:"MANUAL",night:"starts",
   normalOn:true,normalStart:"12:00",normalEnd:"20:00",weeklyOn:true,weeklyDay:6,weeklyStart:"12:00",weeklyEnd:"19:00",
-  capTrial:"",capNormal:"",capPost:"",skipUsed:true,autoThumbs:true,liveSync:true};
+  capTrial:"",capNormal:"",capPost:"",skipUsed:false,autoThumbs:true,liveSync:true};
 const KEY="planche-publer-v2", TKEY="planche-publer-thumbs";
 
 /* ---------- état ---------- */
@@ -284,6 +284,7 @@ S.settings={...DEFAULTS,...S.settings,normalOn:false,weeklyOn:false};
 S.slots=S.slots.filter(s=>!(s.status!=="sent"&&s.origin&&s.origin.startsWith("auto:")&&!s.trial));
 S.slots.forEach(s=>{if(!s.night&&s.trial&&s.origin&&s.origin.startsWith("auto:"))s.night=s.origin.slice(5)});
 if(!S.modeV2){S.sendMode="schedule";S.modeV2=true}
+if(!S.allVideosV3){S.settings.skipUsed=false;S.allVideosV3=true}
 let THUMBS={};try{localStorage.removeItem(TKEY)}catch(e){}
 const IDB=(()=>{let dbp=null;const open=()=>dbp||(dbp=new Promise((res,rej)=>{try{const r=indexedDB.open("planche-publer",1);r.onupgradeneeded=()=>r.result.createObjectStore("thumbs");r.onsuccess=()=>res(r.result);r.onerror=()=>rej(r.error)}catch(e){rej(e)}}));
   return {async all(){const db=await open();return new Promise((res,rej)=>{const out={};const c=db.transaction("thumbs").objectStore("thumbs").openCursor();c.onsuccess=()=>{const k=c.result;if(k){out[k.key]=k.value;k.continue()}else res(out)};c.onerror=()=>rej(c.error)})},
@@ -337,10 +338,9 @@ function fillDay(dayKey){
   const st=S.settings,f=S.folders[dayKey];if(!f)return;
   const origin="auto:"+dayKey;
   S.slots=S.slots.filter(s=>!(s.origin===origin&&s.status!=="sent"));
-  const taken=takenIds(origin);
-  const elsewhere=f.videos.filter(v=>taken.has(v.id)).length;
-  const sentBefore=f.videos.filter(v=>!taken.has(v.id)&&st.skipUsed&&S.used[v.id]).length;
-  let pool=shuffle(f.videos.filter(v=>!taken.has(v.id)&&!(st.skipUsed&&S.used[v.id])));
+  const elsewhere=0;
+  const sentBefore=f.videos.filter(v=>st.skipUsed&&S.used[v.id]).length;
+  let pool=shuffle(f.videos.filter(v=>!(st.skipUsed&&S.used[v.id])));
   const notes=[];const ex=!!f.example;
   const cap=Math.max(1,st.trialMax);
   const target=st.trialCount==="all"?Math.min(pool.length,cap):rand(st.trialMin,st.trialMax);
@@ -376,7 +376,7 @@ function gapInfo(){
   trials.forEach((t,i)=>{const out=!inWindow(t.time);let gap=null,bad=false;
     if(i>0){const g=(at(t)-at(trials[i-1]))/6e4;if(g<10*60){gap=Math.round(g);bad=gap<gapMin||gap>gapMax}}
     info[t.id]={gap,bad,out}});
-  const cnt={};S.slots.forEach(s=>{if(s.fileId&&s.status!=="sent")cnt[s.fileId]=(cnt[s.fileId]||0)+1});
+  const cnt={};S.slots.forEach(s=>{if(s.fileId){const k=s.date+"|"+s.fileId;cnt[k]=(cnt[k]||0)+1}});
   return {info,cnt};
 }
 
@@ -398,7 +398,7 @@ const MAX_DL=10*1024*1024;
 function sizeOf(id){const s=S.slots.find(x=>x.fileId===id&&x.size);if(s)return s.size;for(const f of Object.values(S.folders)){const v=f.videos.find(x=>x.id===id);if(v&&v.size)return v.size}return 0}
 function driveLink(id){return `https://drive.google.com/file/d/${encodeURIComponent(id)}/view`}
 function cardHTML(s,g,col){
-  const i=g.info[s.id];const other="";const dup=s.fileId&&g.cnt[s.fileId]>1;
+  const i=g.info[s.id];const other="";const dup=s.fileId&&g.cnt[s.date+"|"+s.fileId]>1;
   const ps=s.pubStatus||(s.status==="sent"?(s.sentMode==="draft"?"Draft":"Scheduled"):"");
   const st=s.status==="sent"||s.external?(PUB_LABEL[ps]||"Sur Publer"):({error:"Erreur",sending:"Envoi…",unsure:"À vérifier"}[s.status]||"");
   const stc=s.status==="sent"||s.external?(ps==="Failed"?"error":"sent"):s.status==="sending"?"sending":s.status?"error":"";
