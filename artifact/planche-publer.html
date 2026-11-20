@@ -269,6 +269,7 @@ details.panel[open]>summary{border-bottom:1px solid var(--line)}
 const $ = s => document.querySelector(s);
 const DRIVE="Google Drive", PUBLER="Publer";
 const DAYS_FR=["lundi","mardi","mercredi","jeudi","vendredi","samedi","dimanche"];
+const XI=`<svg viewBox="0 0 24 24" aria-hidden="true"><rect width="24" height="24" rx="7" fill="#000"/><path d="M6.5 6h3.2l2.6 3.7L15.5 6h2l-4.3 5 4.8 7h-3.2l-2.9-4.1L8.3 18h-2l4.6-5.3z" fill="#fff"/></svg>`;
 const IG=`<svg viewBox="0 0 24 24" aria-hidden="true"><defs><linearGradient id="igg" x1="0" y1="1" x2="1" y2="0"><stop offset="0" stop-color="#FEC053"/><stop offset=".5" stop-color="#F2203E"/><stop offset="1" stop-color="#5258CF"/></linearGradient></defs><rect width="24" height="24" rx="7" fill="url(#igg)"/><rect x="5.5" y="5.5" width="13" height="13" rx="4" fill="none" stroke="#fff" stroke-width="1.8"/><circle cx="12" cy="12" r="3.1" fill="none" stroke="#fff" stroke-width="1.8"/><circle cx="16.3" cy="7.7" r="1" fill="#fff"/></svg>`;
 const DEFAULTS={accountId:"",accountName:"",trialCount:"all",trialMin:12,trialMax:16,gapMin:25,gapMax:40,trialStart:"22:40",trialEnd:"06:37",trialMode:"MANUAL",night:"starts",
   normalOn:true,normalStart:"12:00",normalEnd:"20:00",weeklyOn:true,weeklyDay:6,weeklyStart:"12:00",weeklyEnd:"19:00",
@@ -403,11 +404,11 @@ function cardHTML(s,g,col){
   const stc=s.status==="sent"||s.external?(ps==="Failed"?"error":"sent"):s.status==="sending"?"sending":s.status?"error":"";
   const loading=mcp&&S.settings.autoThumbs&&s.fileId&&!s.example&&!THUMBS[s.fileId]&&!thumbFail[s.fileId]?" loading":"";
   return `<div class="card ${kindClass(s)}${openId===s.id?" sel":""}" tabindex="0" role="button" data-id="${s.id}" aria-label="${esc(kindLabel(s)+" à "+s.time)}">
-    <div class="who"><span class="av">${esc(initials(S.settings.accountName))}${IG}</span><span>${esc(S.settings.accountName||"Instagram")}</span>${s.pubStatus==="Published"?"":`<button class="x${armed===s.id?" armed":""}" data-act="rm" data-id="${s.id}" title="${s.publerId||s.external?"Supprimer de la planche ET de Publer":"Retirer de la planche"}" aria-label="Supprimer">${armed===s.id?"Supprimer ?":"✕"}</button>`}</div>
+    <div class="who"><span class="av">${esc(initials(s.account||S.settings.accountName))}${s.ig===false?XI:IG}</span><span>${esc(s.account||S.settings.accountName||"Instagram")}</span>${s.pubStatus==="Published"?"":`<button class="x${armed===s.id?" armed":""}" data-act="rm" data-id="${s.id}" title="${s.publerId||s.external?"Supprimer de la planche ET de Publer":"Retirer de la planche"}" aria-label="Supprimer">${armed===s.id?"Supprimer ?":"✕"}</button>`}</div>
     <div class="time"><span aria-hidden="true">🕓</span>${other}<span class="mono">${s.time}</span>${i&&i.gap!=null?`<span class="gap${i.bad?" bad":""}">+${i.gap} min</span>`:""}${i&&i.out?`<span class="gap bad">hors créneau</span>`:""}</div>
     <div class="thumb${loading}" data-thumb="${esc(s.fileId||"")}">${thumbHTML(s)}</div>
     ${s.caption||defaultCap(s)?`<div class="cap">${esc(s.caption||defaultCap(s))}</div>`:""}
-    <div class="foot">${s.external?'<span class="tag feed">Publer</span>':`<span class="tag ${kindClass(s)}">${kindLabel(s)}</span>`}${s.kind==="reel"&&s.feed?'<span class="tag feed">Fil</span>':""}${dup?'<span class="tag" style="color:var(--err)">Doublon</span>':""}${s.example?'<span class="tag ex">ex.</span>':""}<span class="st ${stc}">${st}</span></div>
+    <div class="foot">${s.external?`<span class="tag feed">${s.ig===false?"X · Publer":"Publer"}</span>`:`<span class="tag ${kindClass(s)}">${kindLabel(s)}</span>`}${s.kind==="reel"&&s.feed?'<span class="tag feed">Fil</span>':""}${dup?'<span class="tag" style="color:var(--err)">Doublon</span>':""}${s.example?'<span class="tag ex">ex.</span>':""}<span class="st ${stc}">${st}</span></div>
     ${s.error?`<div class="errline">${esc(s.error)}</div>`:""}
   </div>`;
 }
@@ -873,22 +874,26 @@ function parseWhen(w,fromYmd){
 }
 function pubCards(date){const w=PUB[S.weekStart];if(!w)return[];
   return w.posts.filter(p=>p.date===date&&!p.linked).map(p=>({id:"pub_"+p.key,external:true,kind:"reel",trial:false,feed:false,date:p.date,time:p.time,
-    fileId:p.image?"url:"+p.image:"",fileName:"",caption:p.caption||"",status:"",pubStatus:p.status,publerId:p.id,url:p.url}))}
+    fileId:p.image?"url:"+p.image:"",fileName:"",caption:p.caption||"",status:"",pubStatus:p.status,publerId:p.id,url:p.url,channel:p.channel,account:p.account,ig:p.ig}))}
 function pubById(cardId){const w=PUB[S.weekStart];return w&&w.posts.find(p=>"pub_"+p.key===cardId)}
 async function pullPubler(){
   if(!mcp||!S.settings.accountName||pulling)return;pulling=true;$("#c-sync").textContent="↻ Synchro…";
   const from=addDays(S.weekStart,-1),to=addDays(S.weekStart,8),wk=S.weekStart;
   try{
-    const p=await call(PUBLER,"list_publer_posts",{from,to,states:["scheduled","draft","published","failed"],limit:200});
-    const raw=(p&&p.posts)||[];const seen=new Set();const posts=[];
-    raw.forEach(x=>{if(x.channel&&!/instagram/i.test(x.channel))return;if(x.account&&x.account!==S.settings.accountName)return;
-      const t=parseWhen(x.when,from);if(!t)return;const id=x.ref&&x.ref.id||"";const key=id||(x.when+"|"+(x.image||""));if(seen.has(key))return;seen.add(key);
+    const raw=[];const keys=new Set();
+    for(let pg=0;pg<8;pg++){const p=await call(PUBLER,"list_publer_posts",{from,to,states:["scheduled","draft","published","failed"],limit:200,page:pg});
+      const got=(p&&p.posts)||[];let fresh=0;got.forEach(x=>{const k=(x.ref&&x.ref.id)||(x.channel+"|"+x.when+"|"+(x.image||""));if(!keys.has(k)){keys.add(k);fresh++;raw.push(x)}});
+      if(got.length<200||!fresh)break}
+    const seen=new Set();const posts=[];
+    raw.forEach(x=>{
+      const t=parseWhen(x.when,from);if(!t)return;const id=x.ref&&x.ref.id||"";const key=id||(x.channel+"|"+x.when+"|"+(x.image||""));if(seen.has(key))return;seen.add(key);
       const st=/schedul/i.test(x.status)?"Scheduled":/draft/i.test(x.status)?"Draft":/publish(ed)?$/i.test(x.status)?"Published":/fail|error/i.test(x.status)?"Failed":(x.status||"");
-      posts.push({key:key.replace(/[^\w-]/g,"").slice(0,60)||uid(),id,date:t.date,time:t.time,status:st,caption:x.caption||"",image:x.image||"",url:x.published_url||""})});
+      posts.push({key:(key.replace(/[^\w-]/g,"").slice(-60))||uid(),id,date:t.date,time:t.time,status:st,caption:x.caption||"",image:x.image||"",url:x.published_url||"",
+        channel:x.channel||"Instagram",account:x.account||"",ig:!x.channel||/instagram/i.test(x.channel)})});
     /* relier : d'abord par identifiant, sinon par jour + heure exacts */
     const sent=S.slots.filter(s=>s.status==="sent");const used=new Set();let removed=0;
     sent.forEach(s=>{let m=s.publerId&&posts.find(q=>q.id===s.publerId);
-      if(!m)m=posts.find(q=>!used.has(q.key)&&q.date===s.date&&q.time===s.time);
+      if(!m)m=posts.find(q=>!used.has(q.key)&&q.ig&&(!q.account||q.account===S.settings.accountName)&&q.date===s.date&&q.time===s.time);
       if(m){used.add(m.key);m.linked=true;if(m.id)s.publerId=m.id;s.pubStatus=m.status;if(s.publerId&&(s.date!==m.date||s.time!==m.time)){s.date=m.date;s.time=m.time}}
       else if(s.publerId&&s.date>=addDays(wk,0)&&s.date<=addDays(wk,6)){removed++;S.slots=S.slots.filter(x=>x!==s)}});
     PUB[wk]={posts,at:Date.now()};lastPull=Date.now();save();
@@ -929,11 +934,11 @@ async function movePub(s,old){
 /* éditeur d'une publication créée directement dans Publer */
 function openPubDrawer(id){const c=pubCards(S.weekStart).concat(...weekDates().map(pubCards)).find(x=>x.id===id);if(!c)return;
   openId=null;$("#drawer").hidden=false;$("#drawer-bg").hidden=false;const pub=pubById(id);const can=pub.status!=="Published"&&!!pub.id;
-  $("#drawer").innerHTML=`<header><div class="who" style="display:flex;gap:8px;align-items:center"><span class="av">${esc(initials(S.settings.accountName))}${IG}</span><h2 id="dr-title">${esc(S.settings.accountName)}</h2></div><button class="ghost icon" id="dr-close" aria-label="Fermer">✕</button></header>
+  $("#drawer").innerHTML=`<header><div class="who" style="display:flex;gap:8px;align-items:center"><span class="av">${esc(initials(pub.account||S.settings.accountName))}${pub.ig?IG:XI}</span><h2 id="dr-title">${esc(pub.account||S.settings.accountName)} · ${esc(pub.channel)}</h2></div><button class="ghost icon" id="dr-close" aria-label="Fermer">✕</button></header>
     <div class="body"><div class="banner">Publication ajoutée directement dans Publer (${esc(PUB_LABEL[pub.status]||pub.status)}).${can?" Tu peux la déplacer ou la supprimer d'ici : Publer suit.":""}</div>
       <div class="media-row"><div class="preview">${THUMBS[c.fileId]?`<img src="${THUMBS[c.fileId]}" alt="" style="object-fit:cover">`:`<div class="ph"><span>Image en cours…</span></div>`}</div>
         <div class="opts">${pub.caption?`<div style="white-space:pre-wrap">${esc(pub.caption)}</div>`:`<span class="muted">Sans légende</span>`}
-        ${pub.url?`<a href="${esc(pub.url)}" target="_blank" rel="noopener">Voir sur Instagram ↗</a>`:""}</div></div>
+        ${pub.url?`<a href="${esc(pub.url)}" target="_blank" rel="noopener">Voir la publication ↗</a>`:""}</div></div>
       <div class="row"><div class="fieldset"><span class="lbl">Date</span><input type="date" id="pd-date" value="${pub.date}"${can?"":" disabled"}></div>
         <div class="fieldset"><span class="lbl">Heure</span><input type="time" id="pd-time" value="${pub.time}"${can?"":" disabled"}></div></div></div>
     <footer>${can?`<button class="ghost" id="pd-del" style="color:var(--err)">Supprimer de Publer</button>`:"<span></span>"}<button class="primary" id="pd-ok">Terminé</button></footer>`;
