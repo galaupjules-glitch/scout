@@ -279,7 +279,11 @@ let S=load(KEY)||{settings:{...DEFAULTS},weekStart:mondayOf(new Date()),slots:[]
 S.settings={...DEFAULTS,...S.settings,normalOn:false,weeklyOn:false};
 S.slots=S.slots.filter(s=>!(s.status!=="sent"&&s.origin&&s.origin.startsWith("auto:")&&!s.trial));
 S.slots.forEach(s=>{if(!s.night&&s.trial&&s.origin&&s.origin.startsWith("auto:"))s.night=s.origin.slice(5)});
-let THUMBS=load(TKEY)||{};
+let THUMBS={};try{localStorage.removeItem(TKEY)}catch(e){}
+const IDB=(()=>{let dbp=null;const open=()=>dbp||(dbp=new Promise((res,rej)=>{try{const r=indexedDB.open("planche-publer",1);r.onupgradeneeded=()=>r.result.createObjectStore("thumbs");r.onsuccess=()=>res(r.result);r.onerror=()=>rej(r.error)}catch(e){rej(e)}}));
+  return {async all(){const db=await open();return new Promise((res,rej)=>{const out={};const c=db.transaction("thumbs").objectStore("thumbs").openCursor();c.onsuccess=()=>{const k=c.result;if(k){out[k.key]=k.value;k.continue()}else res(out)};c.onerror=()=>rej(c.error)})},
+    async put(k,v){const db=await open();db.transaction("thumbs","readwrite").objectStore("thumbs").put(v,k)},
+    async del(k){const db=await open();db.transaction("thumbs","readwrite").objectStore("thumbs").delete(k)}}})();
 function save(){store(KEY,S)}
 let mcp=null,sending=false,confirmOpen=false,picker=null,openId=null;
 const blobs=new Map(), thumbFail={}, thumbBusy=new Set(); let thumbQueue=[], thumbRunning=false;
@@ -562,13 +566,13 @@ function b64FromResult(r){
 function b64ToBlob(b64,type){b64=b64.replace(/^data:[^,]*,/,"").replace(/\s/g,"").replace(/-/g,"+").replace(/_/g,"/");
   const bin=atob(b64);const u=new Uint8Array(bin.length);for(let i=0;i<bin.length;i++)u[i]=bin.charCodeAt(i);return new Blob([u],{type})}
 function mimeOf(id){const s=S.slots.find(x=>x.fileId===id);if(s&&s.mime)return s.mime;for(const f of Object.values(S.folders)){const v=f.videos.find(x=>x.id===id);if(v)return v.mimeType}return "video/mp4"}
-function makeThumb(url,img){return new Promise((res,rej)=>{const W=320;const done=(el,w,h)=>{try{const c=document.createElement("canvas");c.width=W;c.height=Math.round(W*h/w)||180;c.getContext("2d").drawImage(el,0,0,c.width,c.height);res(c.toDataURL("image/jpeg",.62))}catch(e){rej(e)}};
+function makeThumb(url,img){return new Promise((res,rej)=>{const W=540;const done=(el,w,h)=>{try{const c=document.createElement("canvas");c.width=W;c.height=Math.round(W*h/w)||180;c.getContext("2d").drawImage(el,0,0,c.width,c.height);res(c.toDataURL("image/jpeg",.9))}catch(e){rej(e)}};
   const t=setTimeout(()=>rej(new Error("timeout")),20000);
   if(img){const i=new Image();i.onload=()=>{clearTimeout(t);done(i,i.naturalWidth,i.naturalHeight)};i.onerror=()=>{clearTimeout(t);rej(new Error("img"))};i.src=url;return}
   const v=document.createElement("video");v.muted=true;v.playsInline=true;v.preload="auto";
   v.onloadeddata=()=>{v.currentTime=Math.min(.6,(v.duration||1)/2)};v.onseeked=()=>{clearTimeout(t);done(v,v.videoWidth,v.videoHeight)};v.onerror=()=>{clearTimeout(t);rej(new Error("video"))};v.src=url})}
-function saveThumb(id,data){THUMBS[id]=data;let keys=Object.keys(THUMBS);while(keys.length>160){delete THUMBS[keys.shift()];}
-  if(!store(TKEY,THUMBS)){keys=Object.keys(THUMBS);keys.slice(0,40).forEach(k=>delete THUMBS[k]);store(TKEY,THUMBS)}}
+function saveThumb(id,data){THUMBS[id]=data;IDB.put(id,data).catch(()=>{});
+  const keys=Object.keys(THUMBS);if(keys.length>400)keys.slice(0,keys.length-400).forEach(k=>{delete THUMBS[k];IDB.del(k).catch(()=>{})})}
 async function loadMedia(id){
   if(!id||id.startsWith("ex")||blobs.has(id))return;
   if(sizeOf(id)>MAX_DL)throw {code:"too_big"};
@@ -593,7 +597,7 @@ function markThumb(id){document.querySelectorAll(`.thumb[data-thumb="${CSS.escap
    sur une diapo Google Slides apparaît avec son image. On pose 16 vidéos sur une diapo, on exporte la diapo
    en JPEG (petit fichier) et on découpe chaque vignette. */
 const SLIDES="Google Slides";
-let deckRunning=false;const deckPending=new Set();let deckTimer=null;
+const PER=3,CW=228,CH=405;let deckRunning=false;const deckPending=new Set();let deckTimer=null;
 function observeThumbs(){clearTimeout(deckTimer);deckTimer=setTimeout(queueThumbs,250)}
 function queueThumbs(){
   if(!mcp||!S.settings.autoThumbs)return;const wk=new Set(weekDates());
@@ -616,22 +620,22 @@ async function deckBatch(ids){
   const req=(d.slide.pageElements||[]).map(x=>({deleteObject:{objectId:x.objectId}}));
   req.push({updatePageProperties:{objectId:pid,pageProperties:{pageBackgroundFill:{solidFill:{color:{rgbColor:{red:0,green:0,blue:0}}}}},fields:"pageBackgroundFill"}});
   ids.forEach((fid,i)=>req.push({createVideo:{objectId:`pv_${tag}_${i}`,source:"DRIVE",id:fid,elementProperties:{pageObjectId:pid,
-    size:{width:{magnitude:90,unit:"PT"},height:{magnitude:160,unit:"PT"}},transform:{scaleX:1,scaleY:1,translateX:(i%8)*90,translateY:Math.floor(i/8)*170,unit:"PT"}}}}));
+    size:{width:{magnitude:CW,unit:"PT"},height:{magnitude:CH,unit:"PT"}},transform:{scaleX:1,scaleY:1,translateX:i*(CW+6),translateY:0,unit:"PT"}}}}));
   try{await call(SLIDES,"update_presentation",{presentationId:d.id,requests:req})}catch(e){throw {...e,server:e.server||SLIDES}}
-  let r;try{r=await mcp.callTool(DRIVE,"download_file_content",{fileId:d.id,exportMimeType:"image/jpeg"})}catch(e){throw {...e,server:e.server||DRIVE}}
+  let r;try{r=await mcp.callTool(DRIVE,"download_file_content",{fileId:d.id,exportMimeType:"image/png"})}catch(e){throw {...e,server:e.server||DRIVE}}
   const b64=b64FromResult(r);if(!b64)throw {code:"shape",message:"Drive n'a pas renvoyé l'image"};
-  const url=URL.createObjectURL(b64ToBlob(b64,"image/jpeg"));
+  const url=URL.createObjectURL(b64ToBlob(b64,"image/png"));
   try{const img=await new Promise((res,rej)=>{const i=new Image();i.onload=()=>res(i);i.onerror=()=>rej({code:"shape",message:"image illisible"});i.src=url});
     const k=img.naturalWidth/720;
-    ids.forEach((fid,i)=>{const c=document.createElement("canvas");const sw=90*k,sh=160*k;c.width=Math.round(sw);c.height=Math.round(sh);
-      const ctx=c.getContext("2d");ctx.drawImage(img,(i%8)*90*k,Math.floor(i/8)*170*k,sw,sh,0,0,c.width,c.height);
+    ids.forEach((fid,i)=>{const c=document.createElement("canvas");const sx=Math.ceil(i*(CW+6)*k),sw=Math.floor(CW*k)-1,sh=Math.floor(CH*k)-1;c.width=sw;c.height=sh;
+      const ctx=c.getContext("2d");ctx.imageSmoothingQuality="high";ctx.drawImage(img,sx,0,sw,sh,0,0,sw,sh);
       if(isBlank(ctx,c.width,c.height)){thumbFail[fid]="Drive n'a pas encore préparé l'image de cette vidéo (vidéo toute récente ?). Re-mélange plus tard."}
-      else saveThumb(fid,c.toDataURL("image/jpeg",.75));markThumb(fid)});
+      else saveThumb(fid,c.toDataURL("image/jpeg",.92));markThumb(fid)});
   }finally{URL.revokeObjectURL(url)}
 }
 async function runDeck(){
   if(deckRunning)return;deckRunning=true;
-  try{while(deckPending.size){const batch=[...deckPending].slice(0,16);batch.forEach(i=>deckPending.delete(i));
+  try{while(deckPending.size){const batch=[...deckPending].slice(0,PER);batch.forEach(i=>deckPending.delete(i));
     try{await deckBatch(batch)}
     catch(e){const msg=e&&e.code==="shape"?e.message:explain(e,(e&&e.server)||SLIDES);batch.forEach(id=>{thumbFail[id]=msg;markThumb(id)});
       if(e&&["needs_reauth","server_not_connected","not_in_manifest","blocked_by_policy","not_granted","selection_required","approval_required"].includes(e.code)){banner("Images des vidéos : "+msg,true);deckPending.clear();break}}}}
@@ -822,6 +826,7 @@ async function runSend(list){
 /* ---------- démarrage ---------- */
 if(!S.seeded&&!S.slots.length)seedExample();
 bindSettings();renderAll();
+IDB.all().then(t=>{THUMBS={...t,...THUMBS};renderBoard();if(openId)renderPreview();observeThumbs()}).catch(()=>{});
 (async()=>{
   try{mcp=await window.claude?.use?.("mcp")}catch(e){mcp=null}
   if(!mcp){setChip("#c-drive","err","Drive");setChip("#c-publer","err","Publer");
