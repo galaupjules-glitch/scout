@@ -325,12 +325,11 @@ function planTrial(n){
   const {w}=trialWindow();
   if(n<=0)return[]; if(n===1)return[0];
   n=Math.min(n,Math.floor(w/gapMin)+1);
-  const k=n-1;const avg=Math.min(gapMax,Math.max(gapMin,w/k));const j=Math.max(3,Math.round((gapMax-gapMin)/3));
-  const g=[...Array(k)].map(()=>rand(Math.max(gapMin,Math.round(avg-j)),Math.min(gapMax,Math.round(avg+j))));
-  let sum=g.reduce((a,b)=>a+b,0);
-  const target=Math.min(w,k*gapMax);let guard=0;
-  while(sum>target&&guard++<20000){const i=rand(0,k-1);if(g[i]>gapMin){g[i]--;sum--}}
-  while(sum<target&&guard++<40000){const i=rand(0,k-1);if(g[i]<gapMax){g[i]++;sum++}}
+  /* écarts tirés au hasard entre min et max ; s'ils débordent du créneau on les raccourcit au hasard ;
+     puis le tout est posé n'importe où dans le créneau : début et fin changent à chaque tirage */
+  const k=n-1;const g=[...Array(k)].map(()=>rand(gapMin,gapMax));
+  let sum=g.reduce((a,b)=>a+b,0);let guard=0;
+  while(sum>w&&guard++<40000){const i=rand(0,k-1);if(g[i]>gapMin){g[i]--;sum--}}
   let t=rand(0,Math.max(0,w-sum));const o=[t];g.forEach(x=>{t+=x;o.push(t)});return o;
 }
 function newSlot(o){return {id:uid(),kind:"reel",trial:false,trialMode:S.settings.trialMode,feed:true,audio:"",caption:"",status:"",error:"",origin:"manual",...o}}
@@ -349,12 +348,12 @@ function fillDay(dayKey){
   const offs=planTrial(n);const {s}=trialWindow();const ns=nightStartFor(dayKey);
   offs.sort((a,b)=>a-b).forEach((o,i)=>{const m=s+o;const v=pool[i];
     S.slots.push(newSlot({origin,night:dayKey,example:ex,kind:"reel",trial:true,feed:false,date:m>=1440?addDays(ns,1):ns,time:fmtMin(m),fileId:v.id,fileName:v.title,mime:v.mimeType,size:v.size}))});
+  if(offs.length>1)notes.push(`${fmtMin(s+offs[0])} → ${fmtMin(s+offs[offs.length-1])}`);
   if(offs.length<n)notes.push(`${offs.length} Reels Test tiennent dans le créneau avec ${st.gapMin} min d'écart minimum`);
   if(st.trialCount!=="all"&&pool.length<target)notes.push(`${pool.length} vidéo(s) dispo pour ${target} visés`);
   const left=pool.length-offs.length;if(left>0)notes.push(`${left} vidéo(s) non placée(s) (max ${cap} par nuit)`);
   if(elsewhere)notes.push(`${elsewhere} déjà placée(s) un autre jour`);
   if(sentBefore)notes.push(`${sentBefore} déjà envoyée(s) avant, ignorée(s)`);
-  if(offs.length>1){const span=offs[offs.length-1]-offs[0];const {w}=trialWindow();if(span<w-45)notes.push(`Plage couverte : ${fmtMin(s+offs[0])}→${fmtMin(s+offs[offs.length-1])} (écart max ${st.gapMax} min)`)}
   f.note=ex?"Exemple : clique ⚡ Auto pour choisir ton dossier":notes.join(" · ");
 }
 function fillWeekly(){
