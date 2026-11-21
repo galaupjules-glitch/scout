@@ -857,7 +857,7 @@ async function runSend(list){
   const where=sentDays.length?` Dans Publer, regarde ${sentDays[0]===sentDays[sentDays.length-1]?"le "+frDay(sentDays[0]):"du "+frDay(sentDays[0])+" au "+frDay(sentDays[sentDays.length-1])}`+(S.sendMode==="schedule"?" (vue calendrier).":", dans l'onglet Brouillons : elles ne partiront pas tant que tu ne cliques pas Programmer."):"";
   banner((fails?`${done-fails} envoyée(s), ${fails} en erreur. Clique une carte en erreur pour voir le détail, corrige-la et renvoie.`
     :`${done} publication(s) ${S.sendMode==="schedule"?"programmée(s)":"envoyée(s) en brouillon"} sur Publer.`)+where,!!fails);
-  renderAll();setTimeout(pullPubler,1500);
+  renderAll();setTimeout(pullPubler,1500);logSent();
 }
 
 
@@ -951,6 +951,18 @@ function openPubDrawer(id){const c=pubCards(S.weekStart).concat(...weekDates().m
     $("#pd-date").onchange=mv;$("#pd-time").onchange=mv;$("#pd-del").onclick=()=>{close();removeCard(id,true)}}
 }
 
+/* ---------- journal des envois (Google Sheets) ----------
+   La tâche automatique quotidienne y retrouve quel fichier Drive correspond à chaque Reel publié,
+   pour reposter les 3 meilleurs sur X le lendemain. */
+const SHEETS="Google Sheets",JOURNAL="1d2NnsuA5qelKUewYO3YdyvizGz8Q5yIg1ySq5tq_6CY";let logging=false;
+async function logSent(){
+  if(!mcp||logging)return;const todo=S.slots.filter(s=>s.status==="sent"&&!s.logged&&s.fileId&&!s.example);if(!todo.length)return;logging=true;
+  try{await call(SHEETS,"append_values",{spreadsheetId:JOURNAL,range:"A1",values:todo.map(s=>[isoLocal(s.date,s.time),s.date,s.time,"instagram",s.kind,s.trial?"oui":"non",s.fileId,s.fileName||""])});
+    todo.forEach(s=>s.logged=true);save()}
+  catch(e){if(AUTH.includes(e&&e.code))banner("Journal des envois : "+explain(e,SHEETS),true)}
+  finally{logging=false}
+}
+
 /* ---------- démarrage ---------- */
 if(!S.seeded&&!S.slots.length)seedExample();
 bindSettings();renderAll();
@@ -960,7 +972,7 @@ IDB.all().then(t=>{THUMBS={...t,...THUMBS};renderBoard();if(openId)renderPreview
   if(!mcp){setChip("#c-drive","err","Drive");setChip("#c-publer","err","Publer");
     banner("Ouvre cette page dans claude.ai pour la relier à ton Drive et à Publer. Tu peux quand même préparer la planche ici.");
     $("#s-account").innerHTML=`<option value="">Publer non relié</option>`;return}
-  setChip("#c-drive","ok","Drive");loadAccounts();observeThumbs();
+  setChip("#c-drive","ok","Drive");loadAccounts();observeThumbs();setTimeout(logSent,3000);
 })();
 })();
 </script>
