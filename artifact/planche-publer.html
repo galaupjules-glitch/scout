@@ -105,6 +105,17 @@ details.panel[open]>summary{border-bottom:1px solid var(--line)}
 .thumb{position:relative;border-radius:8px;overflow:hidden;aspect-ratio:3/2;background:var(--sunk);display:grid;place-items:center;max-width:100%}
 .thumb img{width:100%;height:100%;object-fit:cover;display:block}
 .card .x{margin-left:auto;flex:0 0 auto;border:0;background:transparent;color:var(--muted);padding:2px 6px;font-size:14px;border-radius:6px}
+.netf{display:inline-flex;border:1px solid var(--line);border-radius:9px;overflow:hidden}
+.netf button{border:0;border-radius:0;padding:6px 12px;display:inline-flex;align-items:center;gap:6px;background:var(--surface)}
+.netf button+button{border-left:1px solid var(--line)}
+.netf button.on{background:var(--fg);color:var(--bg)}
+.ni svg{width:15px;height:15px;display:block}
+.net-pick{display:flex;gap:8px;flex-wrap:wrap}
+.net-pick button{display:flex;align-items:center;gap:8px;padding:8px 12px;border-radius:999px}
+.net-pick button.on{border-color:var(--today);box-shadow:0 0 0 1px var(--today);font-weight:600}
+.net-pick .ni svg{width:18px;height:18px}
+.card.net-twitter{box-shadow:inset 3px 0 0 #111!important}
+.tag.netx{background:#111;color:#fff}.tag.netig{background:linear-gradient(90deg,#FEC053,#F2203E,#5258CF);color:#fff}
 .card .x.armed{background:var(--err);color:#fff;font-size:11px;font-weight:600}
 .card .x:hover{background:var(--err-bg);color:var(--err)}
 .thumb{aspect-ratio:4/5!important}
@@ -212,7 +223,10 @@ details.panel[open]>summary{border-bottom:1px solid var(--line)}
     <div class="settings">
       <div class="group">
         <h3>Compte</h3>
+        <label for="s-account" class="muted" style="font-size:12px">Instagram</label>
         <select id="s-account"><option value="">Chargement des comptes…</option></select>
+        <label for="s-xaccount" class="muted" style="font-size:12px">X</label>
+        <select id="s-xaccount"><option value="">Chargement des comptes…</option></select>
         <div class="row"><input type="checkbox" id="s-thumbs"><label for="s-thumbs">Afficher l'image de chaque vidéo (via Google Slides)</label></div>
         <div class="row"><input type="checkbox" id="s-live"><label for="s-live">Envoyer tout de suite sur Publer les vidéos ajoutées avec +</label></div>
         <div class="row"><input type="checkbox" id="s-skip"><label for="s-skip">Ne pas réutiliser une vidéo déjà envoyée</label></div>
@@ -240,7 +254,9 @@ details.panel[open]>summary{border-bottom:1px solid var(--line)}
   </details>
 
   <div class="row" style="justify-content:space-between">
-    <span class="muted" style="font-size:13px"><b>⚡ Auto</b> : choisis un dossier, toutes ses vidéos deviennent des Reels Test répartis sur la nuit. <b>+</b> : ajoute tes vidéos à la main.</span>
+    <div class="row"><div class="netf" role="group" aria-label="Afficher">
+      <button data-net="all">Tout</button><button data-net="instagram"><span class="ni" data-icon="ig"></span>Instagram</button><button data-net="twitter"><span class="ni" data-icon="x"></span>X</button></div>
+      <span class="muted" style="font-size:13px" id="net-help"></span></div>
     <div class="row"><button id="w-local" title="Choisis ou glisse ici les mêmes vidéos depuis ton téléphone ou ton ordi pour afficher leur image">📷 Ajouter les images</button><input type="file" id="local-files" accept="video/*,image/*" multiple hidden><button id="w-fill">Re-mélanger la semaine</button><button class="ghost" id="w-clear">Vider la semaine</button></div>
   </div>
 
@@ -382,6 +398,10 @@ function gapInfo(){
 
 /* ---------- rendu ---------- */
 function initials(n){return (n||"?").split(/\s+/).map(w=>w[0]).join("").slice(0,2).toUpperCase()}
+/* réseau d'une carte : "instagram" (défaut) ou "twitter" (X) */
+function netOf(s){return s.external?(s.ig===false?"twitter":"instagram"):(s.network||"instagram")}
+function acctOf(net){return net==="twitter"?{id:S.settings.xAccountId,name:S.settings.xAccountName||"X"}:{id:S.settings.accountId,name:S.settings.accountName||"Instagram"}}
+function netName(net){return net==="twitter"?"X":"Instagram"}
 function kindClass(s){return s.kind==="reel"?(s.trial?"trial":"reel"):s.kind}
 function kindLabel(s){return s.kind==="reel"?(s.trial?"Reel Test":"Reel"):s.kind==="post"?"Post":"Story"}
 function vidLabel(name){const m=/(\d{4})(\d{2})(\d{2})[_-](\d{2})(\d{2})/.exec(name||"");
@@ -398,24 +418,25 @@ const MAX_DL=10*1024*1024;
 function sizeOf(id){const s=S.slots.find(x=>x.fileId===id&&x.size);if(s)return s.size;for(const f of Object.values(S.folders)){const v=f.videos.find(x=>x.id===id);if(v&&v.size)return v.size}return 0}
 function driveLink(id){return `https://drive.google.com/file/d/${encodeURIComponent(id)}/view`}
 function cardHTML(s,g,col){
+  const net=netOf(s);const ac=s.external?{name:s.account||acctOf(net).name}:acctOf(net);
   const i=g.info[s.id];const other="";const dup=s.fileId&&g.cnt[s.date+"|"+s.fileId]>1;
   const ps=s.pubStatus||(s.status==="sent"?(s.sentMode==="draft"?"Draft":"Scheduled"):"");
   const st=s.status==="sent"||s.external?(PUB_LABEL[ps]||"Sur Publer"):({error:"Erreur",sending:"Envoi…",unsure:"À vérifier"}[s.status]||"");
   const stc=s.status==="sent"||s.external?(ps==="Failed"?"error":"sent"):s.status==="sending"?"sending":s.status?"error":"";
   const loading=mcp&&S.settings.autoThumbs&&s.fileId&&!s.example&&!THUMBS[s.fileId]&&!thumbFail[s.fileId]?" loading":"";
-  return `<div class="card ${kindClass(s)}${openId===s.id?" sel":""}" tabindex="0" role="button" data-id="${s.id}" aria-label="${esc(kindLabel(s)+" à "+s.time)}">
-    <div class="who"><span class="av">${esc(initials(s.account||S.settings.accountName))}${s.ig===false?XI:IG}</span><span>${esc(s.account||S.settings.accountName||"Instagram")}</span>${s.pubStatus==="Published"?"":`<button class="x${armed===s.id?" armed":""}" data-act="rm" data-id="${s.id}" title="${s.publerId||s.external?"Supprimer de la planche ET de Publer":"Retirer de la planche"}" aria-label="Supprimer">${armed===s.id?"Supprimer ?":"✕"}</button>`}</div>
+  return `<div class="card ${kindClass(s)} net-${net}${openId===s.id?" sel":""}" tabindex="0" role="button" data-id="${s.id}" aria-label="${esc(kindLabel(s)+" à "+s.time)}">
+    <div class="who"><span class="av">${esc(initials(ac.name))}${net==="twitter"?XI:IG}</span><span>${esc(ac.name)}</span>${s.pubStatus==="Published"?"":`<button class="x${armed===s.id?" armed":""}" data-act="rm" data-id="${s.id}" title="${s.publerId||s.external?"Supprimer de la planche ET de Publer":"Retirer de la planche"}" aria-label="Supprimer">${armed===s.id?"Supprimer ?":"✕"}</button>`}</div>
     <div class="time"><span aria-hidden="true">🕓</span>${other}<span class="mono">${s.time}</span>${i&&i.gap!=null?`<span class="gap${i.bad?" bad":""}">+${i.gap} min</span>`:""}${i&&i.out?`<span class="gap bad">hors créneau</span>`:""}</div>
     <div class="thumb${loading}" data-thumb="${esc(s.fileId||"")}">${thumbHTML(s)}</div>
     ${s.caption||defaultCap(s)?`<div class="cap">${esc(s.caption||defaultCap(s))}</div>`:""}
-    <div class="foot">${s.external?`<span class="tag feed">${s.ig===false?"X · Publer":"Publer"}</span>`:`<span class="tag ${kindClass(s)}">${kindLabel(s)}</span>`}${s.kind==="reel"&&s.feed?'<span class="tag feed">Fil</span>':""}${dup?'<span class="tag" style="color:var(--err)">Doublon</span>':""}${s.example?'<span class="tag ex">ex.</span>':""}<span class="st ${stc}">${st}</span></div>
+    <div class="foot"><span class="tag ${net==="twitter"?"netx":"netig"}">${netName(net)}</span>${s.external?`<span class="tag feed">Publer</span>`:net==="twitter"?`<span class="tag feed">${isImage(s)?"Photo":"Vidéo"}</span>`:`<span class="tag ${kindClass(s)}">${kindLabel(s)}</span>`}${net!=="twitter"&&s.kind==="reel"&&s.feed?'<span class="tag feed">Fil</span>':""}${dup?'<span class="tag" style="color:var(--err)">Doublon</span>':""}${s.example?'<span class="tag ex">ex.</span>':""}<span class="st ${stc}">${st}</span></div>
     ${s.error?`<div class="errline">${esc(s.error)}</div>`:""}
   </div>`;
 }
 function colHTML(date,g){
   const today=ymd(new Date())===date;const f=S.folders[date];
   /* comme Publer : chaque carte est rangée au jour où elle sera vraiment publiée */
-  const list=S.slots.filter(s=>s.date===date).concat(pubCards(date)).sort((a,b)=>at(a)-at(b));
+  const list=S.slots.filter(s=>s.date===date).concat(pubCards(date)).filter(s=>S.netFilter==="all"||!S.netFilter||netOf(s)===S.netFilter).sort((a,b)=>at(a)-at(b));
   const night=S.slots.filter(s=>s.night===date).sort((a,b)=>at(a)-at(b));const nTrial=night.length;
   const nightDays=[...new Set(night.map(s=>s.date))];
   return `<section class="col" aria-label="${esc(frDay(date))}">
@@ -441,15 +462,15 @@ function defaultCap(s){const st=S.settings;return s.kind==="reel"?(s.trial?st.ca
 function renderCounts(){
   const wk=new Set(weekDates());const all=S.slots.filter(s=>!s.example);
   const inW=all.filter(s=>wk.has(s.date));
-  const c={trial:0,reel:0,post:0,story:0};inW.forEach(s=>c[kindClass(s)]++);
+  const c={trial:0,reel:0,post:0,story:0};let cx=0;inW.forEach(s=>{if(netOf(s)==="twitter")cx++;else c[kindClass(s)]++});
   const todo=all.filter(s=>s.status!=="sent").length;
-  $("#counts").innerHTML=`<span><b>${c.trial}</b> test</span><span><b>${c.reel}</b> reels</span><span><b>${c.post+c.story}</b> posts</span>`;
+  $("#counts").innerHTML=`<span><b>${c.trial}</b> test</span><span><b>${c.reel}</b> reels</span><span><b>${c.post+c.story}</b> posts</span><span><b>${cx}</b> X</span>`;
   $("#send-btn").textContent=todo?`Envoyer ${todo} sur Publer`:"Rien à envoyer";
   $("#send-btn").disabled=sending||!todo;
   const st=S.settings;
   $("#plan-sum").textContent=(st.trialCount==="all"?`Toutes les vidéos du dossier (max ${st.trialMax})`:`${st.trialMin}–${st.trialMax} Reels Test`)+` · ${st.gapMin}–${st.gapMax} min · ${st.trialStart}→${st.trialEnd}`;
 }
-function renderAll(){renderBoard();renderCounts();if(openId)renderDrawer();if(confirmOpen)renderConfirm()}
+function renderAll(){renderNetFilter();renderBoard();renderCounts();if(openId)renderDrawer();if(confirmOpen)renderConfirm()}
 
 /* ---------- réglages ---------- */
 function bindSettings(){
@@ -461,8 +482,15 @@ function bindSettings(){
   syncRange();
   [["s-skip","skipUsed"],["s-thumbs","autoThumbs"],["s-live","liveSync"]].forEach(([id,k])=>{const el=$("#"+id);el.checked=!!st[k];el.onchange=()=>{st[k]=el.checked;save();renderAll()}});
   $("#s-account").onchange=e=>{st.accountId=e.target.value;st.accountName=(e.target.selectedOptions[0]?.dataset.name)||"";save();renderAll()};
+  $("#s-xaccount").onchange=e=>{st.xAccountId=e.target.value;st.xAccountName=(e.target.selectedOptions[0]?.dataset.name)||"";save();renderAll()};
   $("#send-mode").value=S.sendMode;$("#send-mode").onchange=e=>{S.sendMode=e.target.value;save();if(confirmOpen)renderConfirm()};
 }
+
+/* ---------- filtre réseau ---------- */
+function renderNetFilter(){const f=S.netFilter||"all";document.querySelectorAll(".netf button").forEach(b=>b.classList.toggle("on",b.dataset.net===f));
+  $("#net-help").textContent=f==="twitter"?"Le bouton + ajoute des vidéos pour X.":f==="instagram"?"Le bouton + ajoute des vidéos pour Instagram.":"⚡ Auto crée des Reels Test Instagram · + ajoute pour Instagram (change le réseau sur la carte)."}
+document.querySelectorAll(".ni[data-icon]").forEach(el=>el.innerHTML=el.dataset.icon==="x"?XI:IG);
+document.querySelectorAll(".netf button").forEach(b=>b.onclick=()=>{S.netFilter=b.dataset.net;save();renderNetFilter();renderBoard()});
 
 /* ---------- calendrier : actions ---------- */
 $("#board").addEventListener("click",e=>{
@@ -489,7 +517,8 @@ function addManual(dayKey,files){
   let m=day.length?toMin(day[day.length-1].time)+S.settings.gapMin:toMin(S.settings.normalStart);
   let last;
   files.forEach(f=>{const img=(f.mimeType||"").startsWith("image/");
-    last=newSlot({date:dayKey,time:fmtMin(Math.min(m,1439)),kind:img?"post":"reel",fileId:f.id,fileName:f.title,mime:f.mimeType,size:f.size});
+    const net=S.netFilter==="twitter"?"twitter":"instagram";
+    last=newSlot({date:dayKey,time:fmtMin(Math.min(m,1439)),kind:img?"post":"reel",network:net,feed:net!=="twitter",fileId:f.id,fileName:f.title,mime:f.mimeType,size:f.size});
     S.slots.push(last);m+=S.settings.gapMin});
   save();renderAll();if(files.length===1)openDrawer(last.id);
   if(S.settings.liveSync&&mcp&&S.settings.accountId){const fresh=S.slots.slice(-files.length).filter(x=>!x.status&&at(x)>Date.now()+5*60e3);if(fresh.length)runSend(fresh)}
@@ -507,18 +536,22 @@ function renderDrawer(){
   const f=s.origin&&s.origin.startsWith("auto:")?S.folders[s.origin.slice(5)]:null;
   const pool=f?f.videos:[];
   const opts=(pool.some(v=>v.id===s.fileId)?"":`<option value="${esc(s.fileId)}">${esc(s.fileName||"—")}</option>`)+pool.map(v=>`<option value="${esc(v.id)}"${v.id===s.fileId?" selected":""}>${esc(v.title)}${S.used[v.id]?" (déjà envoyée)":""}</option>`).join("");
-  $("#drawer").innerHTML=`<header><div class="who" style="display:flex;gap:8px;align-items:center"><span class="av">${esc(initials(S.settings.accountName))}${IG}</span><h2 id="dr-title">${esc(S.settings.accountName||"Instagram")}</h2></div>
+  const net=netOf(s);const ac=acctOf(net);
+  $("#drawer").innerHTML=`<header><div class="who" style="display:flex;gap:8px;align-items:center"><span class="av">${esc(initials(ac.name))}${net==="twitter"?XI:IG}</span><h2 id="dr-title">${esc(ac.name)} · ${netName(net)}</h2></div>
       <button class="ghost icon" id="dr-close" aria-label="Fermer">✕</button></header>
     <div class="body">
+      <div class="fieldset"><span class="lbl">Publier sur</span><div class="net-pick">
+        <button data-pnet="instagram" class="${net==="instagram"?"on":""}"${dis}><span class="ni">${IG}</span>${esc(acctOf("instagram").name)} · Instagram</button>
+        <button data-pnet="twitter" class="${net==="twitter"?"on":""}"${dis||(S.settings.xAccountId?"":" disabled")}><span class="ni">${XI}</span>${esc(acctOf("twitter").name)} · X</button></div></div>
       ${s.status==="sent"?`<div class="banner">${s.publerId?"Reliée à Publer : si tu changes la date ou l'heure ici, elle est déplacée dans Publer aussi.":"Envoyée sur Publer. Clique « ↻ Synchro Publer » pour la relier."}</div>`:""}
       ${s.error?`<div class="banner err">${esc(s.error)}</div>`:""}
-      <div class="tabs" role="tablist">${["post","reel","story"].map(k=>`<button role="tab" data-kind="${k}" class="${s.kind===k?"on":""}"${dis}>${k==="post"?"Post":k==="reel"?"Reel":"Story"}</button>`).join("")}</div>
+      ${net==="twitter"?"":`<div class="tabs" role="tablist">${["post","reel","story"].map(k=>`<button role="tab" data-kind="${k}" class="${s.kind===k?"on":""}"${dis}>${k==="post"?"Post":k==="reel"?"Reel":"Story"}</button>`).join("")}</div>`}
       <div class="editor">
         <textarea id="dr-cap" placeholder="${esc(defaultCap(s)||"Écris ta légende…")}"${dis}>${esc(s.caption)}</textarea>
         <div class="media-row">
           <div class="preview" id="dr-prev"></div>
           <div class="opts">
-            ${s.kind==="reel"?`<span class="lbl">Plus d'options</span>
+            ${net==="twitter"?`<span class="muted" style="font-size:13px">Publication X : la vidéo (ou photo) avec ta légende.</span>`:s.kind==="reel"?`<span class="lbl">Plus d'options</span>
             <label class="opt"><input type="checkbox" id="dr-feed"${s.feed?" checked":""}${dis}><span>Partager également dans le fil</span></label>
             <label class="opt${s.trial?" on":""}"><input type="checkbox" id="dr-trial"${s.trial?" checked":""}${dis}><span>⏱ Publier comme Reel Test</span></label>
             ${s.trial?`<div class="subopt"><label><input type="radio" name="dr-tm" value="MANUAL"${s.trialMode==="MANUAL"?" checked":""}${dis}><span>Je décide moi-même si je le partage à mes abonnés</span></label>
@@ -538,6 +571,7 @@ function renderDrawer(){
   renderPreview();
   const upd=(fn,full)=>{fn(s);if(s.status==="error"||s.status==="unsure"){s.status="";s.error=""}save();renderBoard();renderCounts();if(full)renderDrawer()};
   $("#dr-close").onclick=closeDrawer;$("#dr-ok").onclick=closeDrawer;
+  $("#drawer").querySelectorAll("[data-pnet]").forEach(b=>b.onclick=()=>upd(x=>{x.network=b.dataset.pnet;if(x.network==="twitter"){x.trial=false;x.feed=false;x.night=null}},true));
   $("#drawer").querySelectorAll("[data-kind]").forEach(b=>b.onclick=()=>upd(x=>{x.kind=b.dataset.kind;if(x.kind!=="reel")x.trial=false},true));
   $("#dr-cap").oninput=e=>{s.caption=e.target.value;save()};$("#dr-cap").onchange=()=>renderBoard();
   if($("#dr-feed"))$("#dr-feed").onchange=e=>upd(x=>x.feed=e.target.checked);
@@ -728,8 +762,11 @@ function banner(msg,err){const b=$("#banner");clearTimeout(bannerTimer);if(!msg)
   b.append(t,x);if(!err&&!/…$/.test(msg))bannerTimer=setTimeout(()=>banner(null),8000)}
 async function call(server,tool,input){if(!mcp)throw {code:"not_granted"};const r=await mcp.callTool(server,tool,input);return r.payload}
 async function loadAccounts(){
-  const sel=$("#s-account");
-  try{const p=await call(PUBLER,"lookup_publer_accounts",{platform:"instagram"});const accs=(p&&p.accounts)||[];
+  const sel=$("#s-account"),xs=$("#s-xaccount");
+  try{const p=await call(PUBLER,"lookup_publer_accounts",{});const all=(p&&p.accounts)||[];
+    const accs=all.filter(a=>/instagram/i.test(a.provider||a.channel||""));const xa=all.filter(a=>/twitter|^x\b/i.test(a.provider||a.channel||""));
+    xs.innerHTML=xa.length?xa.map(a=>`<option value="${esc(a.id)}" data-name="${esc(a.name)}">${esc(a.name)} (X)</option>`).join(""):`<option value="">Aucun compte X dans Publer</option>`;
+    if(xa.length){if(!xa.some(a=>a.id===S.settings.xAccountId)){S.settings.xAccountId=xa[0].id;S.settings.xAccountName=xa[0].name}else S.settings.xAccountName=xa.find(a=>a.id===S.settings.xAccountId).name;xs.value=S.settings.xAccountId}
     if(!accs.length){sel.innerHTML=`<option value="">Aucun compte Instagram dans Publer</option>`;setChip("#c-publer","err","Publer : aucun compte");return}
     sel.innerHTML=accs.map(a=>`<option value="${esc(a.id)}" data-name="${esc(a.name)}">${esc(a.name)} (Instagram)</option>`).join("");
     if(!accs.some(a=>a.id===S.settings.accountId)){S.settings.accountId=accs[0].id;S.settings.accountName=accs[0].name}
@@ -814,8 +851,8 @@ function renderConfirm(){
   const {ok,skipped}=checkSlots();const st=S.settings;const real=S.sendMode==="schedule";
   const c={trial:0,reel:0,post:0,story:0};ok.forEach(s=>c[kindClass(s)]++);
   $("#confirm-slot").innerHTML=`<section class="confirm"><h2>${real?"Programmer":"Envoyer en brouillons"} ${ok.length} publication(s)</h2><ul>
-    <li>Compte : <b>${esc(st.accountName||"aucun compte choisi")}</b></li>
-    <li>${c.trial} Reel(s) Test, ${c.reel} Reel(s), ${c.post} post(s), ${c.story} story(s)</li>
+    <li>Instagram (${esc(st.accountName||"aucun compte")}) : <b>${ok.filter(x=>netOf(x)!=="twitter").length}</b> · X (${esc(st.xAccountName||"aucun compte")}) : <b>${ok.filter(x=>netOf(x)==="twitter").length}</b></li>
+    <li>Instagram : ${ok.filter(x=>netOf(x)!=="twitter"&&kindClass(x)==="trial").length} Reel(s) Test, ${ok.filter(x=>netOf(x)!=="twitter"&&kindClass(x)==="reel").length} Reel(s), ${ok.filter(x=>netOf(x)!=="twitter"&&/post|story/.test(kindClass(x))).length} post(s)/story(s)</li>
     <li>${real?"Publer publiera tout seul aux heures prévues.":"Rien ne sera publié : tout arrive en brouillon daté dans ton calendrier Publer."}</li>
     <li class="muted">Pour que Publer récupère chaque fichier, il passe en « toute personne disposant du lien » (lecture seule) sur Drive.</li>
     ${skipped.length?`<li style="color:var(--warn)">${skipped.length} ignorée(s) : ${esc([...new Set(skipped)].join(", "))}</li>`:""}
@@ -832,7 +869,11 @@ function payloadProblem(p){if(!p||typeof p!=="object")return null;
 async function sendOne(s){
   const st=S.settings;
   if(!S.shared[s.fileId]){await call(DRIVE,"share_file",{fileId:s.fileId,permissionId:"anyoneWithLink",role:"reader"});S.shared[s.fileId]=true;save()}
-  const img=isImage(s);
+  const img=isImage(s);const net=netOf(s);
+  if(net==="twitter"){if(!st.xAccountId)throw {code:"tool_error",message:"aucun compte X choisi dans les réglages",server:PUBLER};
+    const p=await call(PUBLER,"submit_publer_posts",{when:S.sendMode==="schedule"?"schedule":"draft",allow_duplicate:true,posts:[{platform:"twitter",account:st.xAccountId,caption:s.caption||defaultCap(s)||"",
+      media_url:mediaUrl(s.fileId),media_filename:s.fileName||("media"+(img?".jpg":".mp4")),scheduled_for:isoLocal(s.date,s.time),post_type:img?"photo":"video"}]});
+    const prob=payloadProblem(p);if(prob)throw {code:"tool_error",message:prob,server:PUBLER};return}
   const post={platform:"instagram",account:st.accountId,caption:s.caption||defaultCap(s)||"",media_url:mediaUrl(s.fileId),
     media_filename:s.fileName||("media"+(img?".jpg":".mp4")),scheduled_for:isoLocal(s.date,s.time)};
   if(s.kind==="reel"){post.post_type="reel";const d={type:"reel",feed:!!s.feed};if(s.trial)d.trial_reel=s.trialMode||st.trialMode;if(s.audio)d.audio=s.audio;post.network_options={details:d}}
@@ -897,7 +938,7 @@ async function pullPubler(){
     /* relier : d'abord par identifiant, sinon par jour + heure exacts */
     const sent=S.slots.filter(s=>s.status==="sent");const used=new Set();let removed=0;
     sent.forEach(s=>{let m=s.publerId&&posts.find(q=>q.id===s.publerId);
-      if(!m)m=posts.find(q=>!used.has(q.key)&&q.ig&&(!q.account||q.account===S.settings.accountName)&&q.date===s.date&&q.time===s.time);
+      if(!m){const sn=netOf(s);m=posts.find(q=>!used.has(q.key)&&(sn==="twitter"?!q.ig:q.ig)&&(!q.account||q.account===acctOf(sn).name)&&q.date===s.date&&q.time===s.time)}
       if(m){used.add(m.key);m.linked=true;if(m.id)s.publerId=m.id;s.pubStatus=m.status;if(s.publerId&&(s.date!==m.date||s.time!==m.time)){s.date=m.date;s.time=m.time}}
       else if(s.publerId&&s.date>=addDays(wk,0)&&s.date<=addDays(wk,6)){removed++;S.slots=S.slots.filter(x=>x!==s)}});
     PUB[wk]={posts,at:Date.now()};lastPull=Date.now();save();
@@ -957,7 +998,7 @@ function openPubDrawer(id){const c=pubCards(S.weekStart).concat(...weekDates().m
 const SHEETS="Google Sheets",JOURNAL="1d2NnsuA5qelKUewYO3YdyvizGz8Q5yIg1ySq5tq_6CY";let logging=false;
 async function logSent(){
   if(!mcp||logging)return;const todo=S.slots.filter(s=>s.status==="sent"&&!s.logged&&s.fileId&&!s.example);if(!todo.length)return;logging=true;
-  try{await call(SHEETS,"append_values",{spreadsheetId:JOURNAL,range:"A1",values:todo.map(s=>[isoLocal(s.date,s.time),s.date,s.time,"instagram",s.kind,s.trial?"oui":"non",s.fileId,s.fileName||""])});
+  try{await call(SHEETS,"append_values",{spreadsheetId:JOURNAL,range:"A1",values:todo.map(s=>[isoLocal(s.date,s.time),s.date,s.time,netOf(s),s.kind,s.trial?"oui":"non",s.fileId,s.fileName||""])});
     todo.forEach(s=>s.logged=true);save()}
   catch(e){if(AUTH.includes(e&&e.code))banner("Journal des envois : "+explain(e,SHEETS),true)}
   finally{logging=false}
